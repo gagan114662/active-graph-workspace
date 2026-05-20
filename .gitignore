@@ -1,0 +1,28 @@
+# The activegraph clone lives here as a working reference (it has its own
+# .git pointing at upstream — yoheinakajima/activegraph). Excluding it keeps
+# this repo focused on YOUR work alongside it, not a fork of upstream.
+activegraph/
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Node (if you add anything)
+node_modules/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
