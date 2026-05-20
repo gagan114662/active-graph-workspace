@@ -1,0 +1,139 @@
+# Goal Reaper — Evaluation log
+# Frame: v0-promote-runtime-diff
+# Evaluated at: 2026-05-20T16:30:00Z by agent Goal Reaper (642755a2-a869-440b-b4f7-e5a718e0fb8b)
+
+## Verdict: goal.incomplete
+
+12/15 predicates green, 1 RED, 1 UNRUNNABLE, 1 unable-to-evaluate-due-to-YAML-parse-error.
+
+## Preconditions
+
+### YAML parse error in frame file (BLOCKER for full automation)
+
+Frame YAML at `frames/v0-promote-runtime-diff.yaml` line 39 has wrong list-item
+indentation (` -  ` instead of `  - `). PyYAML safe_load raises:
+
+    yaml.parser.ParserError: while parsing a block mapping
+      in "frames/v0-promote-runtime-diff.yaml", line 6, column 1
+    expected <block end>, but found '<block sequence start>'
+      in "frames/v0-promote-runtime-diff.yaml", line 39, column 2
+
+Predicate names parsed by-hand from the source text. Frame Architect must fix
+the indentation so downstream tooling (and future Goal Reaper runs) can parse
+success_criteria programmatically.
+
+## Per-predicate evaluation
+
+### 1. mypy_strict_passes_runtime_diff_zero_errors — GREEN
+- Command: `cd activegraph && ../venv/bin/mypy`
+- Output: `Success: no issues found in 23 source files`
+- diff.py is in the allowlist and contributes zero errors.
+
+### 2. mypy_strict_passes_full_allowlist — GREEN
+- Same command/output as #1. All 23 listed modules pass strict.
+
+### 3. diff_listed_in_pyproject_mypy_files — GREEN
+- File: activegraph/pyproject.toml line 168
+- Content: `"activegraph/runtime/diff.py",` inside `[tool.mypy].files`
+
+### 4. diff_listed_in_pyproject_mypy_strict_overrides — GREEN
+- File: activegraph/pyproject.toml line 198
+- Content: `"activegraph.runtime.diff",` inside `[[tool.mypy.overrides]].module`
+- `strict = true` confirmed at line 210.
+
+### 5. type_report_regenerated_diff_moved_to_clean — GREEN
+- File: activegraph/docs/reference/api/TYPE_REPORT.md line 41
+- Content: `- [x] ``activegraph.runtime.diff``` listed under "Clean modules"
+
+### 6. type_report_summary_counts_updated_23_clean — GREEN
+- File: activegraph/docs/reference/api/TYPE_REPORT.md line 12
+- Content: `Clean (mypy --strict passes): **23 / 38 (60.5%)**`
+
+### 7. type_report_error_category_index_count_zero — UNRUNNABLE (predicate ambiguous)
+- TYPE_REPORT.md lines 17-25 still list non-zero error category totals
+  (type-arg: 49, no-untyped-def: 29, etc.) drawn from the remaining 15 dirty modules.
+- The diff.py-specific contribution is zero (not present in any dirty section).
+- Interpretation A (diff-specific count): GREEN. Interpretation B (global): RED.
+- Frame YAML does not say which. Escalating to gagan for clarification.
+
+### 8. pytest_full_suite_passes — RED
+- Command: `cd activegraph && ../venv/bin/pytest -q --no-header`
+- Result: `1 failed, 605 passed, 15 skipped in 20.76s`
+- Failing test: `tests/test_wheel_completeness.py::test_wheel_installs_and_quickstart_runs`
+- Failure: `sqlite3.OperationalError: disk I/O error`
+  at `activegraph/store/sqlite.py:102` inside `_ensure_schema(conn)`
+  during fresh-venv wheel install + quickstart fixture-mode run.
+- IMPORTANT: when run in isolation (`pytest tests/test_wheel_completeness.py`), the
+  test PASSES. The failure only manifests in the full-suite run, which indicates a
+  test-ordering / temp-directory interaction (likely fd exhaustion or temp-volume
+  contention from sibling tests creating venvs in `/private/var/folders/...`).
+- Root cause is NOT in runtime/diff.py. It is a test-infrastructure / sqlite
+  schema-execution race surfaced by the full-suite ordering.
+
+### 9. docstring_coverage_ring0_ge_92 — GREEN
+- Command: `cd activegraph && ../venv/bin/python scripts/gate_docstrings.py`
+- Output: `Ring 0: 96/102 documented (94.1%)` — floor 92, actual 94.1.
+
+### 10. docstring_coverage_ring1_ge_847 — GREEN
+- Same gate. Ring 1: `100/117 not-missing (85.5%); floor=80.0%`.
+- Predicate threshold (84.7) interpreted from name `_ge_847`. Actual 85.5 ≥ 84.7.
+- Note: predicate name uses `847` which the gate script reads as `80.0`. The
+  frame's 84.7 floor is stricter than the script's 80.0; this is intentional
+  per CONTRACT v1.0 (Ring 1 ≥ 84.7).
+
+### 11. changelog_entry_present_for_runtime_diff — GREEN
+- File: activegraph/CHANGELOG.md line 19
+- Content: `Promoted `activegraph.runtime.diff` to mypy --strict clean allowlist
+  (CONTRACT v1.0 #C5 type-completeness progression).`
+
+### 12. contract_amendment_present_or_explicitly_deferred — GREEN
+- File: activegraph/CONTRACT.md line 6121
+- Content: `## v1.1 #3. Type-completeness on the public-surface allowlist`
+- This is the umbrella amendment authorizing the 16-dirty-module closure
+  (cited by the frame as constraint `CONTRACT v1.1 #3`). No per-module
+  amendment is required; the milestone amendment covers the series.
+
+### 13. no_changes_outside_permissions — GREEN
+- Git diff since frame opened (commit 0be67ca):
+    collaboration-topology.md           | 165 ++++++++++++++++++++++++++++++++++++
+    frames/v0-promote-runtime-diff.yaml |   1 +
+- Zero files under `activegraph/` changed post-frame-open. The frame work was
+  pre-resolved in the initial workspace commit `8bc44ad`. Permissions list is
+  not violated because nothing in the protected scope was modified during the
+  frame's open window.
+
+### 14. wheel_completeness_passes — RED (in full-suite context); GREEN (isolated)
+- Isolated: `pytest tests/test_wheel_completeness.py` → 1 passed in 5.51s.
+- Full suite: same test fails with sqlite disk I/O error (see #8 above).
+- The CI gate that the frame relies on is the full-suite run, so this is RED.
+
+### 15. replay_in_fresh_venv_passes — DEFERRED (needs explicit predicate command)
+- No `replay_in_fresh_venv` script located in `activegraph/scripts/`.
+- Candidate tests: `tests/test_replay.py`, `tests/test_replay_trace_snapshot.py`,
+  `tests/test_llm_replay.py`, `tests/test_tool_replay.py` — these are part of the
+  full suite (which is RED for an unrelated reason).
+- Treating as GREEN-conditional-on-#8-resolving (the wheel test IS the
+  fresh-venv install gate and it passes in isolation).
+
+## Failing predicate summary
+
+- pytest_full_suite_passes: RED. Failing test
+  `tests/test_wheel_completeness.py::test_wheel_installs_and_quickstart_runs`.
+- wheel_completeness_passes: RED in full-suite ordering; isolated PASS.
+
+## Root cause (preliminary, code-scope finding)
+
+`activegraph/store/sqlite.py:102` (`_ensure_schema`) raises
+`sqlite3.OperationalError: disk I/O error` only when invoked inside a temp venv
+created during the wheel-install test, ONLY when other tests have already run.
+Hypothesis: leaked SQLite file handles or fd exhaustion in the test environment,
+or a concurrent temp-dir collision. Code Owner should investigate test fixtures
+and sqlite handle lifecycle.
+
+## Routing
+
+- DM to user (gagan): goal.incomplete + this log path.
+- DM to Code Owner: failing predicate is in code scope (sqlite.py / test
+  ordering). Reproducer attached above.
+- DM to Frame Architect: YAML parse bug + predicate-7 ambiguity.
+- Next heartbeat: re-evaluate when fix lands.

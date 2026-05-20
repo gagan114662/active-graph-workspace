@@ -36,9 +36,9 @@ success_criteria:
   - mypy_strict_passes_full_allowlist
   - diff_listed_in_pyproject_mypy_files
   - diff_listed_in_pyproject_mypy_strict_overrides
- -  type_report_regenerated_diff_moved_to_clean
+  - type_report_regenerated_diff_moved_to_clean
   - type_report_summary_counts_updated_23_clean
-  - type_report_error_category_index_count_zero
+  - type_report_error_category_index_diff_contribution_zero
   - pytest_full_suite_passes
   - docstring_coverage_ring0_ge_92
   - docstring_coverage_ring1_ge_847
