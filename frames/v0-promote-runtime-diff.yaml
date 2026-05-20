@@ -1,0 +1,56 @@
+# Frame: v0-promote-runtime-diff
+# Drafted by Frame Architect (agent 1 of 18) on 2026-05-20.
+# Transcribed from Pentagon chat to disk because Pentagon agents output to chat
+# but do not yet have filesystem-write tools.
+
+id: v0-promote-runtime-diff
+goal: >
+  Promote activegraph/runtime/diff.py from the dirty modules list in
+  TYPE_REPORT.md to the clean mypy --strict allowlist, with zero regression
+  in any other gate.
+
+constraints:
+  - "CONTRACT v1.0 #C5: allowlist-driven strict mode"
+  - "CONTRACT v1.1 #3: type-completeness milestone (close 16 dirty modules one at a time)"
+  - "Test discipline: no live network in CI, recorded fixtures only"
+  - "Discipline pattern: audit-then-baseline-then-narrow"
+  - "Allowlist invariant: the 22 currently-clean modules must remain clean"
+  - "Ring 0 docstring coverage must not drop below 92"
+  - "Ring 1 docstring coverage must not drop below 84.7"
+
+permissions:
+  - "activegraph/activegraph/runtime/diff.py:rw"
+  - "activegraph/pyproject.toml:rw"
+  - "activegraph/docs/reference/api/TYPE_REPORT.md:rw"
+  - "activegraph/CHANGELOG.md:rw"
+  - "activegraph/CONTRACT.md:rw"
+  - "activegraph/tests/**:rw"
+  - "activegraph/activegraph/**/*.py:ro"
+  - "activegraph/v1.1-plan.md:ro"
+  - "activegraph/scripts/audit_types.py:ro"
+
+success_criteria:
+  # Constructive predicates - Goal Reaper evaluates against project state
+  - mypy_strict_passes_runtime_diff_zero_errors
+  - mypy_strict_passes_full_allowlist
+  - diff_listed_in_pyproject_mypy_files
+  - diff_listed_in_pyproject_mypy_strict_overrides
+ -  type_report_regenerated_diff_moved_to_clean
+  - type_report_summary_counts_updated_23_clean
+  - type_report_error_category_index_count_zero
+  - pytest_full_suite_passes
+  - docstring_coverage_ring0_ge_92
+  - docstring_coverage_ring1_ge_847
+  - changelog_entry_present_for_runtime_diff
+  - contract_amendment_present_or_explicitly_deferred
+  - no_changes_outside_permissions
+
+  # Production-readiness predicates - Replay Validator + wheel-completeness
+  - wheel_completeness_passes
+  - replay_in_fresh_venv_passes
+
+budget:
+  max_events: 400
+  max_llm_tokens: 200000
+  max_dollars: 5.00
+  max_wall_clock_seconds: 1800
