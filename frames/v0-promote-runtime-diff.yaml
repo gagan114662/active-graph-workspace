@@ -20,6 +20,7 @@ constraints:
 
 permissions:
   - "activegraph/activegraph/runtime/diff.py:rw"
+  - "activegraph/activegraph/examples/**:rw"
   - "activegraph/pyproject.toml:rw"
   - "activegraph/docs/reference/api/TYPE_REPORT.md:rw"
   - "activegraph/CHANGELOG.md:rw"
