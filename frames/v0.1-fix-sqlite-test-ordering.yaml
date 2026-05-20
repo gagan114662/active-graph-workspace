@@ -1,0 +1,70 @@
+# Frame: v0.1-fix-sqlite-test-ordering
+#
+# Drafted by gagan to address Goal Reaper's finding from frame v0-promote-runtime-diff.
+# The test_wheel_completeness sqlite I/O error blocks the v0 frame from going fully green
+# even though the runtime/diff.py promotion itself is correct.
+#
+# This is the second frame the dark factory will execute on. Reference v0's evaluation
+# log for the diagnostic context.
+
+id: v0.1-fix-sqlite-test-ordering
+goal: >
+  Resolve the `sqlite3.OperationalError: disk I/O error` raised in
+  activegraph/store/sqlite.py:102 (_ensure_schema) that surfaces during
+  full-suite pytest runs but does not surface when test_wheel_completeness
+  runs in isolation. Root cause and fix, not symptomatic mask.
+
+constraints:
+  - "CONTRACT v1.0: tests must remain deterministic, no live network"
+  - "Discipline pattern: audit-then-baseline-then-narrow"
+  - "Root cause must be identified and fixed, not masked"
+  - "Existing test_wheel_completeness must continue to verify wheel install + quickstart"
+  - "Resolution must hold across pytest random-order if/when enabled"
+  - "No skipif decorators added to make the test 'pass' by avoidance"
+
+permissions:
+  - "activegraph/activegraph/store/sqlite.py:rw"
+  - "activegraph/tests/conftest.py:rw"
+  - "activegraph/tests/test_wheel_completeness.py:rw"
+  - "activegraph/tests/store/**:rw"
+  - "activegraph/CHANGELOG.md:rw"
+  - "activegraph/CONTRACT.md:rw"
+  - "activegraph/activegraph/**/*.py:ro"
+  - "activegraph/pyproject.toml:ro"
+
+success_criteria:
+  # Core fix verification
+  - pytest_full_suite_passes
+  - pytest_test_wheel_completeness_isolated_passes
+  - pytest_test_wheel_completeness_in_full_suite_passes
+  - pytest_random_order_passes_3_seeds
+
+  # Diagnostic predicates - prove the fix addresses the actual cause
+  - sqlite_file_handles_closed_in_fixture_teardown
+  - no_temp_dir_collision_across_concurrent_tests
+  - root_cause_documented_in_commit_message
+
+  # Hygiene
+  - no_changes_outside_permissions
+  - changelog_entry_present_for_sqlite_fix
+  - contract_amendment_or_explicitly_deferred
+  - mypy_strict_passes_on_modified_files
+
+  # Production readiness
+  - wheel_completeness_passes
+  - replay_in_fresh_venv_passes
+
+budget:
+  max_events: 600
+  max_llm_tokens: 300000
+  max_dollars: 8.00
+  max_wall_clock_seconds: 2400
+
+# Provenance:
+# - Frame that surfaced this: frames/v0-promote-runtime-diff.yaml
+# - Goal Reaper's diagnosis: frames/v0-promote-runtime-diff.evaluation.log §8 + §14
+# - Goal Reaper's hypothesis: "leaked SQLite file handles or fd exhaustion in the test
+#   environment, or a concurrent temp-dir collision"
+# - Code Owner is the primary; Test Owner extends fixture coverage; Spec Skeptic reviews
+#   the new test for "fix masked, not solved" patterns; Replay Validator runs the wheel
+#   install end-to-end after the fix.
