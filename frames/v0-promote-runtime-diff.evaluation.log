@@ -1,139 +1,251 @@
 # Goal Reaper — Evaluation log
 # Frame: v0-promote-runtime-diff
-# Evaluated at: 2026-05-20T16:30:00Z by agent Goal Reaper (642755a2-a869-440b-b4f7-e5a718e0fb8b)
+# First evaluated: 2026-05-20T16:30:00Z
+# Re-evaluated:    2026-05-20T17:05:00Z (after Code Owner's claimed fix)
 
-## Verdict: goal.incomplete
+## Verdict (re-evaluation): goal.incomplete
 
-12/15 predicates green, 1 RED, 1 UNRUNNABLE, 1 unable-to-evaluate-due-to-YAML-parse-error.
+13/15 predicates green, 1 RED (scope violation), 1 UNRUNNABLE (predicate-7
+disambiguation still pending from Frame Architect). The originally-failing
+predicate (pytest_full_suite_passes) is now GREEN. A different predicate
+(no_changes_outside_permissions) has flipped from GREEN → RED based on
+deeper inspection of the activegraph clone's git state, which my first
+evaluation did not traverse.
 
-## Preconditions
+## Heartbeat re-eval 2026-05-20T21:05:00Z
 
-### YAML parse error in frame file (BLOCKER for full automation)
+State stable. Inner-repo HEAD still 23203b3 (pyproject.toml follow-up
+landed since prior eval). Working tree now has t1a-frame WIP (docstring
+additions to view/budget/runtime/memory/decorators + emptied
+docstring_gaps.toml + CHANGELOG entry) — those changes belong to
+frame t1a-close-ring0-docstring-exemptions and are within that frame's
+permission set; they are NOT v0-scope violations.
 
-Frame YAML at `frames/v0-promote-runtime-diff.yaml` line 39 has wrong list-item
-indentation (` -  ` instead of `  - `). PyYAML safe_load raises:
+Predicate states unchanged from prior re-eval:
+- 13/15 GREEN (incl. pytest 623 passed × 3 runs verifying the wheel
+  test fix from 67fa8da is stable)
+- 1 RED: no_changes_outside_permissions (quickstart.py + COVERAGE_REPORT
+  in 67fa8da — pending gagan decision on amendment or separate frame)
+- 1 UNRUNNABLE: predicate-7 (type_report_error_category_index_count_zero
+  scope still ambiguous — Frame Architect notified, awaiting clarification)
 
-    yaml.parser.ParserError: while parsing a block mapping
-      in "frames/v0-promote-runtime-diff.yaml", line 6, column 1
-    expected <block end>, but found '<block sequence start>'
-      in "frames/v0-promote-runtime-diff.yaml", line 39, column 2
+Closure also awaits review.clean from Code Reviewer. No new DMs sent
+this heartbeat — state has not moved in a way that requires fresh signal.
 
-Predicate names parsed by-hand from the source text. Frame Architect must fix
-the indentation so downstream tooling (and future Goal Reaper runs) can parse
-success_criteria programmatically.
+## State delta since first eval
 
-## Per-predicate evaluation
+### activegraph/ clone HEAD moved to 67fa8da (was 441d136 at first eval)
+
+Commit 67fa8da ("frame v0-promote-runtime-diff: promote
+activegraph.runtime.diff to mypy --strict clean allowlist") is the
+landing commit for this frame. It is bundled work — the commit message
+attributes pieces to Code Owner, Spec Owner, Test Owner, Docs Owner,
+CONTRACT Owner. Files touched:
+
+    CHANGELOG.md                          |   3 +
+    activegraph/cli/quickstart.py         | 111 +/-     ← OUT OF SCOPE
+    activegraph/runtime/diff.py           |  12 +/-
+    docs/reference/api/COVERAGE_REPORT.md |  33 +/-     ← scope-ambiguous
+    docs/reference/api/TYPE_REPORT.md     |  14 +/-
+    examples/v0_promote_runtime_diff.py   | 178 +
+    pyproject.toml                        |   2 +
+    tests/test_v0_promote_runtime_diff.py | 353 +
+
+### activegraph/ working tree
+
+    M pyproject.toml   ← uncommitted, +9 lines (mypy override block)
+
+No other modified, staged, or untracked files.
+
+## Per-predicate re-evaluation
 
 ### 1. mypy_strict_passes_runtime_diff_zero_errors — GREEN
 - Command: `cd activegraph && ../venv/bin/mypy`
 - Output: `Success: no issues found in 23 source files`
-- diff.py is in the allowlist and contributes zero errors.
 
 ### 2. mypy_strict_passes_full_allowlist — GREEN
-- Same command/output as #1. All 23 listed modules pass strict.
+- Same output. All 23 allowlist modules clean.
 
 ### 3. diff_listed_in_pyproject_mypy_files — GREEN
-- File: activegraph/pyproject.toml line 168
-- Content: `"activegraph/runtime/diff.py",` inside `[tool.mypy].files`
+- Unchanged from first eval.
 
 ### 4. diff_listed_in_pyproject_mypy_strict_overrides — GREEN
-- File: activegraph/pyproject.toml line 198
-- Content: `"activegraph.runtime.diff",` inside `[[tool.mypy.overrides]].module`
-- `strict = true` confirmed at line 210.
+- Unchanged from first eval.
 
 ### 5. type_report_regenerated_diff_moved_to_clean — GREEN
-- File: activegraph/docs/reference/api/TYPE_REPORT.md line 41
-- Content: `- [x] ``activegraph.runtime.diff``` listed under "Clean modules"
+- Unchanged.
 
 ### 6. type_report_summary_counts_updated_23_clean — GREEN
-- File: activegraph/docs/reference/api/TYPE_REPORT.md line 12
-- Content: `Clean (mypy --strict passes): **23 / 38 (60.5%)**`
+- Unchanged.
 
-### 7. type_report_error_category_index_count_zero — UNRUNNABLE (predicate ambiguous)
-- TYPE_REPORT.md lines 17-25 still list non-zero error category totals
-  (type-arg: 49, no-untyped-def: 29, etc.) drawn from the remaining 15 dirty modules.
-- The diff.py-specific contribution is zero (not present in any dirty section).
-- Interpretation A (diff-specific count): GREEN. Interpretation B (global): RED.
-- Frame YAML does not say which. Escalating to gagan for clarification.
+### 7. type_report_error_category_index_count_zero — UNRUNNABLE
+- Predicate still ambiguous (diff-specific vs global). Frame Architect
+  notified via DM in first eval; no clarifying amendment yet.
 
-### 8. pytest_full_suite_passes — RED
+### 8. pytest_full_suite_passes — GREEN (was RED)
 - Command: `cd activegraph && ../venv/bin/pytest -q --no-header`
-- Result: `1 failed, 605 passed, 15 skipped in 20.76s`
-- Failing test: `tests/test_wheel_completeness.py::test_wheel_installs_and_quickstart_runs`
-- Failure: `sqlite3.OperationalError: disk I/O error`
-  at `activegraph/store/sqlite.py:102` inside `_ensure_schema(conn)`
-  during fresh-venv wheel install + quickstart fixture-mode run.
-- IMPORTANT: when run in isolation (`pytest tests/test_wheel_completeness.py`), the
-  test PASSES. The failure only manifests in the full-suite run, which indicates a
-  test-ordering / temp-directory interaction (likely fd exhaustion or temp-volume
-  contention from sibling tests creating venvs in `/private/var/folders/...`).
-- Root cause is NOT in runtime/diff.py. It is a test-infrastructure / sqlite
-  schema-execution race surfaced by the full-suite ordering.
+- Result: `623 passed, 15 skipped in 15.55s`
+- The sqlite I/O error in `tests/test_wheel_completeness.py` is gone.
+- Root cause (per inspection of commit 67fa8da's quickstart.py diff): WAL
+  sidecars (`.db-wal`, `.db-shm`) were left orphaned across test runs
+  because `run_fixture_mode` only deleted the `.db` file and never closed
+  the SQLite store. Subsequent calls (in-process tests, then the wheel
+  subprocess) opened a fresh `.db` with `PRAGMA journal_mode=WAL`, which
+  triggered recovery against a stale `.db-wal` and raised
+  `OperationalError: disk I/O error` inside `_ensure_schema`. Fix in
+  67fa8da adds `_remove_quickstart_db_files()` (clears all four suffixes)
+  and wraps the runtime work in try/finally with `rt.graph.store.close()`.
+- Confirms my first-eval hypothesis (leaked sqlite handles / WAL sidecar
+  residue) was on the right track, though the contamination point was
+  `cli/quickstart.py`, not the test fixtures themselves.
 
 ### 9. docstring_coverage_ring0_ge_92 — GREEN
-- Command: `cd activegraph && ../venv/bin/python scripts/gate_docstrings.py`
-- Output: `Ring 0: 96/102 documented (94.1%)` — floor 92, actual 94.1.
+- Unchanged. Ring 0: 94.1%.
 
 ### 10. docstring_coverage_ring1_ge_847 — GREEN
-- Same gate. Ring 1: `100/117 not-missing (85.5%); floor=80.0%`.
-- Predicate threshold (84.7) interpreted from name `_ge_847`. Actual 85.5 ≥ 84.7.
-- Note: predicate name uses `847` which the gate script reads as `80.0`. The
-  frame's 84.7 floor is stricter than the script's 80.0; this is intentional
-  per CONTRACT v1.0 (Ring 1 ≥ 84.7).
+- Unchanged. Ring 1: 85.5%.
 
 ### 11. changelog_entry_present_for_runtime_diff — GREEN
-- File: activegraph/CHANGELOG.md line 19
-- Content: `Promoted `activegraph.runtime.diff` to mypy --strict clean allowlist
-  (CONTRACT v1.0 #C5 type-completeness progression).`
+- Unchanged.
 
 ### 12. contract_amendment_present_or_explicitly_deferred — GREEN
-- File: activegraph/CONTRACT.md line 6121
-- Content: `## v1.1 #3. Type-completeness on the public-surface allowlist`
-- This is the umbrella amendment authorizing the 16-dirty-module closure
-  (cited by the frame as constraint `CONTRACT v1.1 #3`). No per-module
-  amendment is required; the milestone amendment covers the series.
+- Unchanged.
 
-### 13. no_changes_outside_permissions — GREEN
-- Git diff since frame opened (commit 0be67ca):
-    collaboration-topology.md           | 165 ++++++++++++++++++++++++++++++++++++
-    frames/v0-promote-runtime-diff.yaml |   1 +
-- Zero files under `activegraph/` changed post-frame-open. The frame work was
-  pre-resolved in the initial workspace commit `8bc44ad`. Permissions list is
-  not violated because nothing in the protected scope was modified during the
-  frame's open window.
+### 13. no_changes_outside_permissions — RED (was GREEN; first-eval miss)
+- My first eval evaluated this only against the workspace repo, whose
+  .gitignore excludes the entire `activegraph/` clone. That was an
+  under-check. The frame's permission paths reference files inside the
+  activegraph clone (e.g. `activegraph/activegraph/runtime/diff.py:rw`),
+  so the activegraph clone's git state IS in scope.
+- Inspecting commit 67fa8da:
+  - `activegraph/cli/quickstart.py` (111 changed lines): falls under
+    permission `activegraph/activegraph/**/*.py:ro`. **VIOLATION.**
+    The diff is not a "type fixup" as labelled in the commit message —
+    it adds `_remove_quickstart_db_files()` and a try/finally
+    `store.close()` block. This is sqlite-lifecycle work.
+  - `docs/reference/api/COVERAGE_REPORT.md` (33 lines): permission list
+    grants `:rw` to `docs/reference/api/TYPE_REPORT.md` specifically, not
+    to the whole `docs/reference/api/` directory. **Scope-ambiguous;**
+    treating as VIOLATION absent an explicit grant.
+  - All other files in 67fa8da are within explicit `:rw` permissions.
+- Working tree's uncommitted `pyproject.toml` change is in scope
+  (`activegraph/pyproject.toml:rw`) and authorized.
+- Code Owner self-flagged the quickstart.py violation in their last message
+  and asked for a frame amendment OR a separate frame. Spec Owner's
+  amendment for `examples/**` (commit 6b9de29) is precedent. Decision
+  routing is gagan's; I am only recording the predicate state.
 
-### 14. wheel_completeness_passes — RED (in full-suite context); GREEN (isolated)
-- Isolated: `pytest tests/test_wheel_completeness.py` → 1 passed in 5.51s.
-- Full suite: same test fails with sqlite disk I/O error (see #8 above).
-- The CI gate that the frame relies on is the full-suite run, so this is RED.
+### 14. wheel_completeness_passes — GREEN (was RED)
+- Full-suite run shows the wheel test green. Isolated run still green.
 
-### 15. replay_in_fresh_venv_passes — DEFERRED (needs explicit predicate command)
-- No `replay_in_fresh_venv` script located in `activegraph/scripts/`.
-- Candidate tests: `tests/test_replay.py`, `tests/test_replay_trace_snapshot.py`,
-  `tests/test_llm_replay.py`, `tests/test_tool_replay.py` — these are part of the
-  full suite (which is RED for an unrelated reason).
-- Treating as GREEN-conditional-on-#8-resolving (the wheel test IS the
-  fresh-venv install gate and it passes in isolation).
+### 15. replay_in_fresh_venv_passes — GREEN-CONDITIONAL
+- `tests/test_wheel_completeness.py::test_wheel_installs_and_quickstart_runs`
+  is the fresh-venv install gate. Now passing in full-suite ordering, so
+  this is GREEN.
+
+## Side-channel findings (informational, not in predicate set)
+
+- `examples/v0_promote_runtime_diff.py` now passes `mypy --strict`. First
+  eval did not check this. The fix is the uncommitted `pyproject.toml`
+  `[[tool.mypy.overrides]]` block scoping `follow_imports = "silent"` to
+  `activegraph.*`. This is in-scope for the frame's `:rw` permission on
+  `pyproject.toml`. Note: the change is uncommitted in the activegraph
+  working tree as of this eval; verification commands read the working
+  tree, so pytest/mypy green is real for the current on-disk state, not
+  for a committed snapshot.
+- Outer workspace repo (gagan114662/active-graph-workspace) has no new
+  commits since the first eval and a clean working tree.
 
 ## Failing predicate summary
 
-- pytest_full_suite_passes: RED. Failing test
-  `tests/test_wheel_completeness.py::test_wheel_installs_and_quickstart_runs`.
-- wheel_completeness_passes: RED in full-suite ordering; isolated PASS.
-
-## Root cause (preliminary, code-scope finding)
-
-`activegraph/store/sqlite.py:102` (`_ensure_schema`) raises
-`sqlite3.OperationalError: disk I/O error` only when invoked inside a temp venv
-created during the wheel-install test, ONLY when other tests have already run.
-Hypothesis: leaked SQLite file handles or fd exhaustion in the test environment,
-or a concurrent temp-dir collision. Code Owner should investigate test fixtures
-and sqlite handle lifecycle.
+- no_changes_outside_permissions: RED. `activegraph/cli/quickstart.py`
+  modified in commit 67fa8da, outside `:rw` scope (matches the read-only
+  `activegraph/activegraph/**/*.py:ro` pattern).
+  Secondary scope question: `docs/reference/api/COVERAGE_REPORT.md` also
+  modified in 67fa8da; frame grants `:rw` only on `TYPE_REPORT.md`, not
+  the whole directory.
 
 ## Routing
 
-- DM to user (gagan): goal.incomplete + this log path.
-- DM to Code Owner: failing predicate is in code scope (sqlite.py / test
-  ordering). Reproducer attached above.
-- DM to Frame Architect: YAML parse bug + predicate-7 ambiguity.
-- Next heartbeat: re-evaluate when fix lands.
+- DM to user (gagan): status update + this updated log. Reaffirm that
+  closure is blocked on (a) predicate-7 disambiguation, and (b) scope
+  reconciliation for the quickstart.py sqlite fix (frame amendment in
+  v0, or move the fix into v0.1 with its own amendment).
+- DM to Code Owner: thank for the fix; confirm verification is green for
+  pytest/mypy; confirm the scope-violation flag they raised matches my
+  evaluation; ask them to hold while gagan picks the routing.
+- DM to Frame Architect: still waiting on predicate-7 disambiguation.
+- Next heartbeat: re-evaluate. Flip to closed when predicate-7 is
+  disambiguated AND predicate-13 is resolved by amendment OR by moving
+  the fix.
+
+## Heartbeat re-eval 2026-05-21T post-D1+D2 (predicate-7 + predicate-13 re-run)
+
+Reference hashes:
+- outer: `git log -1 --oneline` →
+    `5accc02 Frame amendment v0: add cli/quickstart.py:rw and docs/.../COVERAGE_REPORT.md:rw per gagan D1`
+- inner: `git -C activegraph log -1 --oneline` →
+    `23203b3 follow-up: silence activegraph.* imports for assert_type in downstream examples`
+- inner landing commit for this frame: `67fa8da frame v0-promote-runtime-diff: promote activegraph.runtime.diff to mypy --strict clean allowlist`
+
+Triggers for this re-eval (per GAGAN_DECISIONS_2026-05-21.md):
+- D1: amend v0 permissions retroactively to include `cli/quickstart.py:rw` and `docs/reference/api/COVERAGE_REPORT.md:rw`. Amendment landed as outer:5accc02.
+- D2: predicate-7 verbatim name in YAML line 44 is `type_report_error_category_index_diff_contribution_zero` (diff-specific scope). Prior eval log transcribed it as `..._count_zero` — corrected below.
+
+### Predicate 7 — `type_report_error_category_index_diff_contribution_zero` — GREEN (was UNRUNNABLE)
+
+Scope per D2: count of error categories whose index lists `activegraph/runtime/diff.py` as a contributor.
+
+- Command: `grep -n 'runtime\.diff\|runtime/diff' activegraph/docs/reference/api/TYPE_REPORT.md`
+- Exit code: 0
+- Output (literal):
+    `41:- [x] ``activegraph.runtime.diff```
+- Interpretation: the only mention of `runtime.diff` in TYPE_REPORT is the bullet in the Clean modules list (line 41). The Dirty modules section (lines 53–113) enumerates 15 modules — `runtime.diff` does not appear in any of them, so it contributes 0 occurrences to every category in the index (`type-arg`, `no-untyped-def`, `no-any-return`, `union-attr`, `unused-ignore`, `no-untyped-call`, `misc`, `attr-defined`, `arg-type`).
+- Per predicates 1–6, diff.py is mypy-strict clean; this predicate confirms the same fact from the report-side. **GREEN.**
+
+### Predicate 13 — `no_changes_outside_permissions` — GREEN (was RED)
+
+Amended permission set (from outer:5accc02 / current `frames/v0-promote-runtime-diff.yaml` lines 21–34):
+- `activegraph/activegraph/runtime/diff.py:rw`
+- `activegraph/activegraph/examples/**:rw`
+- `activegraph/activegraph/cli/quickstart.py:rw`  ← added in 5accc02
+- `activegraph/pyproject.toml:rw`
+- `activegraph/docs/reference/api/TYPE_REPORT.md:rw`
+- `activegraph/docs/reference/api/COVERAGE_REPORT.md:rw`  ← added in 5accc02
+- `activegraph/CHANGELOG.md:rw`
+- `activegraph/CONTRACT.md:rw`
+- `activegraph/tests/**:rw`
+- read-only paths omitted
+
+Inner-repo files touched in 67fa8da:
+- Command: `git -C activegraph show --stat 67fa8da`
+- Exit code: 0
+- Output (file list, trimmed to paths + change counts):
+    ```
+    CHANGELOG.md                          |   3 +
+    activegraph/cli/quickstart.py         | 111 +++++++----
+    activegraph/runtime/diff.py           |  12 +-
+    docs/reference/api/COVERAGE_REPORT.md |  33 +++-
+    docs/reference/api/TYPE_REPORT.md     |  14 +-
+    examples/v0_promote_runtime_diff.py   | 178 +++++++++++++++++
+    pyproject.toml                        |   2 +
+    tests/test_v0_promote_runtime_diff.py | 353 ++++++++++++++++++++++++++++++++++
+    ```
+- Path-by-path against the amended permission set:
+  - `CHANGELOG.md` → matches `activegraph/CHANGELOG.md:rw` ✓
+  - `activegraph/cli/quickstart.py` → matches `activegraph/activegraph/cli/quickstart.py:rw` (added 5accc02) ✓
+  - `activegraph/runtime/diff.py` → matches `activegraph/activegraph/runtime/diff.py:rw` ✓
+  - `docs/reference/api/COVERAGE_REPORT.md` → matches `activegraph/docs/reference/api/COVERAGE_REPORT.md:rw` (added 5accc02) ✓
+  - `docs/reference/api/TYPE_REPORT.md` → matches `activegraph/docs/reference/api/TYPE_REPORT.md:rw` ✓
+  - `examples/v0_promote_runtime_diff.py` → matches `activegraph/activegraph/examples/**:rw` ✓
+  - `pyproject.toml` → matches `activegraph/pyproject.toml:rw` ✓
+  - `tests/test_v0_promote_runtime_diff.py` → matches `activegraph/tests/**:rw` ✓
+- No file in 67fa8da falls outside the amended permission set. Working-tree-only changes from prior eval (`pyproject.toml` overrides block) remain in scope. **GREEN.**
+
+### Tally after D1+D2 re-eval
+
+- 15/15 predicates have literal evidence above or in prior eval blocks.
+- 14 GREEN. 1 awaiting closure signal: `review.clean` from Code Reviewer (not a predicate — gating step).
+- Verdict still `goal.incomplete` only until `review.clean` arrives; no predicate is RED.
+
+Closure protocol (per Rules #1–#4): when `review.clean` arrives, the closure entry will cite the inner-repo hash of the work-of-record (currently 67fa8da, possibly superseded if Code Reviewer requests changes) and the outer-repo hash of this log entry.
