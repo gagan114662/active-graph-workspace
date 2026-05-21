@@ -1,0 +1,178 @@
+# Frame: t3-implement-cli-set-flag
+#
+# Drafted by claude on 2026-05-21 per gagan's D-step in
+# GAGAN_DECISIONS_2026-05-21.md. This is a STARTER yaml — Frame Architect
+# reviews and refines, Spec Owner answers the 4 design questions in amendments
+# BEFORE Code Owner starts.
+#
+# Source: HANDOFF.md "Known v1.1 scope" → CONTRACT v1.1 #1.
+# Source: CONTRACT-review-findings.md §2 Finding A (docs-promise / impl-absent
+#   pattern — same shape as graph.relations gap).
+# Source: HANDOFF.md "Patterns that didn't" → "The `--set` flag was spec'd in
+#   docs but never implemented; caught during the tutorial work."
+
+id: t3-implement-cli-set-flag
+
+goal: >
+  Implement `activegraph fork --set <key>=<value>` end-to-end (parse, persist,
+  replay) per CONTRACT v1.1 #1, with the four design decisions (D-1..D-4)
+  amended into this frame before any code lands.
+
+# Goal context (informational; the testable assertion is the one-sentence `goal`
+# above plus the predicates below):
+# - Flag is referenced in 8 markdown files (CHANGELOG.md, CONTRACT.md,
+#   docs/quickstart.md, docs/cookbook/migration-from-v0-7.md,
+#   docs/cookbook/common-patterns.md, docs/guides/operating-in-production.md,
+#   docs/concepts/forking.md, docs/reference/cli.md) with zero Python
+#   implementation today — this frame closes that gap.
+
+constraints:
+  - "CONTRACT v1.0: tests must remain deterministic, no live network"
+  - "CONTRACT v1.1 #1: spec'd in docs but unimplemented — close the gap"
+  - "CONTRACT v1.1 #2 (anticipated): spec-vs-impl drift gate must catch
+    recurrence; this frame produces the first artifact that gate would check"
+  - "Discipline pattern: audit-then-baseline-then-narrow"
+  - "Discipline pattern: boundary-anchored tests (per §7 #2 of CONTRACT-review-findings.md)"
+  - "Allowlist invariant: the 23 currently-clean mypy --strict modules must remain clean"
+  - "Ring 0 docstring coverage stays at 100%; Ring 1 stays >= 80%"
+  - "Backward compatibility: existing fork records without --set overrides
+    must replay unchanged"
+  - "No skipif decorators to mask test ordering; root-cause fixes only"
+
+# Design decisions — Spec Owner must answer all four in amendments before
+# Code Owner starts. Goal Reaper will refuse to evaluate this frame until
+# all four amendments are committed.
+design_decisions_required:
+  - id: D-1
+    question: >
+      Replay semantics — when a fork created with `--set diligence.threshold=0.7`
+      is replayed at a later session, does replay use the new value (0.7) or
+      the value that was active when the fork was originally created? Spec
+      both behaviors and pick one with a one-paragraph justification.
+    classification: "behavioral — locks user-visible semantics"
+
+  - id: D-2
+    question: >
+      Bad-value handling — if `--set diligence.threshold=not_a_number` is
+      passed, when does the failure surface? Options: (a) fail-fast at CLI
+      parse time before fork creation; (b) fail at fork construction when
+      the override would be applied to the pack default; (c) store as-is
+      and explode at replay when the consuming code type-coerces. Pick
+      one and name the contract claim (e.g., "validation fires at
+      registration time" pattern from v1.0.2.post1).
+    classification: "boundary-mismatch class — see CONTRACT v1.0.2.post1 lesson"
+
+  - id: D-3
+    question: >
+      Persistence schema — fork records currently have no override slot.
+      Adding `--set` requires either (a) a new column on the fork record
+      table, (b) a JSON blob on an existing column, (c) a sidecar table.
+      Pick one, name the migration path for existing fork records, and
+      confirm `replay_in_fresh_venv_passes` continues to hold on a database
+      created before this change.
+    classification: "schema migration — backward compatibility critical"
+
+  - id: D-4
+    question: >
+      Type coercion — `--set foo=bar` passes a string. The pack key
+      `diligence.threshold` is a float in code. Options: (a) strings only,
+      consuming code must coerce; (b) infer int/float/bool from the value
+      text; (c) require an explicit typed form like `--set foo:float=0.7`.
+      Pick one and name the failure mode for each rejected alternative.
+    classification: "ergonomics — affects every downstream pack consumer"
+
+permissions:
+  # Inner repo paths (frame lives in OUTER per gauntlet convention, but
+  # code work happens in INNER; perms describe inner paths because that's
+  # where the team is editing)
+  - "activegraph/activegraph/cli/__init__.py:rw"
+  - "activegraph/activegraph/cli/fork.py:rw"  # may not exist yet; new file
+  - "activegraph/activegraph/cli/_set_parser.py:rw"  # new file, helper
+  - "activegraph/activegraph/store/sqlite.py:rw"  # for schema migration
+  - "activegraph/activegraph/store/memory.py:rw"  # parity with sqlite
+  - "activegraph/activegraph/core/fork.py:rw"  # if exists; else inner-repo equivalent
+  - "activegraph/tests/test_cli_fork_set.py:rw"  # new test file
+  - "activegraph/tests/test_fork_set_persistence.py:rw"  # new test file
+  - "activegraph/tests/test_fork_set_replay.py:rw"  # new test file
+  - "activegraph/tests/conftest.py:rw"
+  - "activegraph/CHANGELOG.md:rw"
+  - "activegraph/CONTRACT.md:rw"  # for v1.1 #1 amendment
+  - "activegraph/docs/quickstart.md:rw"  # remove --set workaround if appropriate
+  - "activegraph/docs/cookbook/migration-from-v0-7.md:rw"
+  - "activegraph/docs/cookbook/common-patterns.md:rw"
+  - "activegraph/docs/guides/operating-in-production.md:rw"
+  - "activegraph/docs/concepts/forking.md:rw"
+  - "activegraph/docs/reference/cli.md:rw"
+  - "activegraph/activegraph/**/*.py:ro"  # default-deny everywhere else
+
+success_criteria:
+  # Pre-flight: design decisions amended into the frame yaml itself
+  - design_decision_D1_amended_with_pick_and_justification
+  - design_decision_D2_amended_with_pick_and_justification
+  - design_decision_D3_amended_with_pick_and_justification
+  - design_decision_D4_amended_with_pick_and_justification
+
+  # Implementation predicates
+  - cli_accepts_set_with_valid_key_equals_value
+  - cli_rejects_malformed_set_per_D2_decision
+  - fork_record_stores_set_override
+  - fork_inspect_shows_set_override
+  - replay_honors_set_override_per_D1_decision
+  - replay_of_pre_existing_fork_without_override_unchanged
+
+  # Migration safety
+  - schema_migration_upgrades_existing_db_on_first_run_no_data_loss
+  - replay_in_fresh_venv_passes
+  - replay_in_fresh_venv_against_pre_migration_db_passes
+
+  # Regression guards
+  - pytest_full_suite_passes
+  - mypy_strict_passes_full_allowlist
+  - ring0_not_missing_pct_equals_100
+  - ring1_not_missing_pct_ge_80
+  - wheel_completeness_passes
+  - no_changes_outside_permissions
+
+  # Documentation truthfulness
+  - docs_quickstart_set_example_runs_as_written
+  - docs_cli_reference_matches_implementation
+  - docs_concepts_forking_set_section_matches_implementation
+  - changelog_entry_present_for_v1_1_1_set_implementation
+
+  # Contract anchoring (per CONTRACT-review-findings.md §7 #2)
+  - contract_v1_1_1_amended_with_locked_set_semantics
+  - boundary_anchored_test_for_D2_validation_moment
+
+budget:
+  max_events: 600
+  max_llm_tokens: 250000
+  max_dollars: 8.00
+  max_wall_clock_seconds: 3600
+
+# Provenance:
+# - Drafted: 2026-05-21 by claude
+# - Authorizing directive: GAGAN_DECISIONS_2026-05-21.md (outer repo root)
+# - Source of work item: HANDOFF.md "Known v1.1 scope" v1.1 #1
+# - Sibling work to enable: CONTRACT v1.1 #2 (spec-vs-impl drift gate)
+# - Closure precedent: t1a-close-ring0-docstring-exemptions
+# - Refinement expected: Frame Architect reviews this yaml, Spec Owner
+#   commits the 4 design-decision amendments BEFORE Code Owner edits any
+#   .py file. Goal Reaper refuses to evaluate predicates if amendments
+#   aren't in.
+
+# Routing:
+# - Frame Architect: review this yaml; refine perms list, predicate names,
+#   constraint set as needed.
+# - Spec Owner: draft the 4 design-decision amendments. Each amendment is
+#   a separate commit on the inner repo with message:
+#     "Frame t3 amendment D-N: <pick> — <one-line justification>"
+# - Code Owner: starts only when all 4 amendments are committed AND Spec
+#   Owner posts "spec sealed for t3" in #frame-current.
+# - Test Owner: writes failing tests first per build-chain discipline;
+#   tests must anchor on the contract claim from each D-N amendment, not
+#   on the implementation path (per CONTRACT-review-findings.md §7 #2).
+# - Goal Reaper: refuses to evaluate this frame until all 4 amendments
+#   are committed. Heartbeat re-evaluation every 5 min once amendments
+#   are in.
+# - Code Reviewer: produces frames/t3-implement-cli-set-flag.review.log
+#   per gagan D3 in the decisions directive.
