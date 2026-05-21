@@ -21,8 +21,11 @@ constraints:
 permissions:
   - "activegraph/activegraph/runtime/diff.py:rw"
   - "activegraph/activegraph/examples/**:rw"
+  # sqlite-lifecycle fix surfaced as side-effect of `pytest_full_suite_passes` evaluation; the runtime/diff.py work cannot land green without it (per gagan D1, 2026-05-21)
+  - "activegraph/activegraph/cli/quickstart.py:rw"
   - "activegraph/pyproject.toml:rw"
   - "activegraph/docs/reference/api/TYPE_REPORT.md:rw"
+  - "activegraph/docs/reference/api/COVERAGE_REPORT.md:rw"
   - "activegraph/CHANGELOG.md:rw"
   - "activegraph/CONTRACT.md:rw"
   - "activegraph/tests/**:rw"
