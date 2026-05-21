@@ -1,0 +1,52 @@
+# Code Reviewer — Review log
+# Frame: v0-promote-runtime-diff
+# Reviewed against: inner:67fa8da (frame v0-promote-runtime-diff: promote activegraph.runtime.diff to mypy --strict clean allowlist)
+# Reviewed at: 2026-05-21T19:58:00Z
+# Cross-references:
+#   - frames/v0-promote-runtime-diff.evaluation.log (Goal Reaper, primary audit input)
+#   - outer:6b9de29 (Frame amendment: examples/** :rw)
+#   - outer:5accc02 (Frame amendment v0: cli/quickstart.py:rw + COVERAGE_REPORT.md:rw per gagan D1)
+#   - GAGAN_DECISIONS_2026-05-21.md §D1, §D2, §D3
+
+## Verdict: review.clean
+
+## Per-file review
+
+### activegraph/runtime/diff.py (+12/-12, the frame's target file)
+- DivergentRelation.summary(): the prior pattern `r = self.in_fork` / `r = self.in_parent` was reassigning a typed Optional into a local that mypy still treated as Optional, blocking strict. The fix replaces the local-rebinding with `assert self.in_fork is not None` (and the parent symmetric) + direct attribute access in the f-string. Correct under --strict, no behavior change at runtime since the surrounding branch already narrows by None-check. No concerns.
+- _normalize_object / _normalize_relation: explicit `d: dict[str, Any]` annotations replace inferred types from `o.to_dict()` / `r.to_dict()`. This is the minimum invasive fix and matches the Object/Relation return-type situation (to_dict() returns a typed dict alias upstream; strict mode demands the explicit annotation here to allow `.pop()` on it). No concerns.
+- File is now in the allowlist; per evaluation log §1 and §2, mypy --strict passes with `Success: no issues found in 23 source files`. Allowlist invariant (22 prior clean + diff.py = 23) verified.
+
+### activegraph/cli/quickstart.py (+111/-…, originally out-of-scope)
+- Adds `_remove_quickstart_db_files()` (clears `.db`, `.db-wal`, `.db-shm`, `.db-journal`) and wraps the runtime work in try/finally with `rt.graph.store.close()`. This is the substantive sqlite-lifecycle fix that unblocked `pytest_full_suite_passes` (predicate-8) — the WAL-sidecar contamination that was failing `tests/test_wheel_completeness.py::test_wheel_installs_and_quickstart_runs` in ordering with the rest of the suite.
+- **Scope note:** at the time of the commit this file was under `:ro`; Code Owner self-flagged the violation in DM and Goal Reaper recorded it as predicate-13 RED. Per GAGAN_DECISIONS §D1, gagan resolved this by amending v0's permission list retroactively (landed as outer:5accc02, adding `activegraph/activegraph/cli/quickstart.py:rw`). With the amendment in force, this file is now within the frame's :rw set and the fix is in-scope. No remaining concerns.
+
+### docs/reference/api/COVERAGE_REPORT.md (+33 lines)
+- Sibling doc to TYPE_REPORT.md; refreshed alongside the diff.py promotion. Originally treated as scope-ambiguous in the eval log because the permissions block named only TYPE_REPORT.md explicitly. D1 amendment 5accc02 added `activegraph/docs/reference/api/COVERAGE_REPORT.md:rw` directly. In-scope post-amendment. No concerns.
+
+### docs/reference/api/TYPE_REPORT.md (+14 lines)
+- Counts updated to reflect diff.py moving into the clean list (23/38). Consistent with mypy --strict observation. No concerns.
+
+### examples/v0_promote_runtime_diff.py (+178, new file)
+- Killer-demo with FrozenClock + two scenarios. Within `activegraph/activegraph/examples/**:rw` per amendment outer:6b9de29 (Frame amendment landed before the bundle). Passes mypy --strict via the `[[tool.mypy.overrides]]` block scoping `follow_imports = "silent"` to `activegraph.*` (added in inner:23203b3, post-67fa8da follow-up). No concerns at the bundle's commit boundary.
+
+### tests/test_v0_promote_runtime_diff.py (+353, new file)
+- Verification recipe + 4 coverage points. Within `activegraph/tests/**:rw`. No live network. Deterministic fixtures only. Aligns with the test-discipline constraint. No concerns.
+
+### pyproject.toml (+2 lines)
+- Adds diff.py to `[tool.mypy] files` and `[tool.mypy.strict] overrides`. Within `activegraph/pyproject.toml:rw`. Satisfies predicates 3 and 4. No concerns.
+
+### CHANGELOG.md (+3 lines)
+- Type system entry: "Promoted `activegraph.runtime.diff` to mypy --strict clean allowlist (CONTRACT v1.0 #C5 type-completeness progression)." Cites the right CONTRACT clauses (v1.0 #C5 and v1.1 #3). Within `activegraph/CHANGELOG.md:rw`. No concerns.
+
+## CONTRACT & invariant check
+
+- CONTRACT v1.0 #C5 (allowlist-driven strict mode): satisfied. Allowlist expanded by exactly the target module; explicit override entry present in pyproject.toml.
+- CONTRACT v1.1 #3 (close 16 dirty modules one at a time): satisfied; this is the first promotion under v1.1 #3.
+- Allowlist invariant (22 prior clean stay clean): verified via `Success: no issues found in 23 source files` — none of the 22 regressed.
+- Ring 0 ≥ 92 / Ring 1 ≥ 84.7 docstring floors: verified GREEN per eval log §9 (94.1%) and §10 (85.5%).
+- No live-network test additions: tests/test_v0_promote_runtime_diff.py uses FrozenClock + deterministic fixtures; reviewed for any urllib/requests/socket references — none present.
+
+## Overall
+
+The bundle landed in inner:67fa8da achieves the frame's substantive goal — runtime.diff is now in the mypy --strict clean allowlist with the 22-module invariant intact, full pytest suite green (623 passed × 3 runs per the eval log heartbeat), and CHANGELOG/TYPE_REPORT/COVERAGE_REPORT all updated. The two scope concerns Goal Reaper flagged (cli/quickstart.py and COVERAGE_REPORT.md) were resolved by gagan's D1 amendment (outer:5accc02), and the predicate-7 ambiguity was resolved by gagan's D2 ruling (the yaml's verbatim `type_report_error_category_index_diff_contribution_zero` is diff-specific and GREEN now that diff.py is clean per predicates 1–6). The follow-up inner:23203b3 silences `assert_type` import noise from downstream examples — purely tooling, no source-of-truth change. With permissions amended and predicate-7 disambiguated, no review concerns remain. **review.clean.**
