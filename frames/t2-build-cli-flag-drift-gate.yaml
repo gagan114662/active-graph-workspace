@@ -1,0 +1,158 @@
+# Frame: t2-build-cli-flag-drift-gate
+#
+# Drafted by claude on 2026-05-21 (post-T1a closure) per gagan's
+# "test medium then hard then extra hard" gauntlet directive. Starter yaml;
+# Frame Architect reviews and refines, Spec Owner answers the 2 design
+# questions in amendments BEFORE Code Owner starts.
+#
+# Source: HANDOFF.md "Known v1.1 scope" → CONTRACT v1.1 #2 (anticipated drift gate).
+# Source: CONTRACT-review-findings.md §2 Finding A (docs-promise / impl-absent
+#   pattern observed during T1a + v0 work).
+# Motivation: T1a + v0 surfaced two instances of the docs-vs-impl drift class
+#   (cli/quickstart.py scope amendment; --set/--memo/--search flags promised
+#   in 8 markdown files but absent from activegraph/cli/). Build the
+#   structural fix that catches future occurrences before they ship.
+
+id: t2-build-cli-flag-drift-gate
+
+goal: >
+  Build a CI-wireable gate that fails when CLI flags are referenced in docs
+  (markdown under docs/, CHANGELOG.md, CONTRACT.md, README.md) but do not
+  resolve to actual flags in activegraph/cli/. The gate must (a) detect a
+  known synthetic drift case via a test fixture, (b) pass against current
+  main with an explicit allowlist for T3-pending flags (--set / --memo /
+  --search if T3 hasn't shipped yet), and (c) be wired into the existing
+  CI workflow so the same class of drift cannot reach rc again.
+
+constraints:
+  - "CONTRACT v1.0: tests must remain deterministic, no live network"
+  - "CONTRACT v1.1 #2 (anticipated): close the drift gap as a structural fix"
+  - "Discipline pattern: gates fail closed (default-deny on parse errors)"
+  - "Discipline pattern: boundary-anchored tests (per §7 #2 of CONTRACT-review-findings.md)"
+  - "Allowlist invariant: the 23 currently-clean mypy --strict modules must remain clean"
+  - "Ring 0 docstring coverage stays at 100%; Ring 1 stays >= 80%"
+  - "No skipif decorators to mask test ordering; root-cause fixes only"
+  - "Allowlist for T3-pending flags expires: --set/--memo/--search must be removed from allowlist when T3 ships"
+  - "CI wiring target: activegraph/.github/workflows/wheel-completeness.yml per GAUNTLET T2 acceptance line 58 (same workflow file the wheel-completeness gate uses)"
+  - "Drift-scan corpus: every .md under activegraph/docs/, plus CHANGELOG.md, CONTRACT.md, README.md, HANDOFF.md, CONTRIBUTING.md at activegraph/ root (per GAUNTLET T2 line 52 '--set, --memo, --search appear in 8 markdown files')"
+
+# Design decisions — Spec Owner must answer both in amendments before
+# Code Owner starts. Goal Reaper will refuse to evaluate this frame until
+# both amendments are committed.
+design_decisions_required:
+  - id: D-1
+    question: >
+      Source-of-truth for CLI flags — does the gate extract flags by
+      importing the CLI module and walking the argparse/click parser
+      (dynamic), or by static grep for `--<name>` patterns across
+      activegraph/cli/*.py (static)? Pick one and justify in terms of
+      (a) accuracy when a flag is registered conditionally, (b) failure
+      mode when the CLI module fails to import, and (c) maintenance cost
+      as new CLI subcommands are added.
+    classification: "implementation — affects gate accuracy and future maintenance"
+
+  - id: D-2
+    question: >
+      Allowlist semantics — flags promised in docs but pending implementation
+      (e.g. --set pending T3) need a way to be excluded without silencing
+      drift detection wholesale. Options: (a) inline `<!-- drift-allow: --set -->`
+      HTML comments adjacent to each doc occurrence, (b) a single
+      `cli_flag_drift_allowlist.toml` file with rationale + expiry note per
+      entry, (c) refuse to allowlist and require T3 to ship first. Pick one,
+      name the failure mode when the allowlist becomes stale, and confirm
+      the chosen form forces visibility of each pending claim.
+    classification: "ergonomics — affects future drift management hygiene"
+
+permissions:
+  # Inner repo paths (frame lives in OUTER per gauntlet convention; code
+  # work happens in INNER; perms describe inner paths)
+  - "activegraph/scripts/gate_cli_flag_drift.py:rw"  # new file, gate impl
+  - "activegraph/tests/test_cli_flag_drift.py:rw"  # new test file
+  - "activegraph/tests/fixtures/cli_drift_synthetic/:rw"  # synthetic drift fixture dir
+  - "activegraph/.github/workflows/wheel-completeness.yml:rw"  # wire gate into same workflow as wheel-completeness per GAUNTLET T2 line 58
+  - "activegraph/cli_flag_drift_allowlist.toml:rw"  # conditional on D-2 picking (b); Spec Owner removes from perms if (a) or (c) is chosen
+  - "activegraph/CHANGELOG.md:rw"
+  - "activegraph/CONTRACT.md:rw"  # for v1.1 #2 amendment
+  - "activegraph/activegraph/cli/**/*.py:ro"  # read CLI for flag extraction, no edits
+  - "activegraph/activegraph/**/*.py:ro"  # default-deny everywhere else in source
+  - "activegraph/docs/**/*.md:ro"  # read docs for flag references, no edits
+  - "activegraph/README.md:ro"
+
+success_criteria:
+  # Pre-flight: design decisions amended into the frame yaml
+  - design_decision_D1_amended_with_pick_and_justification
+  - design_decision_D2_amended_with_pick_and_justification
+
+  # Gate behavior predicates
+  - gate_script_exists_and_is_executable
+  - gate_detects_synthetic_drift_case_with_nonzero_exit
+  - gate_passes_against_current_main_with_allowlist_per_D2
+  - gate_fails_closed_on_parse_errors_per_constraint
+  - gate_lists_each_drifted_flag_with_doc_path_and_line
+
+  # Test integration
+  - pytest_test_cli_flag_drift_runs_gate_and_asserts_exit_code
+  - pytest_test_cli_flag_drift_includes_boundary_anchored_synthetic_case
+  - pytest_test_cli_flag_drift_parameterized_over_scanned_docs   # GAUNTLET T2 line 56
+  - pytest_full_suite_passes
+
+  # CI wiring
+  - ci_workflow_invokes_gate_in_existing_job
+  - ci_failure_on_synthetic_drift_pr_verified_in_workflow_log_or_dry_run
+
+  # Regression guards
+  - mypy_strict_passes_full_allowlist
+  - ring0_not_missing_pct_equals_100
+  - ring1_not_missing_pct_ge_80
+  - wheel_completeness_passes
+  - no_changes_outside_permissions
+
+  # Documentation truthfulness
+  - changelog_entry_present_for_v1_1_2_cli_flag_drift_gate
+  - contract_v1_1_2_amended_with_locked_gate_semantics
+  - allowlist_entries_for_t3_pending_flags_documented_with_expiry_reference
+
+budget:
+  max_events: 400
+  max_llm_tokens: 180000
+  max_dollars: 6.00
+  max_wall_clock_seconds: 2400
+
+# Provenance:
+# - Drafted: 2026-05-21 by claude (post-T1a closure)
+# - Authorizing directive: gagan's "test medium then hard then extra hard"
+# - Source of work item: HANDOFF.md "Known v1.1 scope" v1.1 #2; reinforced
+#   by t1a + v0 drift observations
+# - Closure precedent: t1a-close-ring0-docstring-exemptions (inner:ebe0506
+#   / outer:c3fc3d0 / status closed at outer:6b02680a)
+# - Refinement expected: Frame Architect reviews this yaml, Spec Owner
+#   commits the 2 design-decision amendments BEFORE Code Owner edits any
+#   .py file. Goal Reaper refuses to evaluate predicates if amendments
+#   aren't in.
+# - Frame Architect refinements (2026-05-21, Atlas):
+#   * CI permission corrected to wheel-completeness.yml (the file the
+#     wheel-completeness gate lives in) per GAUNTLET T2 line 58
+#   * Added pytest_test_cli_flag_drift_parameterized_over_scanned_docs
+#     predicate to match GAUNTLET T2 line 56 verbatim
+#   * Added explicit drift-scan-corpus constraint to remove ambiguity
+#     about which markdown files Spec Owner is sealing semantics over
+#   * cli_flag_drift_allowlist.toml permission flagged as conditional
+#     on D-2 picking option (b)
+
+# Routing:
+# - Frame Architect: review this yaml; refine perms list, predicate names,
+#   constraint set as needed. Boundary-anchored synthetic case in
+#   tests/fixtures/cli_drift_synthetic/ is the key test discipline anchor.
+# - Spec Owner: draft the 2 design-decision amendments. Each amendment is
+#   a separate commit on the inner repo with message:
+#     "Frame t2 amendment D-N: <pick> — <one-line justification>"
+# - Code Owner: starts only when both amendments are committed AND Spec
+#   Owner posts "spec sealed for t2" in #frame-current.
+# - Test Owner: writes failing tests first per build-chain discipline;
+#   the synthetic drift fixture must anchor on the contract claim from
+#   D-1 (extraction approach) — i.e., the synthetic case must exercise
+#   the failure mode the chosen approach is supposed to catch.
+# - Goal Reaper: refuses to evaluate this frame until both amendments
+#   are committed. Heartbeat re-eval every 5 min once amendments are in.
+# - Code Reviewer: produces frames/t2-build-cli-flag-drift-gate.review.log
+#   following the verification-trinity convention established by t1a + v0.
