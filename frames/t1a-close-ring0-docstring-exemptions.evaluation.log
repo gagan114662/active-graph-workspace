@@ -1,0 +1,124 @@
+# Goal Reaper — Evaluation log
+# Frame: t1a-close-ring0-docstring-exemptions
+# First evaluated: 2026-05-20T21:05:00Z
+
+## Verdict: goal.incomplete (1 RED, all others GREEN)
+
+14/15 predicates GREEN. The lone RED is a tooling-only failure: the gate
+script exits non-zero because the venv has a stale installed copy of
+`activegraph` (1.0.5.post2) that does not reflect the new in-source
+docstrings. Re-running with `PYTHONPATH=. python scripts/gate_docstrings.py`
+exits 0 with `Ring 0: 102/102 documented (100.0%)`.
+
+The frame's substantive goal — empty exemption list + 100% Ring 0
+not-missing — is met in source. Closure blocked on install hygiene
+(needs `pip install -e .` in the venv) and on review.clean from Code
+Reviewer.
+
+## Project state delta (working tree, inner repo)
+
+The inner activegraph repo (HEAD 23203b3) has unstaged changes
+materializing the frame's work:
+
+    CHANGELOG.md                    | +3 (Wave 1 entry at line 22)
+    activegraph/core/view.py        | +2 (View class docstring)
+    activegraph/runtime/budget.py   | +2 (Budget class docstring)
+    activegraph/runtime/runtime.py  | +2 (Runtime class docstring)
+    activegraph/store/memory.py     | +2 (InMemoryEventStore docstring)
+    activegraph/tools/decorators.py | +4 (clear_/get_tool_registry docstrings)
+    docstring_gaps.toml             | -27 (exemptions list emptied; header
+                                          updated to "v1.1-ring0-wave1-complete")
+
+All paths are within the frame's :rw permission set. No files outside
+permissions were modified.
+
+## Per-predicate evaluation
+
+### 1. docstring_gaps_exemptions_list_empty — GREEN
+- File parse: `tomllib.loads(...).get("exemptions", [])` returns `[]`.
+- Header comment updated to v1.1-ring0-wave1-complete baseline.
+
+### 2. gate_docstrings_script_exits_zero — RED (tooling-only)
+- `cd activegraph && ../venv/bin/python scripts/gate_docstrings.py`
+  exits 1 with `FAIL — Ring 0 symbols without docstrings AND without
+  exemption:` listing Budget, InMemoryEventStore, Runtime, View,
+  clear_tool_registry, get_tool_registry.
+- Root cause: when invoked as a script, sys.path[0] is `scripts/`, NOT
+  the source root. `import activegraph` resolves to the installed
+  package in `venv/lib/python3.14/site-packages/activegraph/` (version
+  1.0.5.post2) which predates the docstring additions. The source IS
+  documented; the install is stale.
+- Reproduction:
+    PYTHONPATH=. ../venv/bin/python scripts/gate_docstrings.py  → exit 0
+                  ../venv/bin/python scripts/gate_docstrings.py  → exit 1
+- Fix path: `pip install -e .` in the venv, or have CI invoke the gate
+  with the source on path. Not a regression in the frame's work.
+
+### 3. ring0_not_missing_pct_equals_100 — GREEN (source) / FALSE (install)
+- Source path: `Ring 0: 102/102 documented (100.0%)`.
+- Install path (same install-staleness issue): 96/102 (94.1%).
+- Counting source-of-truth as authoritative. GREEN.
+
+### 4. ring1_not_missing_pct_ge_80 — GREEN
+- 100/117 not-missing = 85.5%. Floor is 80.0%.
+
+### 5. budget_has_nonempty_docstring — GREEN
+- `Budget.__doc__` = "Enforce hard limits on a run. Tracks usage across
+  multiple dimensions (events, calls, cost, time) and stops the runtime
+  when any limit is exceeded."
+
+### 6. inmemoryeventstore_has_nonempty_docstring — GREEN
+- `InMemoryEventStore.__doc__` = "Volatile, dict-backed event store.
+  Provides a reference implementation of the EventStore protocol for
+  tests and in-memory runtimes."
+
+### 7. runtime_class_has_nonempty_docstring — GREEN
+- `Runtime.__doc__` = "Single-threaded FIFO event loop that executes
+  behaviors, manages persistence, and enforces budgets. Emits and
+  replays events for auditability and determinism."
+
+### 8. view_class_has_nonempty_docstring — GREEN
+- `View.__doc__` = "Read-only scoped slice of the graph passed to
+  behaviors. Provides filtered access to objects, relations, and events
+  matching behavior-declared criteria."
+
+### 9. clear_tool_registry_has_nonempty_docstring — GREEN
+- `clear_tool_registry.__doc__` = "Clear all registered tools from the
+  global registry. Used for test isolation."
+
+### 10. get_tool_registry_has_nonempty_docstring — GREEN
+- `get_tool_registry.__doc__` = "Return a copy of the global tool
+  registry. Returns: A list of all currently registered Tool objects."
+
+### 11. pytest_full_suite_passes — GREEN
+- `cd activegraph && ../venv/bin/pytest -q --no-header`
+- Result: `623 passed, 15 skipped` (3 consecutive runs).
+
+### 12. mypy_strict_passes_full_allowlist — GREEN
+- `cd activegraph && ../venv/bin/mypy`
+- Result: `Success: no issues found in 23 source files`.
+
+### 13. changelog_entry_present_under_new_patch_heading_for_ring0_docstrings — GREEN
+- CHANGELOG.md line 22: "Closed all Ring 0 docstring exemptions
+  (CONTRACT v1.1 #4 Wave 1): added docstrings to `Budget`,
+  `InMemoryEventStore`, `Runtime`, `View`, `clear_tool_registry`, and
+  `get_tool_registry`. Ring 0 coverage now 100% not-missing."
+
+### 14. no_changes_outside_permissions — GREEN
+- All modified files in working tree fall under :rw permissions:
+  CHANGELOG.md, docstring_gaps.toml, the five source modules listed in
+  the frame's permission block. No out-of-scope edits observed.
+
+### 15. wheel_completeness_passes — GREEN
+- `tests/test_wheel_completeness.py` passes in the full suite (× 3).
+
+## Closure conditions
+
+- All substantive predicates GREEN in source.
+- Gate exit-zero requires venv refresh OR `PYTHONPATH=.` invocation —
+  install hygiene, not work output.
+- Awaiting `review.clean` from Code Reviewer per verification-trinity
+  convention.
+
+I will re-evaluate every 5 minutes and emit `goal.satisfied` once (a) gate
+exits zero under the standard invocation AND (b) review.clean lands.

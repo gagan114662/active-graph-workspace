@@ -1,0 +1,48 @@
+id: t1a-close-ring0-docstring-exemptions
+goal: Close every Ring 0 docstring exemption in activegraph/docstring_gaps.toml by writing real docstrings for the listed symbols, removing each closed entry from the file until the [[exemptions]] list is empty and Ring 0 not-missing coverage hits 100%.
+constraints:
+  - "CONTRACT v1.0 #C2 (tiered docstring coverage: 100% Ring 0 target, >=80% Ring 1 floor)"
+  - "CONTRACT v1.1 #4 Wave 1 (close every Ring 0 missing gap; one-liner minimum, Args/Returns/Raises/Examples preferred)"
+  - "v1.1-plan.md E-3 (Ring 0 docstring exemption sweep; end state: exemption list empty)"
+  - "docstring_gaps.toml curation rule: do NOT auto-regenerate; each closed gap is a deliberate removal of its [[exemptions]] entry"
+  - "Allowlist invariant: the 22 currently-clean mypy --strict modules must remain clean (no regression in mypy_strict_passes_full_allowlist)"
+  - "Ring 1 not-missing coverage must not drop below 80.0% (docstring_gaps.toml [ring1] floor)"
+  - "Test discipline: no live network in CI; deterministic fixtures only"
+  - "Scope discipline (audit-then-baseline-then-narrow): only the 6 symbols currently listed in [[exemptions]] may be modified for docstring content; no unrelated refactors to behavior, signatures, or imports"
+permissions:
+  - "activegraph/docstring_gaps.toml:rw"
+  - "activegraph/activegraph/runtime/budget.py:rw"
+  - "activegraph/activegraph/store/memory.py:rw"
+  - "activegraph/activegraph/runtime/runtime.py:rw"
+  - "activegraph/activegraph/core/view.py:rw"
+  - "activegraph/activegraph/tools/decorators.py:rw"
+  - "activegraph/CHANGELOG.md:rw"
+  - "activegraph/tests/**:rw"
+  - "activegraph/activegraph/**/*.py:ro"
+  - "activegraph/scripts/gate_docstrings.py:ro"
+  - "activegraph/scripts/audit_docstrings.py:ro"
+  - "activegraph/docs/reference/api/COVERAGE_REPORT.md:ro"
+  - "activegraph/CONTRACT.md:ro"
+  - "activegraph/v1.1-plan.md:ro"
+  - "activegraph/HANDOFF.md:ro"
+success_criteria:
+  - docstring_gaps_exemptions_list_empty
+  - gate_docstrings_script_exits_zero
+  - ring0_not_missing_pct_equals_100
+  - ring1_not_missing_pct_ge_80
+  - budget_has_nonempty_docstring
+  - inmemoryeventstore_has_nonempty_docstring
+  - runtime_class_has_nonempty_docstring
+  - view_class_has_nonempty_docstring
+  - clear_tool_registry_has_nonempty_docstring
+  - get_tool_registry_has_nonempty_docstring
+  - pytest_full_suite_passes
+  - mypy_strict_passes_full_allowlist
+  - changelog_entry_present_under_new_patch_heading_for_ring0_docstrings
+  - no_changes_outside_permissions
+  - wheel_completeness_passes
+budget:
+  max_events: 300
+  max_llm_tokens: 150000
+  max_dollars: 4.00
+  max_wall_clock_seconds: 1500
