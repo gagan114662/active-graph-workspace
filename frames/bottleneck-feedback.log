@@ -510,3 +510,31 @@ evidence:
   - frames/t5d-direct-queue-probe-2026-05-22.log
   - frames/t5d-target-agent-turn-activation-primitive.status
   - frames/autonomy-completion-audit-2026-05-22.md
+
+## bottleneck.repaired-partial - workspace trigger bridge closes bounded execution path
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: scripts/pentagon-trigger-bridge.mjs, mint-agent-token,
+  claim_agent_trigger, complete_agent_trigger, visible messages readback
+symptom: Native trigger catch-up still failed to claim a fresh Maya trigger
+  inside 110 seconds, but the workspace bridge claimed a fresh target trigger,
+  minted Maya's agent token, ran Codex with Pentagon MCP configured for Maya,
+  persisted Maya's visible ACK message, and completed the trigger in about 20
+  seconds from message creation.
+owner: Riley (Evidence Lead) for bridge proof; Pentagon app poller still owns
+  native trigger catch-up repair.
+feedback_action: Treat the bridge as the current bounded activation workaround.
+  Do not call the full objective complete until the bridge is run continuously
+  or replaced by native app poller behavior, and a fresh easy/medium/hard/
+  extra-hard audit proves coverage.
+durable_conversion:
+  - Gate: bridge/native trigger execution must persist a target message id and
+    complete the trigger inside the watchdog window.
+  - Next repair: run the bridge as a supervised loop or implement equivalent
+    native trigger poller catch-up.
+evidence:
+  - scripts/pentagon-trigger-bridge.mjs
+  - frames/t5d-trigger-bridge-proof-2026-05-22.log
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md

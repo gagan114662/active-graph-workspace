@@ -1,0 +1,103 @@
+# T5d trigger bridge proof - 2026-05-22
+
+Purpose: prove a bounded target-agent activation path using the local
+`scripts/pentagon-trigger-bridge.mjs` bridge.
+
+This is not native Pentagon app poller proof. It is a workspace bridge that uses
+Pentagon's existing public cloud surfaces:
+
+- `agent_triggers` readback
+- `claim_agent_trigger(p_trigger_id)`
+- `mint-agent-token`
+- Codex with the minted Pentagon MCP token
+- `messages` visible response persistence
+- `complete_agent_trigger(p_trigger_id)`
+
+## Bridge script validation
+
+```text
+$ node --check scripts/pentagon-trigger-bridge.mjs
+exit 0
+
+$ node scripts/pentagon-trigger-bridge.mjs --dry-run --limit 3
+status: ok
+processed: 3
+result statuses: would_process, would_process, would_process
+```
+
+## Fresh visible-message probe
+
+```text
+hash: T5D_BRIDGE_VISIBLE_PROBE_20260522T223300Z
+conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+sender_id: 1343cc84-5a06-44b7-88f7-f2c3e82d7e1c (Theo)
+target_agent_id: 7b8c44b7-ddeb-4a35-87e4-2ae502fe9001 (Maya)
+message_id: 669fcba7-2ca5-4971-9641-79f7d2d67527
+message_created_at: 2026-05-22T22:33:01.101484+00:00
+trigger_id: d2200d94-cb6f-43ba-a85d-9c0f2ef058e2
+trigger_created_at: 2026-05-22T22:33:01.101484+00:00
+```
+
+Bridge command:
+
+```text
+$ node scripts/pentagon-trigger-bridge.mjs \
+  --trigger-id d2200d94-cb6f-43ba-a85d-9c0f2ef058e2 \
+  --codex-timeout-ms 180000
+```
+
+Bridge result:
+
+```text
+status: completed
+bridge_started_at: 2026-05-22T22:33:10.272Z
+bridge_finished_at: 2026-05-22T22:33:20.638Z
+trigger_completed_at: 2026-05-22T22:33:20.854937+00:00
+persisted_message_id: 4956fb18-ae95-4f78-bf4d-dd0be5de53af
+persisted_message_created_at: 2026-05-22T22:33:20.744825+00:00
+persisted_message_sender_id: 7b8c44b7-ddeb-4a35-87e4-2ae502fe9001
+persisted_message_content:
+  MAYA_T5D_BRIDGE_VISIBLE_ACK T5D_BRIDGE_VISIBLE_PROBE_20260522T223300Z
+  pwd=/Users/gaganarora/Desktop/my projects/active_graph head=6f8022e
+```
+
+Latency:
+
+```text
+message_created_to_bridge_start: about 9.2s
+message_created_to_visible_ack: about 19.6s
+message_created_to_trigger_complete: about 19.8s
+bridge_start_to_visible_ack: about 10.5s
+```
+
+Codex execution proof:
+
+```text
+pwd -> /Users/gaganarora/Desktop/my projects/active_graph
+git rev-parse --short HEAD -> 6f8022e
+agent final message -> MAYA_T5D_BRIDGE_VISIBLE_ACK
+  T5D_BRIDGE_VISIBLE_PROBE_20260522T223300Z
+  pwd=/Users/gaganarora/Desktop/my projects/active_graph head=6f8022e
+```
+
+Known caveat:
+
+```text
+Codex stderr reported pre-existing local skill load errors:
+missing YAML frontmatter for several ~/.codex/skills/activegraph-* SKILL.md
+files. The bridge run still exited 0 and persisted the visible ACK.
+```
+
+## Evidence interpretation
+
+The bridge closes the narrow "bounded target trigger execution" gap for this
+diagnostic path: a fresh target trigger produced visible Maya output and trigger
+completion inside the watchdog window.
+
+The broader objective is not fully complete yet:
+
+- this is a workspace bridge, not a native Pentagon app poller fix;
+- continuous autonomous operation still needs this bridge to be run as a daemon
+  or replaced by a native trigger poller repair;
+- easy/medium/hard/extra-hard closure still needs a fresh audit proving the
+  bridge covers all required task classes without manual intervention.

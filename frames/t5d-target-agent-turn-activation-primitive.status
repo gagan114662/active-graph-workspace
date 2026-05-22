@@ -37,6 +37,14 @@ live_checks:
   t5d_direct_queue_probe_trigger_auto_created: true
   t5d_direct_queue_probe_trigger_claimed_after_110s: false
   t5d_direct_queue_probe_maya_ack_after_110s: false
+  t5d_trigger_bridge_script: scripts/pentagon-trigger-bridge.mjs
+  t5d_trigger_bridge_check: node --check scripts/pentagon-trigger-bridge.mjs
+  t5d_trigger_bridge_probe_hash: T5D_BRIDGE_VISIBLE_PROBE_20260522T223300Z
+  t5d_trigger_bridge_probe_trigger_id: d2200d94-cb6f-43ba-a85d-9c0f2ef058e2
+  t5d_trigger_bridge_probe_message_id: 669fcba7-2ca5-4971-9641-79f7d2d67527
+  t5d_trigger_bridge_probe_ack_message_id: 4956fb18-ae95-4f78-bf4d-dd0be5de53af
+  t5d_trigger_bridge_probe_message_to_ack_seconds: 20
+  t5d_trigger_bridge_probe_message_to_complete_seconds: 20
   live_heartbeat_spawned_codex_workers: true
   mapped_mcp_worker_models: gpt-5.5
 
@@ -57,6 +65,10 @@ current_evidence:
   - frames/t5d-internal-trigger-queue-readback-2026-05-22.log records the table/log evidence and reclassifies the blocker from no target execution to unbounded/internal-only target activation.
   - A fresh direct internal-queue diagnostic at 2026-05-22T22:25:33Z inserted a transparent Theo-to-Maya message. Pentagon automatically created target trigger 59d84468-a2f0-453c-b43b-6ff7de1e459d immediately, but the trigger remained unclaimed and Maya produced no ACK after a 110 second watch.
   - frames/t5d-direct-queue-probe-2026-05-22.log records this negative bounded probe and narrows the remaining failure to trigger poller/catch-up latency or routing, not message-to-trigger creation.
+  - scripts/pentagon-trigger-bridge.mjs adds an auditable bridge that reads pending agent_triggers, claims a trigger, mints the target agent token, runs Codex with Pentagon MCP configured for that target, persists the final agent message into the Pentagon conversation, and completes the trigger.
+  - node --check scripts/pentagon-trigger-bridge.mjs passed, and dry-run over 3 pending triggers returned would_process for all 3.
+  - A fresh bridge proof for T5D_BRIDGE_VISIBLE_PROBE_20260522T223300Z claimed Maya trigger d2200d94-cb6f-43ba-a85d-9c0f2ef058e2, ran Maya through Codex, persisted visible Maya message 4956fb18-ae95-4f78-bf4d-dd0be5de53af, and completed the trigger about 20 seconds after message creation.
+  - frames/t5d-trigger-bridge-proof-2026-05-22.log records the command, trigger ids, visible ACK, and latency.
 
 verdict: blocked
 reason: >
@@ -68,6 +80,10 @@ reason: >
   ACKed about 6m10s after message creation, outside the declared 90s watchdog
   window. A fresh direct internal-queue probe proved trigger rows are created
   immediately, but the new Maya trigger was still unclaimed after 110 seconds.
-  The public MCP wrapper also still lacks an explicit target-agent trigger_turn
-  or routed scheduled-action primitive with schema/readback, so bounded
-  easy/medium/hard/extra-hard autonomy remains unproven.
+  The bridge now proves a bounded target-trigger execution path in this
+  workspace, but it is not yet a native Pentagon app poller repair and has not
+  been audited across easy/medium/hard/extra-hard task classes. The public MCP
+  wrapper also still lacks an explicit target-agent trigger_turn or routed
+  scheduled-action primitive with schema/readback, so the whole objective
+  remains open pending continuous bridge/native poller operation and a fresh
+  completion audit.
