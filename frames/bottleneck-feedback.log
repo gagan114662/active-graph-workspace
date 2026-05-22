@@ -151,3 +151,25 @@ feedback_action: Core owners must post INTERPRETER_OK or INTERPRETER_BLOCKED
 evidence:
   - agent-os/INTERPRETER_CONTRACT.md
   - frames/t5-pentagon-handoff-activation-smoke.yaml
+
+## bottleneck.detected - T5 reproduced Theo-to-Maya handoff activation failure
+
+frame: t5-pentagon-handoff-activation-smoke
+complexity: handoff-smoke
+source: Pentagon UI/state, inner git history, process check, targeted pytest
+symptom: Theo activated, produced interpreter proof, committed and pushed a
+  test-only red commit, and reported a DM handoff to Maya. More than five
+  minutes later there was no Maya activation proof, no Maya implementation
+  commit, Pentagon showed 0 active, and no Pentagon worker was visible.
+owner: Avery (Frame Architect) + Riley (Evidence Lead) + Maya (Code Owner)
+feedback_action: Treat the T5 validation as blocked, not autonomous. Explicitly
+  reactivate Maya inside Pentagon. If Maya does not post INTERPRETER_OK or
+  INTERPRETER_BLOCKED after reactivation, keep the frame open and mark the
+  handoff system failed.
+evidence:
+  - "Theo interpreter proof: INTERPRETER_OK Theo /Users/gaganarora/Desktop/my projects/active_graph 4604f0e"
+  - "Theo red-test commit: inner:ab05ed0"
+  - "Targeted red test remains failing: tests/test_llm_openai.py::test_count_tokens_heuristic_includes_assistant_tool_calls -> assert 1 > 1"
+  - "2026-05-22T17:02:32Z inner head remained ab05ed0; no later Maya implementation commit."
+  - "Pentagon UI/state showed 0 active after Theo handoff."
+  - "No Codex implementation fallback was used for T5."

@@ -1,0 +1,72 @@
+# t5-pentagon-handoff-activation-smoke dispatch log
+
+frame: t5-pentagon-handoff-activation-smoke
+opened_utc: 2026-05-22T16:54:00Z
+outer_repo: /Users/gaganarora/Desktop/my projects/active_graph
+inner_repo: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+inner_remote: gagan114662/activegraph
+
+## Dispatch
+
+Theo was instructed in Pentagon to read
+frames/t5-pentagon-handoff-activation-smoke.yaml, post interpreter proof,
+write a tiny red test in the inner repo, commit and push tests only, then hand
+off to Maya with the sender artifact hash. No Codex implementation fallback was
+allowed.
+
+## Theo activation proof
+
+Theo posted:
+
+```
+INTERPRETER_OK Theo /Users/gaganarora/Desktop/my projects/active_graph 4604f0e
+```
+
+## Theo recovery event
+
+Theo initially drifted into non-test implementation/docs work. Pentagon was
+corrected to stop that path and Theo self-restored its own uncommitted non-test
+edits before continuing. Inner repo status after the self-restore was clean
+except the pre-existing untracked GAUNTLET.md.
+
+## Red test artifact
+
+Theo committed and pushed the test-only inner repo red-test commit:
+
+```
+ab05ed0 Frame t5 test: OpenAI tool call token estimate
+tests/test_llm_openai.py | 35 +++++++++++++++++++++++++++++++++++
+```
+
+Independent targeted verification after the handoff still showed the expected
+red state:
+
+```
+$ ../venv/bin/pytest -q tests/test_llm_openai.py::test_count_tokens_heuristic_includes_assistant_tool_calls
+F                                                                        [100%]
+FAILED tests/test_llm_openai.py::test_count_tokens_heuristic_includes_assistant_tool_calls
+E       assert 1 > 1
+1 failed in 0.04s
+```
+
+## Handoff
+
+Theo reported that it DM'd Maya with sender artifact hash `ab05ed0` and did
+not commit implementation.
+
+## Watcher check
+
+At 2026-05-22T17:00:31Z and again at 2026-05-22T17:02:32Z:
+
+- inner repo head remained `ab05ed0`;
+- there was no later Maya implementation commit;
+- Pentagon UI/state showed `0 active`;
+- no Pentagon `codex exec` worker was visible for Maya;
+- the Maya panel did not show a T5 activation turn.
+
+## Result
+
+T5 reproduced the exact failure it was designed to test: handoff context was
+delivered, but recipient activation was not proven. This frame is blocked on
+Maya activation and must not be marked autonomous or closed.
+

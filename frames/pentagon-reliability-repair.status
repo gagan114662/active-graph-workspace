@@ -1,4 +1,4 @@
-status: repair_in_progress_for_pentagon_runtime
+status: repair_blocked_on_pentagon_handoff_activation
 evaluated: 2026-05-22
 outer_base_head: a635b90
 inner_base_head: 4604f0e
@@ -18,13 +18,24 @@ resolved:
 pending_pentagon_runtime_validation:
   - per-agent Purpose ack or patch for all core and named specialist agents
   - per-agent INTERPRETER_OK or INTERPRETER_BLOCKED proof
-  - T5 Theo red-test handoff to Maya
+  - T5 Theo red-test handoff to Maya: completed at inner:ab05ed0
   - Maya activation proof after Theo handoff
   - Maya implementation commit without Codex fallback
   - Quinn, Rowan, Grace, Priya, Riley closure artifacts
+latest_t5_result:
+  frame: t5-pentagon-handoff-activation-smoke
+  status: blocked_maya_activation_not_proven
+  theo_activation: "INTERPRETER_OK Theo /Users/gaganarora/Desktop/my projects/active_graph 4604f0e"
+  theo_red_test_commit: ab05ed0
+  maya_activation: missing
+  codex_implementation_fallback_used: false
+  evidence:
+    - frames/t5-pentagon-handoff-activation-smoke.dispatch.log
+    - frames/t5-pentagon-handoff-activation-smoke.status
+    - frames/bottleneck-feedback.log
 not_allowed_as_success:
   - chat-only acknowledgements
   - DM sent without recipient activation
   - Codex fallback implementation
   - untracked local files as proof
-next_frame: t5-pentagon-handoff-activation-smoke
+next_frame: t5-pentagon-handoff-activation-smoke reactivation

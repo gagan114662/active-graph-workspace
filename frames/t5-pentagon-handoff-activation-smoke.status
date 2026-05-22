@@ -1,0 +1,26 @@
+status: blocked_maya_activation_not_proven
+evaluated_utc: 2026-05-22T17:02:32Z
+outer_repair_commit: 2822788
+inner_red_test_commit: ab05ed0
+pentagon_only: false
+codex_implementation_fallback_used: false
+autonomous_closure: false
+theo:
+  activation: "INTERPRETER_OK Theo /Users/gaganarora/Desktop/my projects/active_graph 4604f0e"
+  red_test_commit: ab05ed0
+  red_test_file: tests/test_llm_openai.py
+  handoff_reported_to_maya: true
+maya:
+  activation_proof: missing
+  implementation_commit: missing
+  status: blocked
+verification:
+  targeted_red_test_command: "../venv/bin/pytest -q tests/test_llm_openai.py::test_count_tokens_heuristic_includes_assistant_tool_calls"
+  targeted_red_test_result: "1 failed in 0.04s; assert 1 > 1"
+  process_check: "no visible Pentagon codex exec worker after handoff"
+  ui_check: "Pentagon showed 0 active and Maya panel did not show T5 turn"
+required_next_action:
+  - "Avery/Riley must log bottleneck.detected for DM without activation."
+  - "Maya must be explicitly reactivated inside Pentagon, then post INTERPRETER_OK or INTERPRETER_BLOCKED."
+  - "No Codex implementation fallback is allowed for this frame."
+

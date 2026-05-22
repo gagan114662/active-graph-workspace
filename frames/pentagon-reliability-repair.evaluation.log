@@ -6,11 +6,12 @@
 
 ## Verdict
 
-repair.in_progress_for_pentagon_runtime
+repair_blocked_on_pentagon_handoff_activation
 
 Repo-side operating rules and the macOS default model repair are implemented.
-Pentagon runtime autonomy is not yet proven until T5 closes with Maya activation
-evidence and without Codex fallback.
+T5 then reproduced the critical runtime failure: Theo activated and produced a
+test-only red commit, but Maya did not show recipient activation after the
+handoff. Pentagon autonomy is still not proven.
 
 ## Failure point mapping
 
@@ -24,7 +25,7 @@ evidence and without Codex fallback.
 | Active count reaches 0 on open frame | topology and interpreter stop conditions require Avery/Riley bottleneck and reactivation | REPAIR WRITTEN |
 | Narrow permissions | bottleneck-feedback standing gate requires Avery permission audit before Code Owner starts | REPAIR WRITTEN |
 | Green tests before adversary gaps | bottleneck-feedback standing gate requires Quinn pass before hard/extra-hard closure | REPAIR WRITTEN |
-| T4 Maya non-activation | T5 validation frame created to prove or falsify fixed handoff activation | PENDING VALIDATION |
+| T4 Maya non-activation | T5 validation frame created to prove or falsify fixed handoff activation | REPRODUCED IN T5 |
 
 ## Literal verification
 
@@ -32,8 +33,14 @@ defaults read run.pentagon.app pentagon.defaultModel -> gpt-5.5
 outer git head before repair commit -> a635b90
 inner git head before repair commit -> 4604f0e
 Pentagon process alive -> /Applications/Pentagon.app/Contents/MacOS/Pentagon
+Theo activation proof -> INTERPRETER_OK Theo /Users/gaganarora/Desktop/my projects/active_graph 4604f0e
+T5 red-test commit -> inner:ab05ed0
+T5 targeted red test -> FAILED tests/test_llm_openai.py::test_count_tokens_heuristic_includes_assistant_tool_calls; assert 1 > 1
+T5 Maya activation proof -> missing
+T5 implementation fallback -> not used
 
 ## Closure rule
 
 This repair cannot be marked complete until frames/t5-pentagon-handoff-activation-smoke.status
 says closed_pentagon_autonomous and includes recipient activation proof for Maya.
+The current T5 status is blocked_maya_activation_not_proven.
