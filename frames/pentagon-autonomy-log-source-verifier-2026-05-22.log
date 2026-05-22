@@ -1,0 +1,83 @@
+# Pentagon autonomy log-source verifier - 2026-05-22
+
+Purpose: make logs and live rows the source of truth for the autonomy claim.
+The completion audit is a summary only; it is not accepted as proof by the
+verifier.
+
+Verifier:
+
+```text
+scripts/verify-pentagon-autonomy-from-logs.mjs
+```
+
+Primary sources checked:
+
+```text
+/Users/gaganarora/.pentagon/trigger-bridge.out.log
+launchctl print gui/501/run.pentagon.trigger-bridge
+defaults read run.pentagon.app pentagon.defaultModel
+Pentagon Supabase tables: agent_triggers, messages, agents
+frames/t5d-file-backed-gauntlet-2026-05-22.log
+frames/t5d-file-gauntlet-easy-20260522T230015Z.proof
+frames/t5d-file-gauntlet-medium-20260522T230015Z.proof
+frames/t5d-file-gauntlet-hard-20260522T230015Z.proof
+frames/t5d-file-gauntlet-extra-hard-20260522T230015Z.proof
+frames/t5d-skill-load-clean-proof-2026-05-22.log
+```
+
+What the verifier proves from logs/live rows:
+
+```text
+- LaunchAgent is loaded and running.
+- Bridge script parses.
+- LaunchAgent plist parses.
+- Pentagon default model is gpt-5.5.
+- The file-backed gauntlet log contains every easy/medium/hard/extra-hard
+  hash, message id, trigger id, ACK id, reverse-trigger id, and proof path.
+- The bridge runtime log contains every file-backed target trigger, ACK, and
+  reverse-trigger id.
+- The proof files contain the expected file-backed outputs.
+- The live Pentagon DB has each target trigger and reverse trigger row, and all
+  have completed_at.
+- The live Pentagon DB has each ACK message row, and each ACK contains the
+  expected gauntlet hash.
+- The live Pentagon DB has active_graph agent rows, and all read back gpt-5.5.
+```
+
+JWT-expiry finding from logs:
+
+```text
+/Users/gaganarora/.pentagon/trigger-bridge.err.log showed a crash on:
+GET /rest/v1/agent_triggers ... failed 401 PGRST303 JWT expired
+```
+
+Repair:
+
+```text
+scripts/pentagon-trigger-bridge.mjs now detects expired JWT responses, reloads
+the current Pentagon session from run.pentagon.app.plist, and retries the
+request once before failing. The same retry path is applied to mint-agent-token.
+```
+
+Service restart:
+
+```text
+launchctl kickstart -k gui/501/run.pentagon.trigger-bridge
+launchctl print gui/501/run.pentagon.trigger-bridge
+state = running
+program = /opt/homebrew/bin/node
+runs = 6
+pid = 74135
+last terminating signal = Terminated: 15
+```
+
+Latest verifier run before commit:
+
+```text
+node scripts/verify-pentagon-autonomy-from-logs.mjs
+summary: 90/90 checks passed
+```
+
+The verifier briefly reports the worktree dirty while the verifier itself and
+JWT-refresh repair are uncommitted. It is expected to pass cleanly again after
+this artifact and the script changes are committed.

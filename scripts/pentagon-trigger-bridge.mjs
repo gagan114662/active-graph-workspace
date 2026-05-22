@@ -44,7 +44,20 @@ function readAnonKey() {
   return out;
 }
 
-async function request(path, { method = "GET", body, prefer } = {}) {
+function refreshSession() {
+  const currentAnonKey = state?.anonKey ?? readAnonKey();
+  state = { ...readSession(), anonKey: currentAnonKey };
+  return state;
+}
+
+function isExpiredJwtResponse(status, parsed) {
+  return status === 401 && (
+    parsed?.code === "PGRST303" ||
+    /jwt expired/i.test(String(parsed?.message ?? parsed ?? ""))
+  );
+}
+
+async function request(path, { method = "GET", body, prefer, retryOnExpiredJwt = true } = {}) {
   const res = await fetch(state.supabaseOrigin + path, {
     method,
     headers: {
@@ -59,13 +72,17 @@ async function request(path, { method = "GET", body, prefer } = {}) {
   const text = await res.text();
   let parsed = text;
   try { parsed = JSON.parse(text); } catch {}
+  if (!res.ok && retryOnExpiredJwt && isExpiredJwtResponse(res.status, parsed)) {
+    refreshSession();
+    return request(path, { method, body, prefer, retryOnExpiredJwt: false });
+  }
   if (!res.ok) {
     throw new Error(`${method} ${path} failed ${res.status}: ${JSON.stringify(parsed)}`);
   }
   return parsed;
 }
 
-async function mintAgentToken(agentId) {
+async function mintAgentToken(agentId, retryOnExpiredJwt = true) {
   const res = await fetch(state.supabaseOrigin + "/functions/v1/mint-agent-token", {
     method: "POST",
     headers: {
@@ -79,6 +96,10 @@ async function mintAgentToken(agentId) {
   const text = await res.text();
   let parsed = text;
   try { parsed = JSON.parse(text); } catch {}
+  if ((!res.ok || !parsed.token) && retryOnExpiredJwt && isExpiredJwtResponse(res.status, parsed)) {
+    refreshSession();
+    return mintAgentToken(agentId, false);
+  }
   if (!res.ok || !parsed.token) {
     throw new Error(`mint-agent-token failed ${res.status}: ${JSON.stringify(parsed)}`);
   }
@@ -210,7 +231,7 @@ function summarizeTrigger(trigger) {
   };
 }
 
-const state = {
+let state = {
   ...readSession(),
   anonKey: readAnonKey(),
 };
