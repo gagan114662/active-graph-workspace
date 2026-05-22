@@ -86,15 +86,24 @@ permissions:
   # code work happens in INNER; perms describe inner paths because that's
   # where the team is editing)
   - "activegraph/activegraph/cli/__init__.py:rw"
+  - "activegraph/activegraph/cli/main.py:rw"  # actual CLI command surface
   - "activegraph/activegraph/cli/fork.py:rw"  # may not exist yet; new file
   - "activegraph/activegraph/cli/_set_parser.py:rw"  # new file, helper
   - "activegraph/activegraph/store/sqlite.py:rw"  # for schema migration
+  - "activegraph/activegraph/store/url.py:rw"  # sqlite:<abspath> shorthand used by docs/tests
   - "activegraph/activegraph/store/memory.py:rw"  # parity with sqlite
   - "activegraph/activegraph/core/fork.py:rw"  # if exists; else inner-repo equivalent
+  - "activegraph/activegraph/core/overrides.py:rw"  # D-2/D-4 validation seam
+  - "activegraph/activegraph/runtime/runtime.py:rw"  # D-1 replay projector + effective settings
+  - "activegraph/activegraph/packs/diligence/__init__.py:rw"  # reference pack export for tests
+  - "activegraph/activegraph/packs/diligence/settings.py:rw"  # reference pack numeric field
   - "activegraph/tests/test_cli_fork_set.py:rw"  # new test file
   - "activegraph/tests/test_fork_set_persistence.py:rw"  # new test file
   - "activegraph/tests/test_fork_set_replay.py:rw"  # new test file
+  - "activegraph/tests/test_cli_flag_drift.py:rw"  # T2/T3 allowlist coupling guard
+  - "activegraph/tests/test_v1_0_1_patches.py:rw"  # SQLiteEventStore(path) supersession coverage
   - "activegraph/tests/conftest.py:rw"
+  - "activegraph/cli_flag_drift_allowlist.toml:rw"  # T2/T3 drift retirement coupling
   - "activegraph/CHANGELOG.md:rw"
   - "activegraph/CONTRACT.md:rw"  # for v1.1 #1 amendment
   - "activegraph/docs/quickstart.md:rw"  # remove --set workaround if appropriate

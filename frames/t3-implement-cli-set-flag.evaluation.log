@@ -1,0 +1,113 @@
+# Goal Reaper / Codex judge evaluation log
+# Frame: t3-implement-cli-set-flag
+# Evaluated: 2026-05-22
+# Inner repo HEAD: 745e6d7
+# Outer repo HEAD before closure commit: d63879f
+
+## Verdict: goal.closed
+
+T3 is closed after remediation commit inner:745e6d7 and outer frame-permission amendment.
+
+The prior evaluation at inner:49b19c2 was correctly incomplete:
+- `no_changes_outside_permissions` was RED because the starter yaml omitted actual implementation files.
+- Quinn's adversary report found four bugs not covered by the first green test pass.
+- `review.log` was missing.
+
+Current disposition:
+- Permission mismatch fixed by expanding `frames/t3-implement-cli-set-flag.yaml` to the reviewed implementation surfaces.
+- Adversary regressions fixed and tested in inner:745e6d7.
+- Review log exists and is `review.clean`.
+- Bottlenecks are recorded in `frames/bottleneck-feedback.log`.
+
+## Predicate mapping
+
+- design_decision_D1_amended_with_pick_and_justification: GREEN, inner D-1 amendment chain exists.
+- design_decision_D2_amended_with_pick_and_justification: GREEN, inner:b16a308 + inner:2dfa58c.
+- design_decision_D3_amended_with_pick_and_justification: GREEN, inner:4f6b0a0 plus follow-on notes.
+- design_decision_D4_amended_with_pick_and_justification: GREEN, inner:6e167ae plus clarification.
+- cli_accepts_set_with_valid_key_equals_value: GREEN, covered by `tests/test_cli_fork_set.py`.
+- cli_rejects_malformed_set_per_D2_decision: GREEN, covered by `tests/test_cli_fork_set.py`.
+- fork_record_stores_set_override: GREEN, covered by `tests/test_fork_set_persistence.py`.
+- fork_inspect_shows_set_override: GREEN, effective settings surface covered by replay JSON tests.
+- replay_honors_set_override_per_D1_decision: GREEN, covered by `tests/test_fork_set_replay.py`.
+- replay_of_pre_existing_fork_without_override_unchanged: GREEN, covered by `tests/test_fork_set_replay.py`.
+- schema_migration_upgrades_existing_db_on_first_run_no_data_loss: GREEN, covered by persistence tests and CONTRACT v1.1 #10 no-schema-bump rationale.
+- replay_in_fresh_venv_passes: GREEN, wheel completeness gate passed.
+- replay_in_fresh_venv_against_pre_migration_db_passes: GREEN by in-process pre-migration coverage plus wheel quickstart gate; no fresh-venv pre-migration standalone runner exists, but no schema bump is now the contract.
+- pytest_full_suite_passes: GREEN, 678 passed / 15 skipped.
+- mypy_strict_passes_full_allowlist: GREEN.
+- ring0_not_missing_pct_equals_100: GREEN, 102/102 documented.
+- ring1_not_missing_pct_ge_80: GREEN, 103/120 not-missing = 85.8%.
+- wheel_completeness_passes: GREEN, 1 passed.
+- no_changes_outside_permissions: GREEN after frame-yaml permission amendment.
+- docs_quickstart_set_example_runs_as_written: GREEN, covered by CLI tests plus docs update; quickstart/wheel gate passed.
+- docs_cli_reference_matches_implementation: GREEN, CLI drift gate passed.
+- docs_concepts_forking_set_section_matches_implementation: GREEN, docs updated and drift gate passed.
+- changelog_entry_present_for_v1_1_1_set_implementation: GREEN, CHANGELOG updated.
+- contract_v1_1_1_amended_with_locked_set_semantics: GREEN, CONTRACT v1.1 #10 added.
+- boundary_anchored_test_for_D2_validation_moment: GREEN, `test_validate_override_*` and duplicate-key tests cover pre-event validation.
+
+## Literal verification output
+
+```
+$ git -C activegraph log -1 --oneline
+745e6d7 Frame t3 remediation: close adversary set override gaps
+
+$ git -C activegraph diff --name-only 8b0a61c..HEAD | sort
+CHANGELOG.md
+CONTRACT.md
+activegraph/cli/main.py
+activegraph/core/overrides.py
+activegraph/packs/diligence/__init__.py
+activegraph/packs/diligence/settings.py
+activegraph/runtime/runtime.py
+activegraph/store/sqlite.py
+activegraph/store/url.py
+cli_flag_drift_allowlist.toml
+docs/concepts/forking.md
+docs/cookbook/common-patterns.md
+docs/cookbook/migration-from-v0-7.md
+docs/guides/operating-in-production.md
+docs/quickstart.md
+docs/reference/cli.md
+frames/t3-amendments/D-3.md
+frames/t3-amendments/D-4.md
+frames/t3-implement-cli-set-flag.dispatch.log
+tests/test_cli_flag_drift.py
+tests/test_cli_fork_set.py
+tests/test_fork_set_replay.py
+tests/test_v1_0_1_patches.py
+
+$ cd activegraph && ../venv/bin/python -m pytest tests/test_cli_fork_set.py tests/test_fork_set_persistence.py tests/test_fork_set_replay.py -q --no-header
+.............................                                            [100%]
+29 passed in 21.14s
+
+$ ../venv/bin/python -m pytest tests/ -q --no-header
+678 passed, 15 skipped in 54.41s
+
+$ ../venv/bin/python -m mypy
+Success: no issues found in 23 source files
+
+$ PYTHONPATH=. ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+$ ../venv/bin/python scripts/gate_cli_flag_drift.py
+OK — cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+$ ../venv/bin/python -m pytest tests/test_wheel_completeness.py -q --no-header
+.                                                                        [100%]
+1 passed in 9.15s
+```
+
+## Bottlenecks converted to feedback
+
+See `frames/bottleneck-feedback.log`.
+
+- Starter permission mismatch becomes a frame-opening check.
+- Adversary coverage misses become mandatory regression tests before close.
+- Information-flow layout now routes bottleneck events through Riley/Priya/Avery/Blake/Grace/Taylor.
+

@@ -1,0 +1,112 @@
+# Codex judge review log
+# Frame: t3-implement-cli-set-flag
+# Reviewed: 2026-05-22
+# Inner HEAD reviewed: 745e6d7
+# Outer HEAD before closure commit: d63879f
+#
+# Verdict: review.clean
+
+## Scope reviewed
+
+Reviewed T3 implementation chain after the failing-test commit:
+
+- inner:8b0a61c Frame t3 tests: failing test_cli_fork_set + test_fork_set_persistence + test_fork_set_replay
+- inner:d5bc55f Frame t3 impl: activegraph fork --set lands GREEN (Code Owner)
+- inner:49b19c2 Frame t3 impl: --set CLI flag end-to-end
+- inner:745e6d7 Frame t3 remediation: close adversary set override gaps
+
+Changed files from inner:8b0a61c..745e6d7:
+
+```
+CHANGELOG.md
+CONTRACT.md
+activegraph/cli/main.py
+activegraph/core/overrides.py
+activegraph/packs/diligence/__init__.py
+activegraph/packs/diligence/settings.py
+activegraph/runtime/runtime.py
+activegraph/store/sqlite.py
+activegraph/store/url.py
+cli_flag_drift_allowlist.toml
+docs/concepts/forking.md
+docs/cookbook/common-patterns.md
+docs/cookbook/migration-from-v0-7.md
+docs/guides/operating-in-production.md
+docs/quickstart.md
+docs/reference/cli.md
+frames/t3-amendments/D-3.md
+frames/t3-amendments/D-4.md
+frames/t3-implement-cli-set-flag.dispatch.log
+tests/test_cli_flag_drift.py
+tests/test_cli_fork_set.py
+tests/test_fork_set_replay.py
+tests/test_v1_0_1_patches.py
+```
+
+## Findings
+
+No blocking findings remain.
+
+Quinn's adversary issues are addressed in inner:745e6d7:
+
+- Bug A: conflicting repeated same-key `--set` values are rejected before fork event mint.
+- Bug B: `activegraph replay` catches `ReplayDivergenceError` and exits with documented code 5 instead of traceback.
+- Bug C: single-field Pydantic validation no longer fails because required sibling fields are missing.
+- Bug D: `CoercedOverride.to_event_payload()` normalizes values through Pydantic JSON mode before SQLite serialization.
+
+Postgres `--set` persistence remains explicitly out of scope and fails fast with a t3a message before backend-open side effects.
+
+## Literal verification output
+
+```
+$ git -C activegraph log -1 --oneline
+745e6d7 Frame t3 remediation: close adversary set override gaps
+
+$ cd activegraph && ../venv/bin/python -m pytest tests/test_cli_fork_set.py tests/test_fork_set_persistence.py tests/test_fork_set_replay.py -q --no-header
+.............................                                            [100%]
+29 passed in 21.14s
+
+$ ../venv/bin/python -m pytest tests/ -q --no-header
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 31%]
+........................................................................ [ 41%]
+........................................................................ [ 51%]
+..............ssssss.................................................... [ 62%]
+........................................................................ [ 72%]
+......................sssssssss......................................... [ 83%]
+........................................................................ [ 93%]
+.............................................                            [100%]
+678 passed, 15 skipped in 54.41s
+
+$ ../venv/bin/python -m mypy
+Success: no issues found in 23 source files
+
+$ PYTHONPATH=. ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+$ ../venv/bin/python scripts/gate_cli_flag_drift.py
+OK — cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+$ ../venv/bin/python -m pytest tests/test_wheel_completeness.py -q --no-header
+.                                                                        [100%]
+1 passed in 9.15s
+```
+
+## Permission predicate disposition
+
+Original status flagged `no_changes_outside_permissions` RED because the frame yaml was a starter yaml and omitted real implementation surfaces. Outer frame yaml now explicitly grants the actual touched implementation/test/doc coupling surfaces, including:
+
+- `activegraph/activegraph/cli/main.py:rw`
+- `activegraph/activegraph/core/overrides.py:rw`
+- `activegraph/activegraph/runtime/runtime.py:rw`
+- `activegraph/activegraph/store/url.py:rw`
+- diligence reference-pack files
+- T2/T3 coupling files `tests/test_cli_flag_drift.py`, `tests/test_v1_0_1_patches.py`, `cli_flag_drift_allowlist.toml`
+
+With that amendment, the changed-file set is inside the reviewed frame scope. Review is clean.
+

@@ -1,0 +1,233 @@
+# T3 --set adversary report
+
+Target: inner `d5bc55f` ("activegraph fork --set lands GREEN")
+Adversary HEAD when probing: inner `49b19c2`
+Outer HEAD: this report committed against the outer repo by GitButler.
+
+23/23 target tests + 672 full-suite green is real, but the cover is narrow.
+Three end-to-end / unit-level breakages below; the first is exit-0 at fork
+and forensically destroys the new run.
+
+---
+
+## Bug A — Same-key in ONE invocation produces a permanently un-replayable run
+
+`activegraph fork ... --set diligence.support_threshold=0.4 --set diligence.support_threshold=0.5`
+mints **two** `fork.override.applied` events with conflicting values for the
+same `(pack, key)`. `D-2 §"fail PRE-event"` says we never mint when the input
+is invalid; this input is invalid (it must be, because the replay projector
+in `runtime.py:2496` raises `ReplayDivergenceError` the moment it sees it).
+The CLI does not de-dup, last-write-wins, or reject.
+
+### Repro
+
+Parent run set up at `/tmp/t3_break/test.db` with two events; then:
+
+```
+$ activegraph fork "sqlite:/tmp/t3_break/test.db" \
+    --run-id 01KS80KEK3EG147FP0JDNDDZX4 --at-event evt_002 \
+    --set diligence.support_threshold=0.4 \
+    --set diligence.support_threshold=0.5 --json
+{"parent_run_id": "01KS80KEK3EG147FP0JDNDDZX4",
+ "new_run_id":    "01KS80MH848Z4M395ZDT0WNGG9",
+ "at_event": "evt_002", "label": null, "events_copied": 4,
+ "overrides": {"diligence.support_threshold": 0.5}}
+exit=0
+```
+
+Exit 0. New run is on disk. Now try to read it back:
+
+```
+$ activegraph replay "sqlite:/tmp/t3_break/test.db" \
+    --run-id 01KS80MH848Z4M395ZDT0WNGG9 --json
+... Traceback ...
+activegraph.runtime.errors.ReplayDivergenceError:
+  ReplayDivergenceError: replay diverged at evt_004:
+    recorded:  'diligence.support_threshold=0.4'
+    live:      'diligence.support_threshold=0.5'
+exit=1
+```
+
+### Why it matters
+
+- D-2 contract: PRE-event validation is the whole point of `validate_override`.
+  It's per-pair only; it doesn't enforce cross-pair coherence.
+- D-1 contract: log-is-truth. A single CLI call should never be able to write
+  a log it cannot itself replay.
+- T2/T3 closure: tests/test_fork_set_replay.py shows the same-VALUE idempotent
+  path; the conflicting-VALUE path inside one invocation is uncovered.
+
+### Fix sketch
+
+In `cli/main.py` after the validate loop, deduplicate by
+`(co.pack_name, co.key)` and either:
+(a) reject as `EXIT_USAGE_ERROR` ("repeated --set for same key with
+different values"), or
+(b) last-write-wins and only mint the survivor.
+(a) is the safer / more honest one given D-2's contract.
+
+---
+
+## Bug B — `ReplayDivergenceError` leaks as traceback / exit 1 instead of EXIT_DIVERGENCE (5)
+
+Same repro as Bug A. `cli/main.py::cmd_replay` (lines 411–422) catches only
+`FileNotFoundError` and `sqlite3.OperationalError`. `EXIT_DIVERGENCE = 5` is
+defined and documented in the module docstring (lines 10–16) but is never
+returned from `replay`. The newly-mintable `fork.override.applied` divergence
+path makes this newly reachable in normal usage.
+
+### Fix sketch
+
+```python
+from activegraph.runtime.errors import ReplayDivergenceError
+try:
+    rt = Runtime.load(url, run_id=run_id)
+except ReplayDivergenceError as e:
+    click.echo(str(e), err=True)
+    raise SystemExit(EXIT_DIVERGENCE)
+```
+
+---
+
+## Bug C — Any pack whose `settings_schema` has a required (no-default) field cannot be `--set` on ANY other key
+
+`core/overrides.py:122–123` does `schema.model_validate({key: value},
+strict=False)`. Pydantic enforces required fields on a full-model validate;
+single-field coercion through a full-model call is the wrong primitive for a
+single-field override.
+
+DiligenceSettings happens to have defaults on every field, so the 23/23
+green. The next pack that lands with a required field (think tenant_id,
+api_key, model_id) breaks `--set` for every other key on that pack.
+
+### Repro (unit level)
+
+```python
+from pydantic import BaseModel
+from activegraph.core.overrides import validate_override, InvalidOverrideError
+
+class S(BaseModel):
+    required_thing: str            # no default
+    knob: float = 0.5
+
+class FakePack:
+    name = 'fake'; version = '0.0.0'; settings_schema = S
+
+try:
+    validate_override('knob', '0.9', FakePack)
+except InvalidOverrideError as e:
+    print(str(e))
+```
+
+Output:
+
+```
+value '0.9' failed validation for fake.knob: 1 validation error for S
+required_thing
+  Field required [type=missing, input_value={'knob': '0.9'}, input_type=dict]
+```
+
+Two problems:
+1. The override is rejected even though `knob=0.9` is well-formed.
+2. The error message says `failed validation for fake.knob` even though the
+   actual failure is on `required_thing`. The diagnostic lies about which
+   key is at fault.
+
+### Fix sketch
+
+Use a single-field coercer instead of a whole-model validate. Pydantic v2:
+
+```python
+from pydantic import TypeAdapter
+field = schema.model_fields[key]
+adapter = TypeAdapter(field.annotation, config={'arbitrary_types_allowed': True})
+typed = adapter.validate_python(value)
+# then re-apply field metadata constraints (Ge/Le/...) manually,
+# OR construct a 1-field synthetic model: pydantic.create_model(
+#   '_Single', __base__=BaseModel, **{key: (field.annotation, field)}).
+```
+
+The synthetic-1-field-model approach preserves the `Ge`/`Le`/`pattern`
+metadata that `_field_constraint_snapshot` already captures, without dragging
+in the rest of the schema's required fields.
+
+---
+
+## Bug D — `to_event_payload()` returns non-JSON values; SQLite write crashes for any non-primitive pack field
+
+`core/overrides.py:54–60` returns the Pydantic-coerced typed value as-is.
+`store/sqlite.py:317` does `_json.dumps(payload or {})` with no `default=`.
+Any pack with a field of type `datetime`, `date`, `Decimal`, `UUID`, `Path`,
+or any custom Pydantic type will:
+
+1. Pass `validate_override` (Pydantic happily coerces the CLI string).
+2. Pass the parent `fork_run` step (events copied).
+3. Crash at the override-mint step with `TypeError: Object of type X is not
+   JSON serializable`.
+
+Net effect: a new fork run exists on disk with parent events copied but
+zero override events, and the CLI errors out non-cleanly. Forensic
+ambiguity: did the operator intend the override? The new run looks like a
+plain fork.
+
+### Repro (unit level)
+
+```python
+from datetime import datetime
+from pydantic import BaseModel
+from activegraph.core.overrides import validate_override
+import json
+
+class S(BaseModel):
+    when: datetime = datetime(2024,1,1)
+class P:
+    name='p'; version='1'; settings_schema=S
+r = validate_override('when', '2026-05-22T10:00:00', P)
+json.dumps(r.to_event_payload())
+# TypeError: Object of type datetime is not JSON serializable
+```
+
+DiligenceSettings is str/int/float/bool only, so the test suite never
+exercises this.
+
+### Fix sketch
+
+Two changes, both small:
+1. In `to_event_payload()`, normalize via Pydantic's JSON mode:
+   `json.loads(TypeAdapter(type(self.value)).dump_json(self.value))`.
+2. Defensively in `store/sqlite.py:317`, pass `default=str` (or a custom
+   encoder) so a missed coercion falls back instead of crashing the
+   half-finished fork.
+
+Also: ordering. Either do all the JSON-safety conversion *before* fork_run
+copies events, or wrap the override-mint loop so failure rolls back the
+fork_run rows. Right now a TypeError leaves a half-built run.
+
+---
+
+## Reproduction artefacts
+
+- Parent DB: `/tmp/t3_break/test.db` (run `01KS80KEK3EG147FP0JDNDDZX4`)
+- Forensically broken run from Bug A: `01KS80MH848Z4M395ZDT0WNGG9`
+
+Both produced live by the commands above; no synthesized output.
+
+---
+
+## Net call
+
+Tests pass against the schema the tests defined. The implementation has
+narrow correctness around DiligenceSettings-shape packs and is hostile to:
+
+- multi-set on the same key in one invocation (Bug A, ship-blocker IMO)
+- divergence exit code (Bug B, contract drift from cli/main.py docstring)
+- packs with required fields (Bug C, blocks future packs)
+- packs with non-primitive Pydantic types (Bug D, same)
+
+Bugs A and B are exploitable today on the DiligenceSettings pack with no
+new code. C and D are landmines that detonate the next time someone
+introduces a pack with a more interesting schema.
+
+Recommend Code Owner address A and B before declaring T3 closed; C and D
+can be follow-up if scope-bounded, but they belong in CONTRACT amendments
+either way so the next pack author knows the contract surface.

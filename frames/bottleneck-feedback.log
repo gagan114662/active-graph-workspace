@@ -1,0 +1,37 @@
+# Bottleneck feedback log
+# Workspace: active_graph
+# Created: 2026-05-22
+
+This log is the continuous-improvement loop gagan asked for: bottlenecks become
+events with evidence, owners, and a prevention action. It is not a chat summary.
+
+## bottleneck.detected — T3 starter permissions too narrow
+
+frame: t3-implement-cli-set-flag
+complexity: hard
+source: evaluation.log + frame yaml
+symptom: `no_changes_outside_permissions` RED because a starter yaml omitted real implementation surfaces.
+owner: Avery (Frame Architect)
+feedback_action: Amend frame permissions before Code Owner starts; Riley checks changed-file set against yaml before closure.
+evidence: `frames/t3-implement-cli-set-flag.evaluation.log`, `frames/t3-implement-cli-set-flag.yaml`.
+
+## bottleneck.detected — T3 adversary bugs landed after green tests
+
+frame: t3-implement-cli-set-flag
+complexity: hard
+source: adversary.log + regression tests
+symptom: Focused tests were green but did not cover repeated same-key conflicts, replay CLI exit code, required sibling fields, or JSON-unsafe typed values.
+owner: Quinn (Test Adversary) + Theo (Test Owner)
+feedback_action: Every hard/extra-hard frame gets adversary regression tests before status can close.
+evidence: `frames/t3-implement-cli-set-flag.adversary.log`, inner:745e6d7.
+
+## bottleneck.detected — Feedback loop was terminal, not continuous
+
+frame: org-topology
+complexity: all
+source: user review
+symptom: Agent layout emphasized roles but did not make bottleneck events central to the information flow.
+owner: Riley (Evidence Lead) + Taylor (Trace Archivist)
+feedback_action: Added `#bottleneck-feedback` group and `bottleneck.detected` event shape to `collaboration-topology.md`; added gauntlet rule requiring bottleneck entries before next task opens.
+evidence: `collaboration-topology.md`, `GAUNTLET.md`.
+

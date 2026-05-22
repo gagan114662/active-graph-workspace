@@ -89,6 +89,31 @@ Catch drift before it ships. CONTRACT Owner posts hourly contradiction scans. Co
 ### 7. `#anti-slop-council` — Spec Skeptic, Code Reviewer, Test Adversary
 The dedicated adversarial layer. These three never collaborate with the constructive department but talk to each other to align on what they're each looking for. Avoid duplicate concerns; cover holes.
 
+### 8. `#bottleneck-feedback` — Riley (Evidence Lead), Priya (Goal Reaper), Avery (Frame Architect), Blake (Budget Marshal), Grace (Gate Sentinel), Taylor (Trace Archivist)
+The continuous-improvement loop. Every frame emits bottleneck events here,
+not just final pass/fail summaries. Riley owns the evidence, Priya owns the
+predicate impact, Avery changes routing/spec permissions, Blake tracks
+capacity/cost bottlenecks, Grace ties bottlenecks to gates, and Taylor archives
+the final pattern so the next easy/medium/hard/extra-hard task starts smarter.
+
+Required event shape:
+
+```
+bottleneck.detected:
+  frame: <frame id>
+  complexity: easy|medium|hard|extra-hard
+  source: log|git|test|review|budget|routing
+  symptom: <literal failure, stall, or drift>
+  owner: <agent responsible for next action>
+  feedback_action: <purpose update, frame amendment, new gate, test, or docs change>
+  evidence: <commit hash, file path, command output, or Pentagon log line>
+```
+
+Any repeated bottleneck across two frames becomes a standing gate or Purpose
+document rule before the next frame opens. This is the active_graph event-log
+feedback loop: the system improves from observed bottlenecks rather than from
+after-the-fact chat interpretation.
+
 ## Status reports
 
 Each agent maintains a live status report Pentagon surfaces on the canvas
@@ -104,6 +129,8 @@ Notes: <blockers, decisions, questions>
 Owners post their current artifact (the file path being touched).
 Reactive agents (Gate Sentinel, Fork Debugger) post the event being processed.
 Goal Reaper posts the predicate count: "12/15 green, 3 pending."
+Riley posts the current bottleneck count: "2 bottlenecks open, 1 converted to
+gate, 1 routed to Frame Architect."
 
 ## Tasks & Progress
 
@@ -133,6 +160,12 @@ For each Group Conversation:
 3. Pin to top with the # name (e.g., #frame-lifecycle)
 
 ## Workspace-level setup (one-time)
+
+0. **Set every agent model to `gpt-5.5`.** Pentagon's workspace default
+   model and each existing agent profile must be `gpt-5.5`, including
+   renamed canvas agents such as Atlas, Verdict, Hawk, Forge, and Nova. New
+   agents inherit the same model policy; do not split producers and reviewers
+   across different model families for this project.
 
 1. **Enable "Isolate new agents"** in Settings. Without this, agents share a working
    directory and can't reliably push their own branches. Existing 18 agents stay
