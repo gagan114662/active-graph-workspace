@@ -109,3 +109,68 @@ Sasha is unblocked to challenge D-1 and D-3 against the four amendment files. Re
 - `activegraph/frames/t4-skeptic/D-3-challenge.md`
 
 Theo remains held until those challenge artifacts exist and are committed.
+
+## Challenge — Sasha (Spec Skeptic)
+
+Challenge artifacts authored in inner repo:
+
+- `activegraph/frames/t4-skeptic/D-1-challenge.md`
+- `activegraph/frames/t4-skeptic/D-3-challenge.md`
+
+Theo remains held until these artifacts are committed and Spec Owner resolves
+the blocking gaps below.
+
+```yaml
+event: bottleneck.detected
+id: T4-SASHA-D1-G1
+source: "D-1 provider boundary / OpenAI multi-turn tool request shape"
+symptom: "First-call tool translation can be correct while second-turn OpenAI assistant/tool echo drifts from provider wire shape."
+evidence:
+  - "activegraph/frames/t4-skeptic/D-1-challenge.md"
+  - "frames/t4-amendments/D-1.md:27-39 specifies initial tools translation only."
+  - "frames/t4-amendments/D-1.md:66-68 mentions assistant tool_calls but omits exact OpenAI message shape and fixture assertion."
+  - "activegraph/activegraph/llm/openai.py:330-343 currently drops assistant LLMMessage.tool_calls."
+prevention_action: "Require fake OpenAI/Anthropic clients to assert outbound kwargs for both tool-loop turns before returning fixture responses."
+owner: "Sofia (Spec Owner)"
+```
+
+```yaml
+event: bottleneck.detected
+id: T4-SASHA-D3-G1
+source: "D-3 parity fixture oracle"
+symptom: "Fake-provider parity can pass identical audited events while failing to validate provider-native request shapes."
+evidence:
+  - "activegraph/frames/t4-skeptic/D-3-challenge.md"
+  - "frames/t4-amendments/D-3.md:18-34 makes fakes response providers, not asserting request-shape oracles."
+  - "frames/t4-amendments/D-3.md:53-62 omits llm.requested tools/messages and llm.responded.tool_calls from the compared fields."
+prevention_action: "Make fake SDK clients assert inbound kwargs for initial and second tool-loop turns; compare normalized llm.responded.tool_calls."
+owner: "Sofia (Spec Owner)"
+```
+
+```yaml
+event: bottleneck.detected
+id: T4-SASHA-D3-G2
+source: "D-3 negative parity fixtures"
+symptom: "Failure fixtures name reasons but do not lock failure event placement or tool.responded.error shape."
+evidence:
+  - "activegraph/frames/t4-skeptic/D-3-challenge.md"
+  - "frames/t4-amendments/D-3.md:80-85 lists negative fixture reasons without per-fixture event sequences."
+  - "frames/t4-amendments/D-3.md:53-62 only conditionally includes behavior.failed.reason."
+prevention_action: "Define expected normalized negative event sequences, including tool.responded.error.reason, behavior.failed.reason, and object.created absence."
+owner: "Sofia (Spec Owner)"
+```
+
+```yaml
+event: bottleneck.detected
+id: T4-SASHA-D3-G3
+source: "D-4 reason taxonomy alignment"
+symptom: "Frame claims closed v0.6 #11 taxonomy alignment while D-4 lists tool-loop reasons not present in the v0.6 #11 table."
+evidence:
+  - "activegraph/frames/t4-skeptic/D-3-challenge.md"
+  - "frames/t4-openai-tool-shape-translation.yaml:4-15 points at CONTRACT v0.6 #11."
+  - "frames/t4-amendments/D-4.md:22-45 lists tool.max_turns_exhausted."
+  - "activegraph/CONTRACT.md:809-817 omits tool-loop reasons from v0.6 #11."
+  - "activegraph/activegraph/tools/errors.py:280-285 omits tool.max_turns_exhausted even though runtime emits it."
+prevention_action: "Patch D-4/CONTRACT guidance to name the authoritative tool-loop reason taxonomy before negative parity tests are written."
+owner: "Sofia (Spec Owner) + Carmen (Contract Owner)"
+```
