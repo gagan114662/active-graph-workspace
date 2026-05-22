@@ -184,3 +184,17 @@ Sofia patched the blocking challenge gaps before Theo starts tests.
 
 Theo remains held until Sasha re-challenges these two hashes and the Purpose audit
 unblock condition in `frames/bottleneck-feedback.log` is satisfied.
+
+## Second pass — Sasha (Spec Skeptic)
+
+Sasha second-passed the patched D-1 and D-3 clarification commits.
+
+- Second-pass commit: inner:`12f71bf` — `Frame t4 skeptic second pass: D-1 D-3 clarifications`.
+- D-1 reviewed patch: inner:`7ae37da`; result: pass, no residual blocker.
+- D-3 reviewed patch: inner:`2f82f19`; result: pass, no residual blocker.
+- Evidence files:
+  - `frames/t4-skeptic/D-1-second-pass-7ae37da.md`
+  - `frames/t4-skeptic/D-3-second-pass-2f82f19.md`
+
+Theo remains held only on the Purpose audit unblock condition from
+`frames/bottleneck-feedback.log`.
