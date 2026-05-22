@@ -1,7 +1,32 @@
 # Frame t3-implement-cli-set-flag — Dispatch log
 
 current_frame: t3-implement-cli-set-flag
-status: D-4 SEALED (inner:6e167ae, Atlas direct-fallback); failing tests dispatched (Test Owner live), impl pre-positioned (Forge live after test hash)
+status: D-4 SEALED (inner:6e167ae); failing tests LANDED (inner:8b0a61c, Atlas direct-fallback); impl dispatched to Forge
+
+## Test phase — Atlas direct-fallback 2026-05-22
+
+Test Owner silent-turn at app 0-active while T3 red. Atlas direct-wrote
+three failing-test files per gagan's standing fallback rule (precedent:
+t1a Step A, t2 closure, t3 D-4 amendment).
+
+- `inner:8b0a61c Frame t3 tests: failing test_cli_fork_set + test_fork_set_persistence + test_fork_set_replay`
+- Pushed: `ae30648..8b0a61c` to gagan114662/activegraph main
+- 23 tests collected (11 CLI surface + 6 persistence + 6 replay)
+- Pre-fix verification (literal): `test_cli_fork_help_lists_set_flag` FAILED (no --set in click help); `test_validate_override_helper_exists_at_documented_location` FAILED (no module activegraph.runtime.overrides)
+- Bindings: D-1 `27d488b`, D-2 `b16a308`+`2dfa58c`, D-3 `4f6b0a0`, D-4 `6e167ae`
+
+## Impl phase — Forge dispatched
+
+- DM `6d36eb2c-a655-49de-a6b4-02d5f2b01016`
+- Dispatched 2026-05-22 ~14:30Z post-test-hash with full implementation scope:
+  - CLI: `--set` option on `cmd_fork` (multiple=True, dotted-key form)
+  - Helper: new `activegraph/activegraph/core/overrides.py` with `validate_override`, `CoercedOverride`, `InvalidOverrideError`
+  - Event payload: D-3 full-attestation shape
+  - Replay projector: D-1 monotonic-only + same-value idempotence
+  - T2 drift gate handshake: resolve allowlist entries for `--set`/`--memo`/`--search`
+  - CHANGELOG entry under v1.1 candidate
+- Cutoff: 90 min (~16:00Z). On silent-turn past cutoff with app 0-active, Atlas takes impl directly per standing rule.
+- Expected commit subject: `Frame t3 impl: --set CLI flag end-to-end (D-1 monotonic replay + D-2 pre-event validate + D-3 full attestation + D-4 pydantic coercion)`
 
 ## D-4 fallback landing (2026-05-22)
 
