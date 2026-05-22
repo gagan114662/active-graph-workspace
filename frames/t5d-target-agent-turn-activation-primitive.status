@@ -8,12 +8,20 @@ live_checks:
   pentagon_spawned_agent_processes_active: false
   default_model_before_repair: claude-opus-4-7[1m]
   default_model_after_repair: gpt-5.5
+  claude_mcp_connected: true
+  mcp_tools_catalog_has_target_turn_primitive: false
+  spawned_t5d_agent_id: 9dfa236a-e370-418a-be1c-32bb3026d1af
+  spawned_t5d_conversation_id: 259f5017-654f-443c-a87e-62fd74ebab64
+  spawned_t5d_current_task_after_message: null
+  spawned_t5d_visible_reply_after_30s: false
 
 current_evidence:
   - frames/t5b-pentagon-handoff-activation-smoke.evaluation.log records closed_watchdog_assisted and autonomous_closure false.
   - frames/t5c-recipient-self-watchdog-smoke.evaluation.log records goal.incomplete because Maya did not produce WATCHDOG_ACK or WATCHDOG_NO_HANDOFF after Theo's handoff.
   - frames/pentagon-purpose-repair-2026-05-22.log records that MCP send_message produced 0/9 PURPOSE_PATCHED, 0/9 PURPOSE_BLOCKED, 9/9 SILENT before exact-DM UI activation.
   - frames/pentagon-model-refresh-2026-05-22.log records the latest default-model drift and repair.
+  - Direct MCP tools/list at 2026-05-22T21:57Z exposed send_message, find_conversation, read_messages, caller-scoped schedule_action, and spawn_agent, but no trigger_turn, target_agent_id, executeAgentTurn, or target conversation scheduling primitive.
+  - MCP spawn_agent created T5d Activation Engineer and send_message delivered the T5d prompt, but no local codex exec worker process appeared and read_messages showed only Priya's spawn/message entries after the observation window.
 
 verdict: blocked
 reason: >
@@ -21,4 +29,6 @@ reason: >
   delivery, but not fully autonomous peer handoff activation. A target-agent
   turn primitive, or an equivalent scheduled action with explicit target
   routing and visible target-thread output, is required before easy/medium/hard/
-  extra-hard autonomy can be claimed.
+  extra-hard autonomy can be claimed. spawn_agent plus send_message creates an
+  agent/conversation and context, but did not prove autonomous execution in the
+  live observation window.

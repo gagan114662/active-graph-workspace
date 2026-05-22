@@ -359,3 +359,27 @@ durable_conversion:
 evidence:
   - frames/pentagon-model-refresh-2026-05-22.log
   - frames/flywheel-readiness.status
+
+## bottleneck.detected - spawn_agent plus send_message did not prove execution
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: Claude MCP spawn_agent/send_message, get_org_context, read_messages,
+  local process check, Pentagon UI active count
+symptom: MCP spawn_agent created T5d Activation Engineer
+  9dfa236a-e370-418a-be1c-32bb3026d1af and send_message delivered the T5d
+  prompt to conversation 259f5017-654f-443c-a87e-62fd74ebab64, but no local
+  codex exec worker process appeared, get_org_context still showed current_task
+  null, read_messages contained only Priya's spawn/message entries, and the UI
+  still showed 0 active.
+owner: Pentagon activation substrate + Riley (Evidence Lead)
+feedback_action: Do not count spawn_agent or send_message as execution proof.
+  Require visible target output, current_task/progress transition, worker
+  process evidence, or committed agent-produced artifact before calling a
+  handoff autonomous.
+durable_conversion:
+  - Gate: new-agent creation is not activation proof unless it produces a
+    visible worker turn or artifact within the observation window.
+evidence:
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md
