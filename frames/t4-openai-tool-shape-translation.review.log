@@ -1,0 +1,83 @@
+# Codex judge review log
+# Frame: t4-openai-tool-shape-translation
+# Reviewed: 2026-05-22
+# Inner HEAD reviewed: 4604f0e
+# Outer HEAD before closure commit: daf1373
+#
+# Verdict: review.clean_with_autonomy_gap
+
+## Scope reviewed
+
+Reviewed the T4 chain:
+
+- inner:261c3b4 D-1 provider-adapter boundary
+- inner:3778bb5 D-2 chat tool-call extraction
+- inner:104ab0c D-3 fake-provider parity
+- inner:2414c7d D-4 no new reasons
+- inner:7ae37da / inner:2f82f19 clarifications
+- inner:329c2b4 and inner:12f71bf skeptic challenge passes
+- inner:7c319cf Theo/Pentagon red tests
+- inner:b8eb508 OpenAI tool-shape implementation fallback
+- inner:612ac0a runtime-owned final parsing and provider parity loop
+- inner:4604f0e docs, contract, changelog, and stale unit-test closure
+
+## Findings
+
+No blocking repo findings remain.
+
+The prior stale OpenAI unit test was wrong after T4: it still expected
+OpenAIProvider.complete(..., tools=[...]) to raise a v1.1 pointer error.
+inner:4604f0e replaces it with an assertion that the framework tool definition
+is translated to OpenAI function-tool shape and sent to the SDK.
+
+The full-suite failures seen under Homebrew Python were environmental:
+
+- Pydantic snapshot drift happened only under Homebrew Python with Pydantic
+  2.12.5. The project venv has Pydantic 2.13.4 and passes the snapshot.
+- python -m build failed only because ignored generated build/ artifacts
+  shadowed the installed build package. Clearing ignored artifacts and using
+  the project venv makes the wheel gate pass.
+
+## Autonomy review
+
+The Pentagon autonomy gap remains real. Theo (Test Owner) was active in
+Pentagon and produced the red tests. Maya (Code Owner) did not activate from
+the handoff, and no live code-owner process was visible during the check. The
+implementation and closure were therefore completed by Codex fallback and must
+not be counted as Pentagon-only extra-hard autonomy.
+
+## Literal verification output
+
+~~~text
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py
+............                                                             [100%]
+12 passed in 0.04s
+
+$ ../venv/bin/pytest -q tests/test_v1_0_3_tool_multiturn.py tests/test_tool_replay.py tests/test_llm_behavior.py
+...........................                                              [100%]
+27 passed in 0.07s
+
+$ ../venv/bin/python -m mypy
+Success: no issues found in 23 source files
+
+$ PYTHONPATH=. ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK - docstring gate passes.
+
+$ ../venv/bin/python scripts/gate_cli_flag_drift.py
+OK - cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+$ ../venv/bin/pytest -q tests/test_doc_links.py
+...                                                                      [100%]
+3 passed in 0.05s
+
+$ ../venv/bin/pytest -q tests/test_wheel_completeness.py
+.                                                                        [100%]
+1 passed in 5.56s
+
+$ ../venv/bin/pytest -q
+690 passed, 15 skipped in 17.96s
+~~~

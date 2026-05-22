@@ -133,3 +133,45 @@ exit=0
 - inner repo has untracked `GAUNTLET.md`; no closure claim from this snapshot.
 - outer repo has unrelated untracked audit/model docs; this artifact does not resolve or claim them.
 - T4 implementation predicates are not claimed here; this is a gate snapshot for the current inner head.
+
+## Final closure gate refresh - 2026-05-22
+
+Inner HEAD: 4604f0e
+
+~~~text
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py
+............                                                             [100%]
+12 passed in 0.04s
+
+$ ../venv/bin/pytest -q tests/test_v1_0_3_tool_multiturn.py tests/test_tool_replay.py tests/test_llm_behavior.py
+...........................                                              [100%]
+27 passed in 0.07s
+
+$ ../venv/bin/python -m mypy
+Success: no issues found in 23 source files
+
+$ PYTHONPATH=. ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK - docstring gate passes.
+
+$ ../venv/bin/python scripts/gate_cli_flag_drift.py
+OK - cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+$ ../venv/bin/pytest -q tests/test_doc_links.py
+...                                                                      [100%]
+3 passed in 0.05s
+
+$ ../venv/bin/pytest -q tests/test_wheel_completeness.py
+.                                                                        [100%]
+1 passed in 5.56s
+
+$ ../venv/bin/pytest -q
+690 passed, 15 skipped in 17.96s
+~~~
+
+Closure note: repo gates are green. Pentagon-only autonomy is not green because
+Maya (Code Owner) did not activate after Theo's handoff; implementation landed
+through Codex fallback.

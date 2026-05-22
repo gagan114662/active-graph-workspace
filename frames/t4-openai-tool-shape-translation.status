@@ -1,0 +1,34 @@
+status: closed_with_autonomy_gap
+inner_head: 4604f0e
+outer_head: closure_commit
+evaluated: 2026-05-22
+review: clean_with_autonomy_gap
+focused_tests: 12 passed
+adjacent_runtime_tests: 27 passed
+full_tests: 690 passed, 15 skipped
+mypy: success
+docstrings: Ring 0 102/102, Ring 1 103/120
+cli_flag_drift: OK
+doc_links: 3 passed
+wheel_completeness: 1 passed
+docs:
+  changelog_entry_present_for_t4: true
+  contract_amendment_locks_openai_tool_parity: true
+  docs_provider_tool_parity_page_exists: true
+autonomy:
+  theo_test_owner_pentagon_red_tests: true
+  maya_code_owner_auto_activation: false
+  implementation_completed_by_codex_fallback: true
+  counts_as_pentagon_only_extra_hard_autonomy: false
+bottlenecks_open:
+  - Pentagon handoff message does not auto-activate Code Owner
+untracked_not_claimed:
+  inner:
+    - GAUNTLET.md
+  outer:
+    - GAGAN_DECISIONS_2026-05-21.md
+    - JUDGE_LOG_2026-05-21.md
+    - MINI_AGI_COMPANY_MODEL.md
+    - PENTAGON_MODEL_AUDIT_2026-05-22.md
+    - PENTAGON_ORG_CHART.md
+next_unlock: system-level Pentagon activation repair

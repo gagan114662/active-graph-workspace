@@ -1,0 +1,92 @@
+# Goal Reaper / Codex judge evaluation log
+# Frame: t4-openai-tool-shape-translation
+# Evaluated: 2026-05-22
+# Inner repo HEAD: 4604f0e
+# Outer repo HEAD before closure commit: daf1373
+
+## Verdict: goal.closed_with_autonomy_gap
+
+The repository task is closed: OpenAI tool-shape translation is implemented,
+documented, contract-amended, and verified with focused, adjacent, full-suite,
+type, docstring, doc-link, CLI-drift, and wheel gates.
+
+The Pentagon autonomy claim is not fully closed: Theo (Test Owner) worked in
+Pentagon and produced/pushed the red test commit inner:7c319cf, but Maya (Code
+Owner) did not auto-activate after Theo's handoff. Codex completed the
+implementation fallback and logged the gap in frames/bottleneck-feedback.log.
+
+## Predicate mapping
+
+- design_decision_D1_amended_with_pick_and_justification: GREEN, inner:261c3b4 plus clarification inner:7ae37da.
+- design_decision_D2_amended_with_pick_and_justification: GREEN, inner:3778bb5.
+- design_decision_D3_amended_with_pick_and_justification: GREEN, inner:104ab0c plus clarification inner:2f82f19.
+- design_decision_D4_amended_with_pick_and_justification: GREEN, inner:2414c7d.
+- skeptical_challenge_second_pass_closed: GREEN, inner:12f71bf.
+- test_owner_red_tests_committed_before_implementation: GREEN, Theo/Pentagon commit inner:7c319cf; targeted run before implementation was 10 failed, 2 passed.
+- provider_adapter_emits_openai_function_tool_shape: GREEN, inner:b8eb508 + inner:4604f0e, covered by tests/test_openai_tool_shape.py and tests/test_llm_openai.py.
+- anthropic_tool_shape_remains_backward_compatible: GREEN, covered by tests/test_provider_tool_parity.py.
+- openai_provider_sends_tools_without_v1_1_pointer_error: GREEN, stale rejection test replaced by translation assertion in inner:4604f0e.
+- openai_tool_calls_extract_to_llmresponse_tool_calls: GREEN, covered by tests/test_openai_tool_shape.py.
+- runtime_dispatches_openai_tool_calls_and_appends_tool_results: GREEN, inner:612ac0a, covered by provider parity and runtime tests.
+- openai_final_response_after_tool_result_parses_like_anthropic: GREEN, runtime-owned parsing in inner:612ac0a.
+- same_tool_using_behavior_event_sequence_matches_anthropic_openai: GREEN, covered by tests/test_provider_tool_parity.py.
+- llm_cache_round_trips_openai_tool_calls: GREEN, covered by tests/test_provider_tool_parity.py and tests/test_tool_replay.py.
+- recorded_fixture_mode_covers_openai_tool_calls_without_live_network: GREEN, covered by provider parity tests using fake/recorded provider paths.
+- no_new_reason_codes: GREEN, CONTRACT amendment and tests keep existing LLM/tool reason vocabulary.
+- invalid_tool_args_use_existing_tool_invalid_input: GREEN, runtime tool validation unchanged; adjacent runtime tests passed.
+- pytest_full_suite_passes: GREEN, 690 passed, 15 skipped.
+- mypy_strict_passes_full_allowlist: GREEN.
+- ring0_not_missing_pct_equals_100: GREEN, 102/102 documented.
+- ring1_not_missing_pct_ge_80: GREEN, 103/120 = 85.8%.
+- wheel_completeness_passes: GREEN, 1 passed.
+- changelog_entry_present_for_t4: GREEN, inner:4604f0e.
+- contract_amendment_locks_openai_tool_parity: GREEN, inner:4604f0e.
+- docs_provider_tool_parity_page_exists: GREEN, docs/concepts/provider-tool-parity.md, inner:4604f0e.
+- no_changes_outside_permissions: GREEN for the implementation/doc/test closure surfaces reviewed here; untracked local GAUNTLET.md is not staged or claimed.
+
+## Literal verification output
+
+~~~text
+$ git -C activegraph log -1 --oneline
+4604f0e Frame t4 docs: close OpenAI tool parity contract
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py
+............                                                             [100%]
+12 passed in 0.04s
+
+$ ../venv/bin/pytest -q tests/test_v1_0_3_tool_multiturn.py tests/test_tool_replay.py tests/test_llm_behavior.py
+...........................                                              [100%]
+27 passed in 0.07s
+
+$ ../venv/bin/python -m mypy
+Success: no issues found in 23 source files
+
+$ PYTHONPATH=. ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK - docstring gate passes.
+
+$ ../venv/bin/python scripts/gate_cli_flag_drift.py
+OK - cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+$ ../venv/bin/pytest -q tests/test_doc_links.py
+...                                                                      [100%]
+3 passed in 0.05s
+
+$ ../venv/bin/pytest -q tests/test_wheel_completeness.py
+.                                                                        [100%]
+1 passed in 5.56s
+
+$ ../venv/bin/pytest -q
+690 passed, 15 skipped in 17.96s
+~~~
+
+## Autonomy finding
+
+Easy/medium/hard/extra-hard repo work is now file-backed and checkable. The
+extra-hard T4 repo outcome is green, but the Pentagon team did not complete it
+end-to-end independently because Code Owner activation failed after the Test
+Owner handoff. That is recorded as the remaining system-level bottleneck, not
+hidden as a success claim.
