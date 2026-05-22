@@ -70,3 +70,26 @@ T5 reproduced the exact failure it was designed to test: handoff context was
 delivered, but recipient activation was not proven. This frame is blocked on
 Maya activation and must not be marked autonomous or closed.
 
+## Later predicate overlap - 2026-05-22T18:20Z
+
+After the blocked handoff, inner commit `fce0cab`
+(`Frame t4 fix OpenAI tool argument normalization`) landed and was pushed to
+`origin/main`. Its OpenAI token-count changes also satisfy Theo's T5 red test:
+
+```
+$ ../venv/bin/pytest -q tests/test_llm_openai.py::test_count_tokens_heuristic_includes_assistant_tool_calls
+.                                                                        [100%]
+1 passed in 0.01s
+```
+
+Focused verification for the overlapping T4/T5 surface:
+
+```
+$ ../venv/bin/pytest -q tests/test_provider_tool_parity.py::test_openai_tool_arguments_must_decode_to_object tests/test_llm_openai.py::test_count_tokens_heuristic_includes_assistant_tool_calls tests/test_openai_tool_shape.py
+.........                                                                [100%]
+9 passed in 0.04s
+```
+
+This does not close T5. The implementation did not occur through the required
+Theo-to-Maya handoff proof, so the frame now needs a fresh red predicate or a
+T5b replacement before autonomy can be claimed.

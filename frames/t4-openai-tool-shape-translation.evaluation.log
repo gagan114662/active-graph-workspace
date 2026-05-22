@@ -90,3 +90,176 @@ extra-hard T4 repo outcome is green, but the Pentagon team did not complete it
 end-to-end independently because Code Owner activation failed after the Test
 Owner handoff. That is recorded as the remaining system-level bottleneck, not
 hidden as a success claim.
+
+---
+
+# Goal Reaper re-evaluation after Rowan review.clean
+
+Evaluated: 2026-05-22
+Inner repo HEAD: fce0cab (`Frame t4 fix OpenAI tool argument normalization`)
+Outer repo HEAD before this evaluation entry: 1559508
+Review signal received: Rowan reported `review.clean` for `inner:0920142`
+(`Frame t4: implement OpenAI tool translation`) and explicitly warned that
+full `pytest -q` in that checkout still had two unrelated/environmental
+failures.
+
+## Verdict: goal.incomplete
+
+24/25 predicates are GREEN. The remaining RED predicate is
+`no_changes_outside_permissions`.
+
+Failing predicate:
+
+- `no_changes_outside_permissions`
+  - Expected: committed T4-range changes are within the frame YAML permissions.
+  - Actual: `git diff --name-only 7c319cf..HEAD` includes
+    `docs/reference/llm-providers.md` and `mkdocs.yml`, which are not listed in
+    `frames/t4-openai-tool-shape-translation.yaml` permissions. Current worktree
+    also has untracked `GAUNTLET.md`, not claimed as T4 work.
+  - Decision: RED until Frame Architect amends permissions or the out-of-scope
+    doc-nav/reference changes are removed from the T4 closure surface.
+
+## Predicate results
+
+- `design_decision_D1_provider_tool_shape_boundary_locked`: GREEN. Expected D-1
+  locked; actual CONTRACT amendments and prior evaluation show D-1 provider
+  adapter boundary locked.
+- `design_decision_D2_openai_tool_call_extraction_locked`: GREEN. Expected D-2
+  locked; actual D-2 extraction semantics are represented in OpenAI tool-call
+  tests and provider adapter implementation.
+- `design_decision_D3_parity_fixture_strategy_locked`: GREEN. Expected D-3
+  locked; actual provider parity fixture tests pass.
+- `design_decision_D4_reason_taxonomy_alignment_locked`: GREEN. Expected D-4
+  locked; actual CONTRACT keeps existing reason vocabulary.
+- `tool_to_definition_or_provider_adapter_emits_openai_function_shape`: GREEN.
+  Expected OpenAI function tool shape; actual focused test command passed.
+- `anthropic_tool_shape_remains_backward_compatible`: GREEN. Expected no
+  Anthropic shape regression; actual provider parity tests passed.
+- `openai_provider_sends_tools_without_v1_1_pointer_error`: GREEN. Expected no
+  pointer error; actual `tests/test_llm_openai.py` included in adjacent command
+  passed.
+- `openai_tool_calls_extract_to_llmresponse_tool_calls`: GREEN. Expected OpenAI
+  raw `tool_calls` extracted; actual focused tests passed.
+- `runtime_dispatches_openai_tool_calls_and_appends_tool_results`: GREEN.
+  Expected runtime-owned tool dispatch; actual adjacent runtime tests passed.
+- `openai_final_response_after_tool_result_parses_like_anthropic`: GREEN.
+  Expected final response parsing parity; actual provider parity and adjacent
+  runtime tests passed.
+- `same_tool_using_behavior_event_sequence_matches_anthropic_and_openai`:
+  GREEN. Expected matching event sequence; actual provider parity tests passed.
+- `llm_cache_round_trips_openai_tool_calls`: GREEN. Expected cache replay
+  handles OpenAI tool calls; actual `tests/test_tool_replay.py` passed.
+- `recorded_fixture_mode_covers_openai_tool_calls_without_live_network`: GREEN.
+  Expected fake/recorded provider coverage; actual provider parity tests passed
+  without live network.
+- `no_new_reason_codes_without_contract_amendment`: GREEN. Expected no new
+  reason code; actual CONTRACT amendment and tests preserve existing reason
+  vocabulary.
+- `provider_errors_map_to_existing_llm_or_tool_reasons`: GREEN. Expected
+  existing LLM/tool reasons; actual focused, adjacent, and full tests passed.
+- `invalid_tool_arguments_use_existing_tool_invalid_input_path`: GREEN.
+  Expected non-object decoded OpenAI tool arguments use `tool.invalid_input`;
+  actual `test_openai_tool_arguments_must_decode_to_object` passed.
+- `pytest_full_suite_passes`: GREEN. Expected exit 0; actual 692 passed,
+  15 skipped.
+- `mypy_strict_passes_full_allowlist`: GREEN. Expected exit 0; actual
+  `Success: no issues found in 23 source files`.
+- `ring0_not_missing_pct_equals_100`: GREEN. Expected 100%; actual Ring 0
+  102/102 documented (100.0%).
+- `ring1_not_missing_pct_ge_80`: GREEN. Expected >=80%; actual Ring 1 103/120
+  not-missing (85.8%).
+- `wheel_completeness_passes`: GREEN. Expected exit 0; actual 1 passed.
+- `no_changes_outside_permissions`: RED. Expected no out-of-permission T4-range
+  files; actual diff includes `docs/reference/llm-providers.md` and `mkdocs.yml`
+  outside the YAML permissions.
+- `changelog_entry_present_for_t4`: GREEN. Expected T4 changelog entry; actual
+  `CHANGELOG.md:23` contains provider tool parity entry.
+- `contract_amendment_locks_openai_tool_parity`: GREEN. Expected CONTRACT
+  amendment; actual `CONTRACT.md:4199` contains `v1.1 B-1 closure amendment:
+  OpenAI tool parity`.
+- `docs_provider_tool_parity_page_exists`: GREEN. Expected provider tool parity
+  page; actual `docs/concepts/provider-tool-parity.md` exists and doc-link
+  tests pass.
+
+## Literal command output
+
+~~~text
+$ git -C activegraph log --oneline -8
+fce0cab Frame t4 fix OpenAI tool argument normalization
+ab05ed0 Frame t5 test: OpenAI tool call token estimate
+4604f0e Frame t4 docs: close OpenAI tool parity contract
+612ac0a Frame t4: implement OpenAI tool translation\n\nCo-authored-by: Codex <noreply@openai.com>
+b8eb508 Frame t4 impl: OpenAI tool shape translation\n\nCo-authored-by: Codex <noreply@openai.com>
+7c319cf Frame t4 tests: openai tool shape and provider parity
+12f71bf Frame t4 skeptic second pass: D-1 D-3 clarifications
+2f82f19 Frame t4 D-3 clarification: fresh graph fixtures + normalized event sequences + second-turn OpenAI assertions
+
+$ git -C activegraph show -s --oneline --parents HEAD
+fce0cab ab05ed0 Frame t4 fix OpenAI tool argument normalization
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py
+.............                                                            [100%]
+13 passed in 0.07s
+
+$ ../venv/bin/pytest -q tests/test_v1_0_3_tool_multiturn.py tests/test_tool_replay.py tests/test_llm_behavior.py tests/test_llm_openai.py tests/test_llm_anthropic.py
+................................................                         [100%]
+48 passed in 1.01s
+
+$ ../venv/bin/python -m mypy
+Success: no issues found in 23 source files
+
+$ PYTHONPATH=. ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+$ ../venv/bin/pytest -q
+...................................................................... [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 30%]
+........................................................................ [ 40%]
+........................................................................ [ 50%]
+...............ssssss................................................... [ 61%]
+........................................................................ [ 71%]
+..............................sssssssss................................. [ 81%]
+........................................................................ [ 91%]
+...........................................................              [100%]
+692 passed, 15 skipped in 21.14s
+
+$ ../venv/bin/pytest -q tests/test_wheel_completeness.py
+.                                                                        [100%]
+1 passed in 6.95s
+
+$ ../venv/bin/pytest -q tests/test_doc_links.py
+...                                                                      [100%]
+3 passed in 0.05s
+
+$ ../venv/bin/python scripts/gate_cli_flag_drift.py
+OK — cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+$ rg -n "OpenAI tool parity|provider-tool-parity|tool parity|Invalid tool arguments" CHANGELOG.md CONTRACT.md docs/concepts/provider-tool-parity.md mkdocs.yml docs/reference/llm-providers.md
+docs/concepts/provider-tool-parity.md:3:Provider tool parity means an `@llm_behavior` can ask for the same
+docs/concepts/provider-tool-parity.md:59:- Invalid tool arguments still use `tool.invalid_input`.
+mkdocs.yml:107:          - concepts/provider-tool-parity.md: Provider-agnostic tool behavior — OpenAI and Anthropic share runtime dispatch, cache replay, and failure semantics.
+mkdocs.yml:219:      - Provider tool parity: concepts/provider-tool-parity.md
+docs/reference/llm-providers.md:175:See [Provider tool parity](../concepts/provider-tool-parity.md) for
+CHANGELOG.md:23:- Documented provider tool parity for T4 / v1.1 B-1: OpenAI tool-shape translation now shares the runtime tool loop with Anthropic, uses the existing tool and LLM reason-code vocabulary, and is covered by a dedicated provider parity page.
+CONTRACT.md:4199:### v1.1 B-1 closure amendment: OpenAI tool parity
+
+$ git -C activegraph diff --name-only 7c319cf..HEAD
+CHANGELOG.md
+CONTRACT.md
+activegraph/llm/anthropic.py
+activegraph/llm/openai.py
+activegraph/runtime/runtime.py
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+mkdocs.yml
+tests/test_llm_openai.py
+tests/test_provider_tool_parity.py
+
+$ git -C activegraph status --short --untracked-files=all
+?? GAUNTLET.md
+~~~

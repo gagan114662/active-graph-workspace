@@ -242,3 +242,56 @@ feedback_action: Created frames/pentagon-mcp-connectivity-2026-05-22.log and
 evidence:
   - frames/pentagon-mcp-connectivity-2026-05-22.log
   - frames/pentagon-agent-activation-packet-2026-05-22.md
+
+## bottleneck.partially_resolved - Maya direct activation proof obtained through Pentagon UI
+
+frame: pentagon-flywheel-repair
+complexity: system
+source: Pentagon live UI via Computer Use
+symptom: Earlier T5 failed because Maya did not activate after Theo handoff.
+owner: Maya (Code Owner) + Riley (Evidence Lead)
+feedback_action: Sent the interpreter-smoke request directly in Maya's Pentagon
+  conversation and captured literal shell output plus INTERPRETER_OK.
+evidence:
+  - frames/pentagon-live-ui-verification-2026-05-22.log
+remaining_gap: This proves direct Maya activation, not full Theo-to-Maya handoff
+  reliability or all-agent readiness.
+
+## bottleneck.resolved - Core Purpose coverage repaired through exact-DM activation
+
+frame: pentagon-flywheel-repair
+complexity: system
+source: Pentagon live UI plus Claude CLI MCP scope check
+symptom: Core agent Purpose coverage was repo-documented but not proven inside
+  Pentagon.
+owner: Avery (Frame Architect) + Riley (Evidence Lead)
+feedback_action: Used Claude CLI MCP to prove patch_document is caller-scoped;
+  patched Priya through that token; then used exact-DM live UI activation with
+  selected-header verification to obtain PURPOSE_PATCHED evidence for Avery,
+  Sofia, Sasha, Theo, Maya, Quinn, Rowan, Riley, and Grace.
+durable_conversion:
+  - Purpose rule: every core Purpose now includes the required sections.
+  - Gate: UI-driven agent operations must verify the exact selected header
+    before sending; moving-list coordinate clicks are invalid proof.
+evidence:
+  - frames/pentagon-purpose-repair-2026-05-22.log
+
+## bottleneck.detected - MCP send_message delivers context without activation
+
+frame: pentagon-flywheel-repair
+complexity: system
+source: Claude CLI Pentagon MCP read_messages poll
+symptom: Priya-scoped MCP send_message delivered Purpose self-patch directives
+  to nine peer agents, but the follow-up poll found directive-only
+  conversations: 0/9 PURPOSE_PATCHED, 0/9 PURPOSE_BLOCKED, 9/9 SILENT.
+owner: Riley (Evidence Lead)
+feedback_action: Do not use MCP send_message delivery as activation proof. Use
+  exact-DM UI activation or a tool that explicitly starts a recipient turn, then
+  require visible recipient output.
+durable_conversion:
+  - Gate: handoff activation requires recipient turn/process/log/artifact
+    evidence within the watchdog window.
+  - Frame predicate: T5 cannot close until Theo-to-Maya handoff shows recipient
+    activation before implementation.
+evidence:
+  - frames/pentagon-purpose-repair-2026-05-22.log

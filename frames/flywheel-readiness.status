@@ -1,5 +1,5 @@
 status: red
-evaluated_utc: 2026-05-22T17:20:00Z
+evaluated_utc: 2026-05-22T17:50:00Z
 owner: Riley / Evidence Lead
 scope: Pentagon autonomy flywheel readiness before reopening T5
 
@@ -13,34 +13,33 @@ checks:
   evidence_index_note: outer workspace is clean at e12873f after committing and pushing the evidence index and historical proof files
   no_untracked_proof: amber
   no_untracked_proof_note: outer proof-like files are committed; inner activegraph/GAUNTLET.md remains untracked and is explicitly excluded from proof until committed or retired
-  purpose_coverage_current: red
-  purpose_coverage_note: repo Purpose inserts and activation packet are current, but actual Pentagon Purpose patch acknowledgements are not proven
+  purpose_coverage_current: green
+  purpose_coverage_note: frames/pentagon-purpose-repair-2026-05-22.log records exact-DM PURPOSE_PATCHED evidence for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Riley, and Grace; Priya was patched through the caller-scoped Pentagon MCP token
   model_audit_current: amber
   model_audit_note: macOS default reads gpt-5.5 and historical audit says live map models were gpt-5.5, but audit still includes legacy identities and must be refreshed after identity normalization
-  interpreter_proof_current: red
-  interpreter_proof_note: Theo has T5 interpreter proof; all other active core owners still need INTERPRETER_OK lines
-  capability_gate_current: red
-  capability_gate_note: Forge/Nova/Spec Owner silence and suspected shell-tool gaps remain unresolved unless current agents produce literal command evidence
+  interpreter_proof_current: green
+  interpreter_proof_note: frames/pentagon-live-ui-verification-2026-05-22.log records live UI INTERPRETER_OK proof for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, and Grace
+  capability_gate_current: green
+  capability_gate_note: current core owners produced literal command evidence; legacy Forge/Nova/Spec Owner identities are retired by agent-os/AGENT_IDENTITY_MAP.md and cannot own active frames
   activation_protocol_tested: red
-  activation_protocol_note: T4 and T5 show message delivery without Code Owner activation; Maya activation remains unproven
-  pentagon_mcp_connectivity: red
-  pentagon_mcp_connectivity_note: frames/pentagon-mcp-connectivity-2026-05-22.log records that this Codex session cannot currently call mcp__pentagon__ tools
+  activation_protocol_note: direct exact-DM UI activation works, but MCP send_message produced 9/9 silent Purpose directives and Theo-to-Maya handoff activation/downstream closure protocol are not yet proven
+  pentagon_mcp_connectivity: green
+  pentagon_mcp_connectivity_note: Claude Code CLI registered pentagon via claude mcp add with a valid pentagon_agent bearer token; claude mcp get pentagon reports Status ✓ Connected and tools/list returns the patch_document catalog. Token identifies as Pentagon agent 642755A2-A869-440B-B4F7-E5A718E0FB8B so MCP calls attribute to that agent. See Resolution section in frames/pentagon-mcp-connectivity-2026-05-22.log dated 2026-05-22T17:50Z. Per-agent attribution rotation and a fresh-session tool-exposure check are still pending.
   skills_installed: green
   skills_installed_note: active_graph skill wrappers installed in /Users/gaganarora/.codex/skills and repo-backed skills added under agent-os/skills
   t2_partial_debt_tracked: green
   t1b_accounted: green
   v0_1_accounted: green
   t4_adversary_accounted: green
-  t5_red_state_preserved: green
+  t5_red_state_preserved: red
+  t5_red_state_note: original T5 red test at ab05ed0 now passes on inner fce0cab; fce0cab was pushed after focused verification, so T5 needs a fresh red predicate or T5b replacement before autonomy validation
 
 required_before_t5_reopen:
   - commit and push all proof/control artifacts, and either commit or retire inner activegraph/GAUNTLET.md if it is used as proof
   - refresh model audit with current names only or explicitly mark legacy agents retired
-  - patch every active core Purpose with inbound/outbound rules, evidence output, stop conditions, skills, groups, and escalation
-  - apply frames/pentagon-agent-activation-packet-2026-05-22.md inside Pentagon or restore mcp__pentagon__ tool access
-  - record INTERPRETER_OK or INTERPRETER_BLOCKED for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, and Grace
+  - use exact-DM selected-header verification for any UI-driven activation; do not rely on moving-list coordinates
   - prove watcher activation protocol with a visible recipient turn, process/log evidence, commit, or literal INTERPRETER_BLOCKED line
-  - keep T5 red test red until Maya activates
+  - create a fresh T5b red predicate because the original T5 red test now passes on fce0cab
 
 verdict: do_not_reopen_t5_yet
-reason: repo evidence is now being normalized, but Pentagon runtime activation and per-agent capability are still unproven
+reason: core Purpose and interpreter readiness are now proven, but MCP send_message still does not activate recipients and the original T5 red predicate was superseded before Theo-to-Maya handoff closure

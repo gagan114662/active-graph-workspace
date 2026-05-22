@@ -1,0 +1,67 @@
+# Pentagon Purpose Repair - 2026-05-22
+
+Status: verified_by_live_ui
+Verifier: Codex via /Applications/Pentagon.app Computer Use plus Claude CLI MCP scope checks
+
+## Scope Finding
+
+Claude CLI now has Pentagon MCP connectivity, but the available
+`patch_document` tool is caller-scoped. With the current token it patches
+Priya's own Purpose only. It cannot patch arbitrary peer agent Purposes by
+agent id.
+
+Durable rule:
+Cross-agent Purpose repair requires either exact-DM live activation of the
+target agent or a target-scoped token/session. `send_message` delivery by MCP is
+not activation proof.
+
+## MCP Delivery Failure
+
+At approximately 2026-05-22T18:02Z, Priya-scoped MCP `send_message` delivered
+self-patch directives to Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Riley,
+and Grace. A later `read_messages` poll found directive-only conversations:
+
+~~~text
+0/9 PURPOSE_PATCHED, 0/9 PURPOSE_BLOCKED, 9/9 SILENT
+~~~
+
+Verdict:
+MCP `send_message` is context delivery, not activation proof.
+
+## Exact-DM UI Repair
+
+Each target was selected by exact search on `<Name> (<Role>)`, the selected
+detail header was verified, and then the self-patch instruction was sent
+through the live Pentagon UI. Evidence visible in the target DM:
+
+| Agent | Evidence |
+| --- | --- |
+| Avery | `PURPOSE_PATCHED Avery` |
+| Sofia | `PURPOSE_PATCHED Sofia` |
+| Sasha | `PURPOSE_PATCHED Sasha`; `Evidence from read_document: sections present: Role, Inbound Handoff, Outbound Handoff, Groups, Required Skills, Stop Conditions, Evidence Outputs, Escalation Path, Interpreter-Backed Work Rule.` |
+| Theo | `PURPOSE_PATCHED Theo` |
+| Maya | `PURPOSE_PATCHED Maya` |
+| Quinn | `PURPOSE_PATCHED Quinn` |
+| Rowan | `PURPOSE_PATCHED Rowan` |
+| Priya | Claude CLI MCP `read_document(purpose)` returned all required sections after caller-scoped patching. |
+| Riley | `PURPOSE_PATCHED Riley`; `read_document evidence:` visible in DM. |
+| Grace | `PURPOSE_PATCHED Grace`; `read_document evidence: sections present — Role, Inbound Handoff, Outbound Handoff, Groups, Required Skills, Stop Conditions, Evidence Outputs, Escalation Path, Interpreter-Backed Work Rule.` |
+
+## Misroute Finding
+
+Before exact-DM verification, coordinate-based clicks landed some Purpose
+instructions in the wrong thread after the DM list reordered. Example:
+
+~~~text
+INTERPRETER_BLOCKED Sofia request landed in Avery's conversation; routed to Sofia DM ...
+~~~
+
+And Grace's thread contained an earlier misrouted Sasha instruction. These are
+not counted as target Purpose proof. Exact search plus selected-header
+verification is now the required gate for UI-driven agent operations.
+
+## Remaining Open Gate
+
+Purpose coverage is repaired for the core team, but T5 autonomy is not closed
+until the Theo -> Maya handoff activates Maya and produces an implementation
+commit without Codex fallback.

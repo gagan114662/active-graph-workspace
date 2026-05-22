@@ -1,0 +1,120 @@
+# Pentagon Live UI Verification - 2026-05-22
+
+Status: in_progress
+Verifier: Codex via Computer Use against /Applications/Pentagon.app
+
+## Environment
+
+- Pentagon app running: yes
+- Workspace visible: active_graph
+- UI version visible: v1.7.3
+- Default model from macOS defaults: gpt-5.5
+- Claude MCP screen shown by user: only codex connected; Pentagon MCP not connected there.
+
+## Maya Activation Smoke
+
+Conversation: Maya (Code Owner)
+Prompt sent through Pentagon UI at approximately 2026-05-22 13:38 local.
+
+Required command:
+
+~~~text
+/bin/zsh -lc 'pwd && git status --short --branch && git rev-parse --short HEAD && python3 --version && git -C activegraph rev-parse --short HEAD'
+~~~
+
+Visible Pentagon output:
+
+~~~text
+/Users/gaganarora/Desktop/my projects/active_graph
+## main...origin/main
+1559508
+Python 3.14.3
+ab05ed0
+~~~
+
+Visible Pentagon activation line:
+
+~~~text
+INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 1559508
+~~~
+
+Verdict:
+Maya activation proof is now green for interpreter smoke. This does not yet mean
+T5 is closed; it means the previous Maya activation blocker has a live UI proof
+for activation capability.
+
+## Remaining Pentagon Verification
+
+## Avery Activation Smoke
+
+Conversation: Avery (Frame Architect)
+Prompt sent through Pentagon UI after Maya proof.
+
+Visible Pentagon command:
+
+~~~text
+/bin/zsh -lc "cd /Users/gaganarora/Desktop/my\\ projects/active_graph && pwd && git status --short --branch && git rev-parse --short HEAD && python3 --version && git -C activegraph rev-parse --short HEAD"
+~~~
+
+Visible Pentagon activation line:
+
+~~~text
+INTERPRETER_OK Avery /Users/gaganarora/Desktop/my projects/active_graph outer: 1559508 inner: fce0cab
+~~~
+
+Verdict:
+Avery activation proof is green for interpreter smoke. Avery also caught a
+misrouted Sofia request and replied:
+
+~~~text
+INTERPRETER_BLOCKED Sofia request landed in Avery's conversation; routed to Sofia DM f70ae7bc-a971-47c6-b84e-851f85381edc for her own interpreter output.
+~~~
+
+That routing mistake is a real flywheel finding: activation proof must be tied
+to the selected recipient conversation, not only message text.
+
+## Sofia Activation Smoke
+
+Conversation: Sofia (Spec Owner)
+Prompt sent through Pentagon UI after selecting Sofia directly.
+
+Visible Pentagon command:
+
+~~~text
+/bin/zsh -lc 'cd "/Users/gaganarora/Desktop/my projects/active_graph" && pwd && git status --short --branch && git rev-parse --short HEAD && python3 --version && git -C activegraph rev-parse --short HEAD'
+~~~
+
+Visible Pentagon activation line:
+
+~~~text
+INTERPRETER_OK Sofia /Users/gaganarora/Desktop/my projects/active_graph 1559508
+~~~
+
+Verdict:
+Sofia activation proof is green for interpreter smoke.
+
+## Remaining Core Activation Smokes
+
+All remaining core agents were selected through the expanded Pentagon DM list
+and sent the same interpreter-smoke request.
+
+Visible Pentagon activation lines:
+
+~~~text
+INTERPRETER_OK Sasha /Users/gaganarora/Desktop/my projects/active_graph 1559508
+INTERPRETER_OK Theo /Users/gaganarora/Desktop/my projects/active_graph 1559508
+INTERPRETER_OK Grace /Users/gaganarora/Desktop/my projects/active_graph 1559508
+INTERPRETER_OK Quinn /Users/gaganarora/Desktop/my projects/active_graph 1559508
+INTERPRETER_OK Priya /Users/gaganarora/Desktop/my projects/active_graph 1559508
+INTERPRETER_OK Rowan /Users/gaganarora/Desktop/my projects/active_graph 1559508
+INTERPRETER_OK Riley /Users/gaganarora/Desktop/my projects/active_graph 1559508
+~~~
+
+Verdict:
+Direct Pentagon activation and interpreter capability are green for the ten core
+agents: Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, Grace.
+
+Still required:
+
+- T5 implementation handoff after Maya activation
+- Quinn/Rowan/Grace/Priya/Riley closure artifacts after implementation

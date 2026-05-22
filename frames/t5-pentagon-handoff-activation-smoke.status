@@ -1,7 +1,8 @@
-status: blocked_maya_activation_not_proven
-evaluated_utc: 2026-05-22T17:02:32Z
+status: blocked_original_red_predicate_superseded
+evaluated_utc: 2026-05-22T18:20:00Z
 outer_repair_commit: 2822788
 inner_red_test_commit: ab05ed0
+inner_current_head: fce0cab
 pentagon_only: false
 codex_implementation_fallback_used: false
 autonomous_closure: false
@@ -11,16 +12,18 @@ theo:
   red_test_file: tests/test_llm_openai.py
   handoff_reported_to_maya: true
 maya:
-  activation_proof: missing
+  activation_proof: "direct interpreter and Purpose activation proven after the blocked handoff, but not as Theo-to-Maya handoff activation"
   implementation_commit: missing
-  status: blocked
+  status: blocked_for_original_handoff_frame
 verification:
   targeted_red_test_command: "../venv/bin/pytest -q tests/test_llm_openai.py::test_count_tokens_heuristic_includes_assistant_tool_calls"
-  targeted_red_test_result: "1 failed in 0.04s; assert 1 > 1"
+  targeted_red_test_result_at_ab05ed0: "1 failed in 0.04s; assert 1 > 1"
+  targeted_red_test_result_at_fce0cab: "1 passed in 0.01s"
+  overlap_note: "Inner commit fce0cab, created as Frame t4 fix OpenAI tool argument normalization, also implemented the T5 token-count behavior and was pushed to origin/main after focused verification."
   process_check: "no visible Pentagon codex exec worker after handoff"
   ui_check: "Pentagon showed 0 active and Maya panel did not show T5 turn"
 required_next_action:
-  - "Avery/Riley must log bottleneck.detected for DM without activation."
-  - "Maya must be explicitly reactivated inside Pentagon, then post INTERPRETER_OK or INTERPRETER_BLOCKED."
-  - "No Codex implementation fallback is allowed for this frame."
-
+  - "Do not close the original T5 as autonomous; its red predicate has been superseded by fce0cab outside the Theo-to-Maya handoff proof."
+  - "Open a fresh T5b red predicate or amend T5 with a new red test chosen by Theo after readiness is green."
+  - "Theo-to-Maya handoff must still prove recipient activation before implementation."
+  - "No Codex implementation fallback is allowed for the replacement frame."

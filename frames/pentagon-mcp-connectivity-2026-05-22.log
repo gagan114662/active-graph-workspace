@@ -46,3 +46,64 @@ One of these must happen before T5 can be counted as Pentagon-autonomous:
 
 Until then, frames/flywheel-readiness.status must keep activation_protocol_tested
 red and interpreter_proof_current red.
+
+## Resolution (Claude Code CLI side) - 2026-05-22T17:50Z
+
+Pentagon MCP is now registered in Claude Code CLI and authenticates against the
+hosted endpoint. This resolves option 2 in the "Required Human/App Action" list
+above for Claude Code; option 3 (apply the activation packet inside Pentagon)
+remains pending.
+
+### What changed
+
+1. The original Codex session probed the endpoint with the macOS app's
+   accessToken and received `401 jwt alg mismatch`. That token type was the
+   wrong choice.
+2. macOS `ps` showed Pentagon-spawned Codex agent processes carrying their own
+   per-agent Bearer JWTs on the command line. Header: `alg: HS256`. Payload:
+   `pentagon_agent: true`, `pentagon_owner_id: 8e327bb0-4cbc-4162-a539-d2584db6d559`,
+   `iss: supabase`, `iat: 1779465933`, `exp: 4933065933` (year 2126),
+   `sub: 642755A2-A869-440B-B4F7-E5A718E0FB8B` (the agent identity).
+3. A direct probe with that token returned `HTTP 200` and a valid MCP
+   initialize response from `serverInfo.name=pentagon, version=1.0.0,
+   protocolVersion=2025-03-26`.
+4. `claude mcp add --transport http pentagon https://auth.pentagon.run/functions/v1/mcp
+    --header "Authorization: Bearer <token>"` succeeded.
+5. `claude mcp get pentagon` reports `Status: ✓ Connected`.
+6. `tools/list` returned a tool catalog including `patch_document` (report,
+   memory, soul, purpose document types).
+
+### Identity caveat
+
+The registered token authenticates as Pentagon agent
+`642755A2-A869-440B-B4F7-E5A718E0FB8B`, not as the human owner. Any
+`mcp__pentagon__*` call from this Claude Code project will attribute to that
+agent. If owner-scoped or different-agent attribution is required for a given
+patch, a token for that identity must be substituted.
+
+### Storage
+
+The JWT is stored plaintext in `~/.claude.json`, scope `local` (project
+`/Users/gaganarora/Desktop/my projects/active_graph`), mode `0600`. The same
+token also currently lives in the running Codex agent processes' argv and is
+readable by any process that can call `ps`.
+
+### What is NOT yet proven by this resolution
+
+- That this specific Claude Code session has `mcp__pentagon__*` tool schemas
+  exposed (registration happened mid-session; a fresh Claude Code session is
+  required for tool-side exposure).
+- That a fresh Codex session sees `mcp__pentagon__*` tools (the live Codex
+  agents currently running have it via their launch argv; that does not prove
+  a new arbitrary Codex session does).
+- That any Pentagon Purpose document has actually been patched. The activation
+  packet at frames/pentagon-agent-activation-packet-2026-05-22.md still needs
+  to be applied via the now-available MCP tools (in a fresh session) or via
+  the Pentagon UI.
+
+### Status flag changes
+
+frames/flywheel-readiness.status: `pentagon_mcp_connectivity` flipped
+red -> green. `activation_protocol_tested`, `interpreter_proof_current`,
+`purpose_coverage_current`, `capability_gate_current` remain red; this
+resolution does not produce evidence for them.

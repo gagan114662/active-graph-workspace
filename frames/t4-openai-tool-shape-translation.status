@@ -1,11 +1,11 @@
-status: closed_with_autonomy_gap
-inner_head: 4604f0e
-outer_head: closure_commit
+status: incomplete_permissions_predicate
+inner_head: fce0cab
+outer_head: 1559508
 evaluated: 2026-05-22
-review: clean_with_autonomy_gap
-focused_tests: 12 passed
-adjacent_runtime_tests: 27 passed
-full_tests: 690 passed, 15 skipped
+review: clean_for_inner_0920142
+focused_tests: 13 passed
+adjacent_runtime_tests: 48 passed
+full_tests: 692 passed, 15 skipped
 mypy: success
 docstrings: Ring 0 102/102, Ring 1 103/120
 cli_flag_drift: OK
@@ -21,6 +21,7 @@ autonomy:
   implementation_completed_by_codex_fallback: true
   counts_as_pentagon_only_extra_hard_autonomy: false
 bottlenecks_open:
+  - strict no_changes_outside_permissions is false: committed T4-range diff includes docs/reference/llm-providers.md and mkdocs.yml, which are not listed in frame permissions
   - Pentagon handoff message does not auto-activate Code Owner
 untracked_not_claimed:
   inner:
