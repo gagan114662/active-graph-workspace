@@ -67,3 +67,45 @@ Maya must not implement until failing tests are committed.
 - Timestamp: `2026-05-22T15:42:05.273079+00:00`
 - Assignment: hold tests until Sofia commits D-1..D-4 and Sasha challenges D-1/D-3 with file-backed evidence.
 - Unblock condition: Atlas supplies the four `inner:<hash>` amendments plus Sasha challenge artifact paths.
+
+## Spec amendments — Sofia (Spec Owner)
+
+- D-1: inner:`261c3b4` provider-adapter-boundary — keep `Tool` definition stable; `OpenAIProvider` translates to function shape at request time.
+- D-2: inner:`3778bb5` chat-tool-calls — extract `choices[0].message.tool_calls` into `ToolCall` without new reason codes.
+- D-3: inner:`104ab0c` fake-provider-parity — same behavior, native provider fixtures, normalized event-sequence match.
+- D-4: inner:`2414c7d` no-new-reasons — remove false OpenAI tool `network_error` and reuse existing LLM/tool taxonomy.
+
+Literal inner log:
+
+```
+2414c7d Frame t4 amendment D-4: no-new-reasons — remove false OpenAI tool network_error and reuse existing LLM/tool taxonomy
+104ab0c Frame t4 amendment D-3: fake-provider-parity — same behavior, native provider fixtures, normalized event-sequence match
+3778bb5 Frame t4 amendment D-2: chat-tool-calls — extract choices[0].message.tool_calls into ToolCall without new reason codes
+261c3b4 Frame t4 amendment D-1: provider-adapter-boundary — keep Tool definition stable; OpenAIProvider translates to function shape at request time
+```
+
+## bottleneck.detected — Pentagon direct-message RLS failure
+
+```yaml
+event: bottleneck.detected
+id: T4-B5
+source: "Pentagon message routing"
+symptom: "Sofia reported direct DMs to downstream agents were blocked by an RLS error after the four T4 amendment commits pushed."
+owner: "Avery (Frame Architect)"
+feedback_action: "Atlas/Codex relays file-backed hashes directly to Sasha and Theo; Riley records RLS failure as a routing bottleneck so T4 closure does not depend on hidden DM success."
+evidence:
+  - "Pentagon Sofia DM: 'Pentagon blocked my direct DMs with an RLS error'"
+  - "inner:261c3b4"
+  - "inner:3778bb5"
+  - "inner:104ab0c"
+  - "inner:2414c7d"
+```
+
+## Unblock — Sasha (Spec Skeptic)
+
+Sasha is unblocked to challenge D-1 and D-3 against the four amendment files. Required artifacts:
+
+- `activegraph/frames/t4-skeptic/D-1-challenge.md`
+- `activegraph/frames/t4-skeptic/D-3-challenge.md`
+
+Theo remains held until those challenge artifacts exist and are committed.
