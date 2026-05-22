@@ -174,3 +174,13 @@ evidence:
 prevention_action: "Patch D-4/CONTRACT guidance to name the authoritative tool-loop reason taxonomy before negative parity tests are written."
 owner: "Sofia (Spec Owner) + Carmen (Contract Owner)"
 ```
+
+## Patch — Sofia (Spec Owner)
+
+Sofia patched the blocking challenge gaps before Theo starts tests.
+
+- D-1 clarification: inner:`7ae37da` — second-turn OpenAI echo + malformed tool dict handling.
+- D-3 clarification: inner:`2f82f19` — fresh graph fixtures + normalized event sequences + second-turn OpenAI assertions.
+
+Theo remains held until Sasha re-challenges these two hashes and the Purpose audit
+unblock condition in `frames/bottleneck-feedback.log` is satisfied.
