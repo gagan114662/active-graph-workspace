@@ -1,0 +1,145 @@
+# T5b Gate Sentinel evidence
+
+frame: t5b-pentagon-handoff-activation-smoke
+agent: Grace / Gate Sentinel
+captured_utc: 2026-05-22T18:31:41Z
+outer_repo: /Users/gaganarora/Desktop/my projects/active_graph
+inner_repo: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+outer_head_at_start: 869b2b1
+inner_head_at_start: ccd4f45
+theo_red_test_commit: 8d3ff89
+maya_activation: INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89
+maya_implementation_commit: ccd4f45
+
+## Scope
+
+Targeted/relevant gates for Maya's T5b implementation:
+
+- targeted pytest for the new OpenAI mapping response predicate and nearby OpenAI tests
+- allowlist mypy gate, because implementation touched provider code
+- docstring gate, to confirm public-surface docstring invariants stayed green
+
+`closure-discipline` and `evidence-audit` skills were not available in this runtime, so this artifact preserves literal interpreter evidence directly.
+
+## Repo state before gate artifact
+
+### `pwd`
+
+exit=0
+
+```text
+/Users/gaganarora/Desktop/my projects/active_graph
+```
+
+### `git status --short --branch`
+
+exit=0
+
+```text
+## main...origin/main
+```
+
+### `git rev-parse --short HEAD`
+
+exit=0
+
+```text
+869b2b1
+```
+
+### `git -C activegraph status --short --branch`
+
+exit=0
+
+```text
+## main...origin/main
+?? GAUNTLET.md
+```
+
+### `git -C activegraph rev-parse --short HEAD`
+
+exit=0
+
+```text
+ccd4f45
+```
+
+### `git -C activegraph log --oneline -3`
+
+exit=0
+
+```text
+ccd4f45 Frame t5b impl: handle mapping OpenAI responses
+8d3ff89 Frame t5b test: OpenAI mapping response text
+fce0cab Frame t4 fix OpenAI tool argument normalization
+```
+
+### `git -C activegraph show --stat --oneline --decorate --no-renames 8d3ff89`
+
+exit=0
+
+```text
+8d3ff89 Frame t5b test: OpenAI mapping response text
+ tests/test_llm_openai.py | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+```
+
+### `git -C activegraph show --stat --oneline --decorate --no-renames ccd4f45`
+
+exit=0
+
+```text
+ccd4f45 (HEAD -> main, origin/main) Frame t5b impl: handle mapping OpenAI responses
+ activegraph/llm/openai.py | 37 ++++++++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 15 deletions(-)
+```
+
+## Gate commands
+
+### `pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py`
+
+cwd: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+exit=0
+
+```text
+....................                                                     [100%]
+20 passed in 0.39s
+```
+
+### `mypy`
+
+cwd: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+exit=0
+
+```text
+Success: no issues found in 23 source files
+```
+
+### `python scripts/gate_docstrings.py`
+
+cwd: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+exit=127
+
+```text
+zsh:1: command not found: python
+```
+
+### `python3 scripts/gate_docstrings.py`
+
+cwd: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+exit=0
+
+```text
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+```
+
+## Gate result
+
+Targeted/relevant local verification passed on inner commit ccd4f45.
+No red gate routed from this run.
+
+Note: bare `python` is unavailable in this shell, so the docstring gate evidence is the successful `python3 scripts/gate_docstrings.py` run. Inner repo still has unrelated untracked `GAUNTLET.md`.
