@@ -27,6 +27,25 @@ Interpreter output is acceptable evidence only if it is copied into one of:
 - `frames/bottleneck-feedback.log`
 - a committed test, docs, contract, or implementation file
 
+## Smoke proof
+
+Before a core agent can own frame work, it must post one of these exact lines
+to the frame dispatch log:
+
+- `INTERPRETER_OK <agent> <cwd> <git-head>`
+- `INTERPRETER_BLOCKED <agent> <literal error>`
+
+The proof must come from the agent's own interpreter, not from another agent
+summarizing it. Minimum command surface:
+
+- `pwd`
+- `rg --version`
+- `git status --short --branch`
+- `git rev-parse --short HEAD`
+- `../venv/bin/python --version`
+- one targeted `../venv/bin/pytest ...` command when the agent owns tests,
+  gates, review, or implementation
+
 ## Stop conditions
 
 The interpreter must stop and log a bottleneck when:
@@ -37,4 +56,5 @@ The interpreter must stop and log a bottleneck when:
 - a command fails twice with the same error
 - a downstream DM/group write is blocked
 - Pentagon active count hits 0 while frame status is not closed
-
+- a handoff is sent but the recipient does not produce an activation proof
+  within 5 minutes

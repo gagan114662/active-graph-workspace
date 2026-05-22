@@ -30,7 +30,7 @@ Untracked files are not used as proof:
 | Requirement | Evidence | Audit result |
 | --- | --- | --- |
 | Use the local project path | Outer git status is clean vs origin except untracked non-proof docs; inner git status clean vs origin except untracked `GAUNTLET.md`. | Satisfied |
-| Verify against the user's GitHub repo | Inner remote is `gagan114662/activegraph.git); latest inner proof commit is `4604f0e` pushed to `origin/main`. | Satisfied |
+| Verify against the user's GitHub repo | Inner remote is `gagan114662/activegraph.git`; latest inner proof commit is `4604f0e` pushed to `origin/main`. | Satisfied |
 | Use logs as source of truth | All difficulty levels have frame status/evaluation/review evidence; T4 also has `bottleneck-feedback.log` autonomy evidence. | Satisfied |
 | Easy task | `frames/t1a-close-ring0-docstring-exemptions.status` says `status: closed`; review log says `review.clean`; eval log closes 15/15 predicates after venv refresh. | Closed |
 | Medium task | `frames/t2-build-cli-flag-drift-gate.status` says `closed`; review log says `review.clean`; eval log records 19 GREEN, 2 PARTIAL non-blocking quality predicates, 0 RED. | Closed with caveats |

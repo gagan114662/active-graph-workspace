@@ -1,0 +1,30 @@
+# Pentagon model refresh - 2026-05-22
+
+## Default model
+
+Before repair:
+
+- defaults read run.pentagon.app pentagon.defaultModel -> claude-opus-4-7[1m]
+
+Repair command:
+
+- defaults write run.pentagon.app pentagon.defaultModel -string gpt-5.5
+
+After repair:
+
+- defaults read run.pentagon.app pentagon.defaultModel -> gpt-5.5
+
+## Per-agent model verification
+
+Prior audit file PENTAGON_MODEL_AUDIT_2026-05-22.md reported 19 active_graph
+agents with model gpt-5.5 after live patch, but that file was not committed
+as source-of-truth evidence. This refresh therefore treats per-agent model
+state as gated, not closed, until a live Pentagon profile read or per-agent
+ack is captured in a committed frame artifact before T5 starts.
+
+Required before T5 activation:
+
+- Atlas, Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, Grace
+  must be verified as gpt-5.5.
+- Named specialists Carmen, Ravi, Taylor, Blake, Sam, Finn, Casey, Parker,
+  Simone must be verified as gpt-5.5 or marked on-demand inactive.

@@ -1,0 +1,30 @@
+status: repair_in_progress_for_pentagon_runtime
+evaluated: 2026-05-22
+outer_base_head: a635b90
+inner_base_head: 4604f0e
+default_model_after_repair: gpt-5.5
+repo_rule_artifacts:
+  - agent-os/INTERPRETER_CONTRACT.md
+  - agent-os/CORE_PURPOSE_DOCS.md
+  - agent-os/skills/handoff-recovery.md
+  - agent-os/skills/bottleneck-feedback.md
+  - collaboration-topology.md
+  - frames/t5-pentagon-handoff-activation-smoke.yaml
+resolved:
+  - default model for newly created Pentagon agents
+  - handoff activation proof rule
+  - interpreter smoke proof rule
+  - standing bottleneck gates
+pending_pentagon_runtime_validation:
+  - per-agent Purpose ack or patch for all core and named specialist agents
+  - per-agent INTERPRETER_OK or INTERPRETER_BLOCKED proof
+  - T5 Theo red-test handoff to Maya
+  - Maya activation proof after Theo handoff
+  - Maya implementation commit without Codex fallback
+  - Quinn, Rowan, Grace, Priya, Riley closure artifacts
+not_allowed_as_success:
+  - chat-only acknowledgements
+  - DM sent without recipient activation
+  - Codex fallback implementation
+  - untracked local files as proof
+next_frame: t5-pentagon-handoff-activation-smoke

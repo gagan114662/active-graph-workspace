@@ -1,0 +1,66 @@
+id: t5-pentagon-handoff-activation-smoke
+goal: >
+  Prove Pentagon can execute a small repo-relevant test-to-code handoff
+  autonomously: Theo writes and pushes a red test, hands off to Maya, Maya
+  activates without Codex fallback, implements the minimal fix, and the
+  verification loop closes with committed logs.
+
+complexity: reliability-smoke
+
+constraints:
+  - No Codex implementation fallback.
+  - A DM from Theo to Maya is context delivery only, not activation proof.
+  - Maya is active only after visible turn, worker/process/log evidence, or a
+    commit after the handoff timestamp.
+  - All proof must land in committed frame artifacts.
+  - Use the activegraph inner repo and push to gagan114662/activegraph.
+
+task_shape:
+  target: tiny low-risk repo-relevant defect or docs/test mismatch chosen by Theo
+  required_red_test_owner: Theo (Test Owner)
+  required_code_owner: Maya (Code Owner)
+  required_adversary: Quinn (Test Adversary)
+  required_reviewer: Rowan (Code Reviewer)
+  required_gates: Grace (Gate Sentinel)
+  required_evaluator: Priya (Goal Reaper)
+  required_evidence: Riley (Evidence Lead)
+
+preflight_success_criteria:
+  - pentagon_default_model_is_gpt_5_5
+  - core_agents_have_purpose_ack_or_patch
+  - core_agents_have_interpreter_ok_or_blocked_record
+  - theo_interpreter_ok
+  - maya_interpreter_ok
+
+handoff_success_criteria:
+  - theo_commits_only_tests_first
+  - theo_records_failing_command_output
+  - theo_handoff_records_sender_artifact_hash
+  - maya_activation_proof_after_handoff
+  - maya_commits_implementation_after_activation
+  - no_codex_fallback_implementation
+
+closure_success_criteria:
+  - quinn_adversary_log_exists
+  - rowan_review_log_exists
+  - grace_gate_log_exists
+  - priya_evaluation_log_exists
+  - t5_status_is_closed_pentagon_autonomous
+  - riley_bottleneck_ledger_records_handoff_fixed_or_exact_remaining_failure
+  - full_local_verification_passes
+
+permissions:
+  - activegraph/tests/**:rw
+  - activegraph/docs/**:rw
+  - activegraph/activegraph/**/*.py:rw
+  - activegraph/CHANGELOG.md:rw
+  - activegraph/CONTRACT.md:rw
+  - frames/t5-pentagon-handoff-activation-smoke.*:rw
+
+forbidden_success_claims:
+  - implementation_completed_by_codex_fallback
+  - handoff_sent_without_activation
+  - untracked_file_used_as_proof
+  - chat_summary_without_hash_or_command_output
+
+status_target: closed_pentagon_autonomous

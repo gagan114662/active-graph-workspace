@@ -1,0 +1,39 @@
+# Pentagon reliability repair evaluation log
+# Frame: pentagon-reliability-repair
+# Evaluated: 2026-05-22
+# Outer base head: a635b90
+# Inner base head: 4604f0e
+
+## Verdict
+
+repair.in_progress_for_pentagon_runtime
+
+Repo-side operating rules and the macOS default model repair are implemented.
+Pentagon runtime autonomy is not yet proven until T5 closes with Maya activation
+evidence and without Codex fallback.
+
+## Failure point mapping
+
+| Failure point | Repair artifact | Current status |
+| --- | --- | --- |
+| Default model drifted to claude-opus-4-7[1m] | macOS default now reads gpt-5.5; see pentagon-model-refresh-2026-05-22.log | RESOLVED for new default |
+| Per-agent model verification can drift | model refresh log requires live per-agent recheck before T5 starts | GATED |
+| Partial Purpose coverage | CORE_PURPOSE_DOCS now covers core agents and specialists with required outputs | REPAIR WRITTEN; Pentagon ack still required |
+| Skills not installed / chat-only work | INTERPRETER_CONTRACT now requires INTERPRETER_OK or INTERPRETER_BLOCKED before ownership | REPAIR WRITTEN |
+| DM without activation | handoff-recovery skill and collaboration topology now require recipient activation proof | REPAIR WRITTEN |
+| Active count reaches 0 on open frame | topology and interpreter stop conditions require Avery/Riley bottleneck and reactivation | REPAIR WRITTEN |
+| Narrow permissions | bottleneck-feedback standing gate requires Avery permission audit before Code Owner starts | REPAIR WRITTEN |
+| Green tests before adversary gaps | bottleneck-feedback standing gate requires Quinn pass before hard/extra-hard closure | REPAIR WRITTEN |
+| T4 Maya non-activation | T5 validation frame created to prove or falsify fixed handoff activation | PENDING VALIDATION |
+
+## Literal verification
+
+defaults read run.pentagon.app pentagon.defaultModel -> gpt-5.5
+outer git head before repair commit -> a635b90
+inner git head before repair commit -> 4604f0e
+Pentagon process alive -> /Applications/Pentagon.app/Contents/MacOS/Pentagon
+
+## Closure rule
+
+This repair cannot be marked complete until frames/t5-pentagon-handoff-activation-smoke.status
+says closed_pentagon_autonomous and includes recipient activation proof for Maya.

@@ -13,6 +13,10 @@ Pentagon supports two communication modes:
 
 **You configure collaboration by writing it into each agent's Purpose document.** Telling agent A "when you finish X, message agent B" is sufficient. No channel wiring.
 
+2026-05-22 repair rule: a message is not activation proof. A handoff is only
+complete when the recipient produces a visible turn, worker/process/log
+evidence, or a committed artifact after the handoff timestamp.
+
 ## Direct-message edges (who → who)
 
 Each arrow below corresponds to a sentence we add to the sender's Purpose doc.
@@ -113,6 +117,22 @@ Any repeated bottleneck across two frames becomes a standing gate or Purpose
 document rule before the next frame opens. This is the active_graph event-log
 feedback loop: the system improves from observed bottlenecks rather than from
 after-the-fact chat interpretation.
+
+Handoff event addendum:
+
+```yaml
+handoff.activation:
+  frame: <frame id>
+  sender: <agent>
+  recipient: <agent>
+  sender_artifact: <hash/path>
+  recipient_activation: <visible turn|worker process|commit|BLOCKED>
+  next_artifact_or_blocker: <hash/path/error>
+```
+
+If active count reaches 0 while a frame status is not closed, Avery or Riley
+must create a bottleneck entry and reactivate the current owner. Silent idle is
+a failed gate.
 
 ## Status reports
 

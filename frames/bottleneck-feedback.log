@@ -105,3 +105,49 @@ evidence:
   - "Targeted pytest before implementation: 10 failed, 2 passed."
   - "Post-handoff process check: Pentagon app alive, no codex exec / pytest / Maya worker."
   - "Fallback implementation landed by Codex at inner:b8eb508 and inner:612ac0a after activation gap; this is not counted as Maya autonomous completion."
+
+## bottleneck.detected - Pentagon default model drifted after agent model patch
+
+frame: pentagon-reliability-repair
+complexity: all
+source: macOS defaults
+symptom: Workspace default still read claude-opus-4-7[1m] even after the live
+  per-agent model audit said agents were patched to gpt-5.5. New agents could
+  inherit the wrong model.
+owner: Avery (Frame Architect) + Riley (Evidence Lead)
+feedback_action: Set run.pentagon.app pentagon.defaultModel to gpt-5.5 and
+  require model refresh audit before T5 starts.
+evidence:
+  - "Before: defaults read run.pentagon.app pentagon.defaultModel -> claude-opus-4-7[1m]"
+  - "After: defaults read run.pentagon.app pentagon.defaultModel -> gpt-5.5"
+
+## standing_gate - Handoff activation proof required
+
+frame: all-future-hard-extra-hard
+complexity: hard|extra-hard
+source: T4 autonomy gap
+symptom: Theo delivered context to Maya, but context delivery did not start
+  execution.
+owner: Avery (Frame Architect) + Riley (Evidence Lead)
+feedback_action: A handoff is incomplete until recipient activation proof is
+  captured: visible turn, worker/process/log evidence, or committed artifact
+  after the handoff timestamp. If missing after 5 minutes, log
+  bottleneck.detected and reactivate the owner.
+evidence:
+  - frames/t4-openai-tool-shape-translation.status
+  - frames/pentagon-reliability-repair.status
+  - agent-os/skills/handoff-recovery.md
+
+## standing_gate - Interpreter smoke proof required
+
+frame: all-future-frames
+complexity: all
+source: skills not installed / chat-only work
+symptom: Agents could acknowledge work but named skills were not always
+  installed, and chat-only status was not sufficient execution proof.
+owner: Riley (Evidence Lead) + Grace (Gate Sentinel)
+feedback_action: Core owners must post INTERPRETER_OK or INTERPRETER_BLOCKED
+  before owning a frame step.
+evidence:
+  - agent-os/INTERPRETER_CONTRACT.md
+  - frames/t5-pentagon-handoff-activation-smoke.yaml
