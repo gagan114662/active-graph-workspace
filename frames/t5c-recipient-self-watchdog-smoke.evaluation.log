@@ -9,13 +9,26 @@ T5c remains incomplete. The self-watchdog scheduling and Theo handoff evidence
 exist, but there is no visible Maya response after the handoff without a manual
 post-handoff activation.
 
+## Addendum - 2026-05-22T22:09Z
+
+Later Theo-Maya readback found delayed Maya ACKs that were not visible in the
+original status/evaluation window:
+
+- `WATCHDOG_ACK Maya t5c-repeat-check-2026-05-22` at 2026-05-22T20:50:57Z
+- `WATCHDOG_ACK Maya t5c-activation-check-2026-05-22` at 2026-05-22T20:53:08Z
+
+This changes the factual finding from "no visible ACK ever" to "ACKs arrived
+well after the watchdog window." T5c still remains incomplete for autonomous
+handoff reliability because delayed heartbeat/catch-up does not satisfy bounded
+target activation.
+
 ## Predicate results
 
 | Predicate | Expected | Actual | Result |
 | --- | --- | --- | --- |
 | Maya reports a scheduled self-watchdog action id or literal blocked reason | scheduled action id or blocked reason | `WATCHDOG_SCHEDULED Maya 7933eaf1-694d-4839-8d55-de1e3a03046d/2026-05-22T18:59:01.748+00:00`; repeated action `41aec883-ed28-47bf-b65c-1b0e337c28d5` | GREEN |
 | Theo sends a T5c handoff with hash `t5c-activation-check-2026-05-22` | handoff sent with exact hash | dispatch/status record `HANDOFF_SENT Theo t5c-activation-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1` | GREEN |
-| Maya responds to that handoff via her self-watchdog without a direct manual Maya reactivation after Theo's handoff | visible `WATCHDOG_ACK` or `WATCHDOG_NO_HANDOFF` from Maya after handoff | no visible response in status/dispatch/bottleneck logs; Pentagon `read_messages` for recorded conversation returned `[]` | RED |
+| Maya responds to that handoff via her self-watchdog without a direct manual Maya reactivation after Theo's handoff | visible `WATCHDOG_ACK` or `WATCHDOG_NO_HANDOFF` from Maya after handoff inside the watchdog window | delayed ACKs later appeared at 20:50:57Z and 20:53:08Z, outside the original watchdog window | RED-DELAYED |
 | Riley records whether this proves recipient-self-watchdog activation | Riley/evidence status records proven or blocked | status records `verdict: blocked` and required product fix | GREEN |
 
 ## Literal command output

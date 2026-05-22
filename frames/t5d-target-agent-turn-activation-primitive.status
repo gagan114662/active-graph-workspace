@@ -18,6 +18,13 @@ live_checks:
   hidden_target_schedule_pending_after_cron_window: false
   hidden_target_schedule_target_reply_after_cron_window: false
   hidden_target_schedule_worker_process_after_cron_window: false
+  t5c_delayed_ack_found: true
+  t5c_delayed_ack_not_within_window: true
+  t5d_heartbeat_handoff_hash: T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z
+  t5d_heartbeat_handoff_sent_by_theo_at: 2026-05-22T22:06:08Z
+  t5d_maya_ack_after_90s: false
+  live_heartbeat_spawned_codex_workers: true
+  mapped_mcp_worker_models: gpt-5.5
 
 current_evidence:
   - frames/t5b-pentagon-handoff-activation-smoke.evaluation.log records closed_watchdog_assisted and autonomous_closure false.
@@ -27,6 +34,9 @@ current_evidence:
   - Direct MCP tools/list at 2026-05-22T21:57Z exposed send_message, find_conversation, read_messages, caller-scoped schedule_action, and spawn_agent, but no trigger_turn, target_agent_id, executeAgentTurn, or target conversation scheduling primitive.
   - MCP spawn_agent created T5d Activation Engineer and send_message delivered the T5d prompt, but no local codex exec worker process appeared and read_messages showed only Priya's spawn/message entries after the observation window.
   - A negative probe passed hidden agent_id, target_agent_id, and conversation_id fields to schedule_action. The tool accepted the request and returned action 0162deda-7227-47f4-bb66-4b44023acc1e, but list_scheduled_actions showed no target metadata. After the cron window the action was no longer pending, yet the T5d conversation still contained only Priya's spawn/message entries, T5d current_task was null, and no codex exec worker process appeared.
+  - A later readback of the Theo-Maya conversation found delayed T5c ACKs from Maya at 2026-05-22T20:50:57Z and 2026-05-22T20:53:08Z. These invalidate a permanent "no ACK ever" claim, but not the autonomy blocker because they landed far outside the intended watchdog window.
+  - After live UI selection/heartbeat catch-up, Pentagon spawned multiple local codex exec workers. Token-to-agent mapping showed MCP-attributed workers running gpt-5.5 for Maya, Theo, Priya, Rowan, Quinn, Avery, Sam, Ravi, Casey, Simone, Sofia, and Carmen.
+  - Theo's live token sent a fresh T5d hash to Maya at 2026-05-22T22:06:08Z. After a 90 second observation window, the Theo-Maya conversation still had no MAYA_T5D_ACK or MAYA_T5D_BLOCKED response for T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z.
 
 verdict: blocked
 reason: >
@@ -38,4 +48,5 @@ reason: >
   agent/conversation and context, but did not prove autonomous execution in the
   live observation window. Hidden target fields on schedule_action also did not
   prove target execution; the public MCP wrapper remains caller-scoped in
-  practice.
+  practice. Heartbeat catch-up can eventually start agents, but current evidence
+  does not prove bounded Theo-to-Maya activation after a new handoff.

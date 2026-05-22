@@ -384,6 +384,53 @@ evidence:
   - frames/t5d-target-agent-turn-activation-primitive.status
   - frames/autonomy-completion-audit-2026-05-22.md
 
+## bottleneck.detected - heartbeat catch-up is not bounded handoff activation
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: Theo-Maya read_messages, live process token-to-agent mapping, Pentagon UI
+  active count
+symptom: A later readback found Maya did eventually emit the old T5c ACKs, and
+  live heartbeat/catch-up spawned multiple gpt-5.5 codex workers. However, the
+  T5c ACKs landed far outside the intended watchdog window, and a fresh Theo
+  T5d hash sent at 2026-05-22T22:06:08Z had no Maya ACK/BLOCKED response after
+  90 seconds.
+owner: Pentagon heartbeat scheduler + target-agent activation substrate
+feedback_action: Reclassify the blocker from "no ACK ever" to "no bounded
+  target activation SLA." Full autonomy requires a target turn to start and
+  produce visible output inside the frame's watchdog window.
+durable_conversion:
+  - Gate: delayed heartbeat catch-up is useful liveness evidence but cannot
+    close an autonomous handoff frame unless the response meets the declared
+    frame window.
+  - Product requirement: expose bounded trigger_turn or target scheduled action
+    semantics with readback and target-thread output.
+evidence:
+  - frames/t5c-recipient-self-watchdog-smoke.status
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md
+
+## bottleneck.detected - invalid OpenAI tool argument marker not serialized
+
+frame: t4-openai-tool-shape-translation
+complexity: medium
+source: adversary replay against inner commit 7a975cd
+symptom: `ToolCall.invalid_args_error` rejects invalid OpenAI arguments on the
+  immediate provider/runtime path, but `ToolCall.to_dict()` omits the marker.
+  `LLMResponse.to_dict()` therefore drops the marker before cache/recorded
+  hydration can preserve it.
+owner: Maya (Code Owner)
+feedback_action: Add a regression test for invalid-args marker round-trip
+  through `LLMResponse.to_dict()`, cache hydration, and recorded hydration; fix
+  serialization by emitting `invalid_args_error` when present.
+durable_conversion:
+  - Gate: provider/runtime boundary markers that affect validation must be
+    asserted at the durable event/fixture serialization boundary.
+evidence:
+  - activegraph/frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+  - command: ../venv/bin/python invalid marker round-trip probe exited 1 with
+    KeyError: 'invalid_args_error'
+
 ## bottleneck.detected - hidden schedule_action target fields did not activate target
 
 frame: t5d-target-agent-turn-activation-primitive

@@ -1,4 +1,4 @@
-status: blocked_recipient_self_watchdog_no_visible_ack
+status: delayed_ack_after_watchdog_window_not_autonomous
 evaluated_utc: 2026-05-22T19:08:00Z
 hash: t5c-activation-check-2026-05-22
 maya_self_watchdog:
@@ -9,16 +9,18 @@ theo_handoff:
   one_shot_hash: "HANDOFF_SENT Theo t5c-activation-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent."
   repeated_hash: "HANDOFF_SENT Theo t5c-repeat-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent."
 maya_response_without_manual_poke:
-  result: missing
-  observed_ack: none
+  result: delayed_after_original_watchdog_window
+  observed_ack:
+    - "WATCHDOG_ACK Maya t5c-repeat-check-2026-05-22 at 2026-05-22T20:50:57Z"
+    - "WATCHDOG_ACK Maya t5c-activation-check-2026-05-22 at 2026-05-22T20:53:08Z"
   observed_no_handoff: none
 verdict: blocked
 reason: >
-  Maya can schedule caller-scoped actions, and Theo can send handoffs, but no
-  visible WATCHDOG_ACK/WATCHDOG_NO_HANDOFF appeared after either the one-shot
-  or repeated self-watchdog window. This means recipient-owned scheduled
-  actions are not sufficient evidence for reliable peer-handoff activation on
-  the current Pentagon surface.
+  Maya can eventually emit ACKs after Theo handoffs, but the ACKs appeared
+  roughly 1h50m after the original T5c handoffs and after the evaluated
+  watchdog windows. That is useful heartbeat/catch-up evidence, but it is not
+  sufficient evidence for reliable peer-handoff activation across easy, medium,
+  hard, and extra-hard tasks.
 required_product_fix:
   - "Pentagon needs a target-agent activation primitive, or send_message must support trigger_turn=true / target_agent_id."
   - "Scheduled actions need target_agent_id/conversation_id or a visible output channel tied to the agent thread."
