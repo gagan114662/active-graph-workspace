@@ -588,3 +588,24 @@ evidence:
   - frames/t5d-launchd-bridge-proof-2026-05-22.log
   - frames/t5d-target-agent-turn-activation-primitive.status
   - frames/autonomy-completion-audit-2026-05-22.md
+
+## bottleneck.repaired-operational - bridged Codex skill load clean
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: local Codex skill loader during Pentagon bridge target-agent turns
+symptom: Successful bridged agent turns still emitted nonfatal stderr noise for
+  each local activegraph skill because SKILL.md files were missing YAML
+  frontmatter.
+owner: Riley (Evidence Lead) for proof; local Codex skill installation owns the
+  frontmatter repair.
+feedback_action: Add minimal YAML frontmatter to local activegraph skill files,
+  run a direct Codex skill-load smoke, then run a fresh LaunchAgent bridge
+  handoff and require stderr_tail to be empty.
+durable_conversion:
+  - Gate: future bridge proofs should record stderr_tail and treat repeated
+    skill-load errors as an evidence-quality regression.
+evidence:
+  - frames/t5d-skill-load-clean-proof-2026-05-22.log
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md

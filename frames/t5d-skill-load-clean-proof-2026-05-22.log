@@ -1,0 +1,85 @@
+# T5d skill-load clean proof - 2026-05-22
+
+Purpose: remove the nonfatal Codex skill-loading errors that appeared in
+Pentagon bridge stderr during target-agent turns.
+
+Problem:
+
+```text
+failed to load skill /Users/gaganarora/.codex/skills/activegraph-*/SKILL.md:
+missing YAML frontmatter delimited by ---
+```
+
+Repair:
+
+```text
+Added minimal YAML frontmatter to these local skills:
+- /Users/gaganarora/.codex/skills/activegraph-activation-watchdog/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-adversary-regression/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-bottleneck-feedback/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-clean-venv-replay/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-closure-discipline/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-evidence-audit/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-evidence-indexing/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-frame-registration/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-handoff-recovery/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-interpreter-smoke/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-model-audit/SKILL.md
+- /Users/gaganarora/.codex/skills/activegraph-provider-parity/SKILL.md
+```
+
+Direct Codex smoke:
+
+```text
+/opt/homebrew/bin/codex exec --json \
+  --dangerously-bypass-approvals-and-sandbox \
+  --skip-git-repo-check \
+  --ignore-user-config \
+  -C /Users/gaganarora/Desktop/my projects/active_graph \
+  --model gpt-5.5 -
+
+prompt: Reply exactly: ACTIVEGRAPH_SKILL_LOAD_OK
+exit: 0
+stderr: empty
+agent_message: ACTIVEGRAPH_SKILL_LOAD_OK
+```
+
+LaunchAgent bridge smoke:
+
+```text
+hash: T5D_LAUNCHD_SKILL_CLEAN_20260522T225528Z
+message_id: 3ab3837b-b392-487f-bee2-5242010f64e9
+trigger_id: bfd41334-d5b5-4f3b-a12a-08c2fe769517
+message_created_at: 2026-05-22T22:55:28.356739+00:00
+trigger_claimed_at: 2026-05-22T22:55:29.290074+00:00
+trigger_completed_at: 2026-05-22T22:55:41.7926+00:00
+
+ack_count: 1
+ack_message_id: 069f1e8b-e9fc-48ab-920a-469b7765b48c
+ack_created_at: 2026-05-22T22:55:41.68665+00:00
+ack: MAYA_T5D_SKILL_CLEAN_ACK T5D_LAUNCHD_SKILL_CLEAN_20260522T225528Z evidence=skill-load-clean
+
+reverse_trigger_id: 976ef561-f7f4-43be-9f72-decdd2277c59
+reverse_trigger_claimed_at: 2026-05-22T22:55:42.996684+00:00
+reverse_trigger_completed_at: 2026-05-22T22:55:43.088062+00:00
+```
+
+Bridge log excerpt:
+
+```text
+checked_at: 2026-05-22T22:55:41.770Z
+status: completed
+persisted_message: 069f1e8b-e9fc-48ab-920a-469b7765b48c
+stderr_tail: ""
+
+checked_at: 2026-05-22T22:55:43.065Z
+status: completed_terminal
+trigger: 976ef561-f7f4-43be-9f72-decdd2277c59
+completed_at: 2026-05-22T22:55:43.088062+00:00
+```
+
+Result:
+
+- Local activegraph skill files now load without Codex startup errors.
+- Fresh bridged Pentagon target-agent turn completed with empty stderr_tail.
+- Reverse terminal trigger still completed without ping-pong.

@@ -57,6 +57,12 @@ live_checks:
   t5d_launchd_bridge_clean_ack_message_id: 156c3045-ff60-43df-a808-5f80cbea2926
   t5d_launchd_bridge_clean_ack_count: 1
   t5d_launchd_bridge_clean_reverse_trigger_completed: true
+  t5d_skill_load_frontmatter_repaired: true
+  t5d_skill_load_smoke_exit: 0
+  t5d_skill_load_smoke_stderr: empty
+  t5d_launchd_skill_clean_hash: T5D_LAUNCHD_SKILL_CLEAN_20260522T225528Z
+  t5d_launchd_skill_clean_ack_message_id: 069f1e8b-e9fc-48ab-920a-469b7765b48c
+  t5d_launchd_skill_clean_stderr_tail: empty
   live_heartbeat_spawned_codex_workers: true
   mapped_mcp_worker_models: gpt-5.5
 
@@ -86,6 +92,7 @@ current_evidence:
   - frames/t5d-bridge-sequential-gauntlet-2026-05-22.log records a supervised bridge loop processing fresh easy, medium, hard, and extra-hard Theo-to-Maya triggers. Each target trigger was claimed within about 1 second, persisted a visible Maya ACK, and completed inside about 17 seconds.
   - launchagents/run.pentagon.trigger-bridge.plist installs the bridge as run.pentagon.trigger-bridge with KeepAlive and RunAtLoad. launchctl readback showed state=running, program=/opt/homebrew/bin/node, pid=72003, runs=4.
   - frames/t5d-launchd-bridge-proof-2026-05-22.log records a clean LaunchAgent proof: hash T5D_LAUNCHD_BRIDGE_CLEAN_20260522T224946Z, Maya trigger 456fbf43-ad74-4850-ae42-abd1aeedbe93 claimed in about 0.6s, visible ACK 156c3045-ff60-43df-a808-5f80cbea2926, trigger completed in about 8.8s, exactly one ACK row, and reverse terminal trigger 3aa8dc2d-7755-416c-aa3d-d1ebb2c55679 completed.
+  - frames/t5d-skill-load-clean-proof-2026-05-22.log records the local activegraph skill frontmatter repair, direct Codex skill-load smoke with empty stderr, and a fresh LaunchAgent bridge proof T5D_LAUNCHD_SKILL_CLEAN_20260522T225528Z whose bridge result had stderr_tail empty.
 
 verdict: operational-via-persistent-bridge
 reason: >
@@ -102,7 +109,9 @@ reason: >
   and extra-hard diagnostic task classes. It is now installed and live as a
   persistent macOS LaunchAgent and has a clean launchd-backed proof with exactly
   one visible Maya ACK, duplicate-persist guard coverage, and terminal reverse
-  trigger completion. It is still not a native Pentagon app poller repair.
+  trigger completion. A follow-up proof shows the bridged Codex child now loads
+  activegraph skills without startup stderr noise. It is still not a native
+  Pentagon app poller repair.
   The public MCP wrapper also still lacks an explicit target-agent trigger_turn
   or routed scheduled-action primitive with schema/readback, so native product
   repair remains open even though the workspace autonomy bridge is operational.
