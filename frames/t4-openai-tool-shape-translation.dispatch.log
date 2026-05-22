@@ -36,3 +36,34 @@ Expected artifacts:
 Theo must not write tests until all four amendments are committed and Sasha has challenged D-1/D-3.
 Maya must not implement until failing tests are committed.
 
+## Dispatch — Sofia (Spec Owner)
+
+- Conversation: `f70ae7bc-a971-47c6-b84e-851f85381edc`
+- Message id: `61573cef-c205-48b9-afd7-2a1bcd7ee4bb`
+- Timestamp: `2026-05-22T15:42:04.250535+00:00`
+- Frame: `outer:c4b451f`
+- Assignment:
+  - D-1 provider-aware tool-shape boundary.
+  - D-2 OpenAI `tool_calls` extraction path.
+  - D-3 parity fixture strategy across Anthropic/OpenAI event sequences.
+  - D-4 reason taxonomy alignment.
+- Required proof: commit each amendment in inner (`gagan114662/activegraph`) and paste `inner:<hash>` plus literal `git log --oneline -4`.
+- Bottleneck requirement: include `bottleneck.detected` entries for B-1 missing tool parity, B-2 provider-shape drift, B-3 parity-fixture gaps, and B-4 reason-taxonomy mismatch before closure.
+- Evidence owner: Riley.
+
+## Dispatch — Sasha (Spec Skeptic)
+
+- Conversation: `372960f4-c1ff-414a-b2d8-7cf52a6e945e`
+- Message id: `5e3993ab-c884-4944-af67-ac5d5ee85fac`
+- Timestamp: `2026-05-22T15:42:04.774773+00:00`
+- Assignment: challenge Sofia's D-1 provider-shape boundary and D-3 parity fixture strategy before tests start.
+- Required proof: file-backed challenge artifacts; no chat-only signoff.
+- Bottleneck requirement: provider-shape drift, parity-fixture gaps, and reason-taxonomy mismatch become `bottleneck.detected` entries with evidence and prevention action.
+
+## Dispatch — Theo (Test Owner)
+
+- Conversation: `7a161ea9-4613-46b9-96ff-0fb2b5345a5f`
+- Message id: `391457de-93cd-419a-800e-ef83cd16989e`
+- Timestamp: `2026-05-22T15:42:05.273079+00:00`
+- Assignment: hold tests until Sofia commits D-1..D-4 and Sasha challenges D-1/D-3 with file-backed evidence.
+- Unblock condition: Atlas supplies the four `inner:<hash>` amendments plus Sasha challenge artifact paths.
