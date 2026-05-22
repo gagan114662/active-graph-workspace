@@ -17,6 +17,7 @@ evidence:
 ```
 
 Every repeated bottleneck must become a gate, skill update, or purpose-doc rule.
+Before a Pentagon-autonomous gauntlet frame starts or reopens, frames/flywheel-readiness.status must be green.
 
 Standing gates from the 2026-05-22 gauntlet audit:
 
@@ -34,3 +35,7 @@ Standing gates from the 2026-05-22 gauntlet audit:
   observed.
 - Active count 0 on open frame -> Avery or Riley must reactivate the owner or
   log a routing bottleneck.
+- Evidence split or untracked proof -> Riley must update frames/evidence-index-2026-05-22.md and commit, retire, or supersede the artifact before it can be used as proof.
+- Legacy/current name drift -> resolve the owner through agent-os/AGENT_IDENTITY_MAP.md before assigning accountability.
+- Missing interpreter proof -> agent cannot own code, tests, review, gates, or closure until it logs INTERPRETER_OK or INTERPRETER_BLOCKED.
+- Repeated bottleneck without a gate, skill update, Purpose rule, or frame predicate -> keep frames/flywheel-readiness.status red.

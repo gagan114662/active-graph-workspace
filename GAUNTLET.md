@@ -23,6 +23,11 @@ Five sequential tasks dispatched by gagan via the assistant. The assistant is th
   only after it is committed or copied into frame logs.
 - **Skill-backed work.** Core agents use the runbooks in `agent-os/skills/`.
   Missing or skipped skill usage is itself a `bottleneck.detected` event.
+- **Flywheel readiness.** A frame cannot be reopened as Pentagon-autonomous
+  while `frames/flywheel-readiness.status` is red. The readiness gate must
+  prove evidence indexing, clean proof status, Purpose coverage, interpreter
+  proof, model audit, and activation protocol before the next handoff frame
+  begins.
 
 ---
 

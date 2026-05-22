@@ -1,4 +1,4 @@
-status: repair_blocked_on_pentagon_handoff_activation
+status: repair_blocked_on_flywheel_readiness_and_handoff_activation
 evaluated: 2026-05-22
 outer_base_head: a635b90
 inner_base_head: 4604f0e
@@ -38,4 +38,8 @@ not_allowed_as_success:
   - DM sent without recipient activation
   - Codex fallback implementation
   - untracked local files as proof
-next_frame: t5-pentagon-handoff-activation-smoke reactivation
+flywheel_gate:
+  status: red
+  artifact: frames/flywheel-readiness.status
+  reason: evidence indexing and bottleneck conversion are now explicit, but Purpose coverage, interpreter proof, and Maya activation are still unproven.
+next_frame: t5-pentagon-handoff-activation-smoke reactivation only after flywheel-readiness.status is green

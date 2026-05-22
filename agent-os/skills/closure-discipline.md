@@ -22,4 +22,6 @@ No closure if:
 - any predicate is implied instead of verified
 - uncommitted work exists in frame scope
 - active bottlenecks lack prevention action
-
+- frames/evidence-index-2026-05-22.md has unresolved source-of-truth conflicts for the frame
+- frames/flywheel-readiness.status is red and the frame claims Pentagon-autonomous execution
+- a sender DM is the only proof of recipient activation

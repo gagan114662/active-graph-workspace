@@ -1,0 +1,41 @@
+status: red
+evaluated_utc: 2026-05-22T17:20:00Z
+owner: Riley / Evidence Lead
+scope: Pentagon autonomy flywheel readiness before reopening T5
+
+default_model: gpt-5.5
+evidence_index: frames/evidence-index-2026-05-22.md
+bottleneck_gate_map: frames/flywheel-bottleneck-gate-map.md
+identity_map: agent-os/AGENT_IDENTITY_MAP.md
+
+checks:
+  evidence_index_clean: amber
+  evidence_index_note: current index created; must be rechecked after commit/push and clean git status
+  no_untracked_proof: red
+  no_untracked_proof_note: outer proof-like files are being committed; inner activegraph/GAUNTLET.md remains untracked and cannot be used as proof
+  purpose_coverage_current: red
+  purpose_coverage_note: prior audit showed partial/report-only coverage and unconfirmed specialists; every active core Purpose still needs current proof
+  model_audit_current: amber
+  model_audit_note: macOS default reads gpt-5.5 and historical audit says live map models were gpt-5.5, but audit still includes legacy identities and must be refreshed after identity normalization
+  interpreter_proof_current: red
+  interpreter_proof_note: Theo has T5 interpreter proof; all other active core owners still need INTERPRETER_OK lines
+  capability_gate_current: red
+  capability_gate_note: Forge/Nova/Spec Owner silence and suspected shell-tool gaps remain unresolved unless current agents produce literal command evidence
+  activation_protocol_tested: red
+  activation_protocol_note: T4 and T5 show message delivery without Code Owner activation; Maya activation remains unproven
+  t2_partial_debt_tracked: green
+  t1b_accounted: green
+  v0_1_accounted: green
+  t4_adversary_accounted: green
+  t5_red_state_preserved: green
+
+required_before_t5_reopen:
+  - commit and push all proof/control artifacts
+  - refresh model audit with current names only or explicitly mark legacy agents retired
+  - patch every active core Purpose with inbound/outbound rules, evidence output, stop conditions, skills, groups, and escalation
+  - record INTERPRETER_OK or INTERPRETER_BLOCKED for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, and Grace
+  - prove watcher activation protocol with a visible recipient turn, process/log evidence, commit, or literal INTERPRETER_BLOCKED line
+  - keep T5 red test red until Maya activates
+
+verdict: do_not_reopen_t5_yet
+reason: repo evidence is now being normalized, but Pentagon runtime activation and per-agent capability are still unproven

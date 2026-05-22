@@ -173,3 +173,34 @@ evidence:
   - "2026-05-22T17:02:32Z inner head remained ab05ed0; no later Maya implementation commit."
   - "Pentagon UI/state showed 0 active after Theo handoff."
   - "No Codex implementation fallback was used for T5."
+
+## bottleneck.detected - Gauntlet accounting skipped T1b frame status
+
+frame: gauntlet-accounting
+complexity: easy-medium
+source: GAUNTLET.md, frame artifact search, current relations test output
+symptom: GAUNTLET.md names T1b graph.relations as easy-medium, but no T1b
+  frame/evaluation/review/status artifacts were found. Current inner relations
+  tests pass, so the product surface is pre-satisfied, not a Pentagon frame
+  proof.
+owner: Riley (Evidence Lead)
+feedback_action: Created frames/evidence-index-2026-05-22.md and classified
+  T1b as pre_satisfied_without_frame.
+evidence:
+  - "Current test: ../venv/bin/pytest -q tests/test_graph.py -k relations -> 10 passed, 11 deselected in 0.01s"
+  - frames/evidence-index-2026-05-22.md
+
+## bottleneck.detected - Flywheel rules existed as text, not readiness enforcement
+
+frame: pentagon-reliability-repair
+complexity: system
+source: bottleneck-feedback.log, T5 status, Purpose/interpreter coverage
+symptom: Repeated bottlenecks were required to become gates or Purpose rules,
+  but T5 started while Purpose coverage, interpreter proof, and activation
+  protocol were still incomplete.
+owner: Avery (Frame Architect) + Riley (Evidence Lead) + Grace (Gate Sentinel)
+feedback_action: Created frames/flywheel-readiness.status and
+  frames/flywheel-bottleneck-gate-map.md.
+evidence:
+  - frames/flywheel-readiness.status
+  - frames/flywheel-bottleneck-gate-map.md
