@@ -1,0 +1,58 @@
+# T5d direct queue probe - 2026-05-22
+
+Purpose: measure whether Pentagon claims a fresh Maya target trigger inside the
+watchdog window when the internal trigger row exists. This is not a public MCP
+proof; it is a direct internal-queue diagnostic.
+
+## Probe setup
+
+```text
+conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+sender_id: 1343cc84-5a06-44b7-88f7-f2c3e82d7e1c (Theo)
+target_agent_id: 7b8c44b7-ddeb-4a35-87e4-2ae502fe9001 (Maya)
+hash: T5D_DIRECT_QUEUE_PROBE_20260522T222533Z
+```
+
+The probe inserted a transparent diagnostic message into the Theo-Maya
+conversation. Pentagon automatically created the target trigger; no manual
+trigger row insert was needed.
+
+```text
+message_id: eb29473d-b61d-4954-a9d3-94d9a35cffd2
+message_created_at: 2026-05-22T22:25:33.966857+00:00
+trigger_id: 59d84468-a2f0-453c-b43b-6ff7de1e459d
+trigger_created_at: 2026-05-22T22:25:33.966857+00:00
+trigger_inserted_by_probe: false
+```
+
+## Watch result
+
+The watch queried `agent_triggers` and `messages` for about 110 seconds after
+the trigger was observed.
+
+```text
+trigger.claimed_at: null
+trigger.completed_at: null
+maya_ack: null
+last_observation_elapsed_ms: 110471
+```
+
+No matching local log lines appeared for:
+
+```text
+T5D_DIRECT_QUEUE_PROBE_20260522T222533Z
+59D84468-A2F0-453C-B43B-6FF7DE1E459D
+executeAgentTurn START for Maya after 2026-05-22T22:25:33Z
+```
+
+## Evidence interpretation
+
+This narrows the remaining activation blocker:
+
+- message insertion creates the correct target `agent_triggers` row
+  immediately;
+- the row is not claimed by the app inside a 110 second observation window;
+- therefore the current red condition is trigger poller/catch-up latency or
+  routing, not message-to-trigger creation;
+- this reinforces that full autonomy cannot be claimed until target triggers
+  are claimed and produce visible output inside the declared watchdog window.

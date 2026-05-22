@@ -31,6 +31,12 @@ live_checks:
   t5d_message_to_trigger_claim_seconds: 337
   t5d_message_to_ack_seconds: 370
   t5d_trigger_claim_to_ack_seconds: 33
+  t5d_direct_queue_probe_hash: T5D_DIRECT_QUEUE_PROBE_20260522T222533Z
+  t5d_direct_queue_probe_message_id: eb29473d-b61d-4954-a9d3-94d9a35cffd2
+  t5d_direct_queue_probe_trigger_id: 59d84468-a2f0-453c-b43b-6ff7de1e459d
+  t5d_direct_queue_probe_trigger_auto_created: true
+  t5d_direct_queue_probe_trigger_claimed_after_110s: false
+  t5d_direct_queue_probe_maya_ack_after_110s: false
   live_heartbeat_spawned_codex_workers: true
   mapped_mcp_worker_models: gpt-5.5
 
@@ -49,6 +55,8 @@ current_evidence:
   - Local Pentagon debug logs corroborate executeAgentTurn START for Maya in conversation 0D996A94-45A6-4EF6-B8BD-45BC3F84D7E1 at 2026-05-22T22:11:46Z.
   - Maya's ACK arrived at 2026-05-22T22:12:19Z: MAYA_T5D_ACK T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z pwd=/Users/gaganarora/Desktop/my projects/active_graph HEAD=2e79a56.
   - frames/t5d-internal-trigger-queue-readback-2026-05-22.log records the table/log evidence and reclassifies the blocker from no target execution to unbounded/internal-only target activation.
+  - A fresh direct internal-queue diagnostic at 2026-05-22T22:25:33Z inserted a transparent Theo-to-Maya message. Pentagon automatically created target trigger 59d84468-a2f0-453c-b43b-6ff7de1e459d immediately, but the trigger remained unclaimed and Maya produced no ACK after a 110 second watch.
+  - frames/t5d-direct-queue-probe-2026-05-22.log records this negative bounded probe and narrows the remaining failure to trigger poller/catch-up latency or routing, not message-to-trigger creation.
 
 verdict: blocked
 reason: >
@@ -58,6 +66,8 @@ reason: >
   earlier "no target execution" reading. The objective is still not complete
   because the target trigger was claimed about 5m37s after message creation and
   ACKed about 6m10s after message creation, outside the declared 90s watchdog
-  window. The public MCP wrapper also still lacks an explicit target-agent
-  trigger_turn or routed scheduled-action primitive with schema/readback, so
-  bounded easy/medium/hard/extra-hard autonomy remains unproven.
+  window. A fresh direct internal-queue probe proved trigger rows are created
+  immediately, but the new Maya trigger was still unclaimed after 110 seconds.
+  The public MCP wrapper also still lacks an explicit target-agent trigger_turn
+  or routed scheduled-action primitive with schema/readback, so bounded
+  easy/medium/hard/extra-hard autonomy remains unproven.

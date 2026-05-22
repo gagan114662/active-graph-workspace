@@ -485,3 +485,28 @@ evidence:
   - frames/t5d-internal-trigger-queue-readback-2026-05-22.log
   - frames/t5d-target-agent-turn-activation-primitive.status
   - frames/autonomy-completion-audit-2026-05-22.md
+
+## bottleneck.detected - fresh target trigger stayed unclaimed
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: Direct internal-queue diagnostic with Supabase REST readback and local
+  Pentagon debug log grep
+symptom: A fresh transparent Theo-to-Maya diagnostic message created message
+  eb29473d-b61d-4954-a9d3-94d9a35cffd2 at 2026-05-22T22:25:33Z. Pentagon
+  automatically created Maya target trigger 59d84468-a2f0-453c-b43b-6ff7de1e459d
+  at the same timestamp, without a manual trigger insert. After a 110 second
+  watch, the trigger still had claimed_at null and completed_at null, and no
+  Maya ACK/BLOCKED message existed for T5D_DIRECT_QUEUE_PROBE_20260522T222533Z.
+owner: Pentagon trigger poller / catch-up loop
+feedback_action: Focus the next implementation fix on making pending
+  agent_triggers claim promptly while the app is running, or exposing a public
+  trigger_turn path that claims the target trigger synchronously with readback.
+durable_conversion:
+  - Gate: any future "bounded handoff" claim must include a fresh trigger id
+    that transitions created -> claimed -> completed inside the watchdog
+    window, plus a target message id.
+evidence:
+  - frames/t5d-direct-queue-probe-2026-05-22.log
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md
