@@ -40,7 +40,7 @@ through the live Pentagon UI. Evidence visible in the target DM:
 | Sofia | `PURPOSE_PATCHED Sofia` |
 | Sasha | `PURPOSE_PATCHED Sasha`; `Evidence from read_document: sections present: Role, Inbound Handoff, Outbound Handoff, Groups, Required Skills, Stop Conditions, Evidence Outputs, Escalation Path, Interpreter-Backed Work Rule.` |
 | Theo | `PURPOSE_PATCHED Theo` |
-| Maya | `PURPOSE_PATCHED Maya` |
+| Maya | `PURPOSE_PATCHED Maya`; `read_document evidence sections present: Role, Inbound Handoff, Outbound Handoff, Groups, Required Skills, Stop Conditions, Evidence Outputs, Escalation Path, Interpreter-Backed Work Rule.` |
 | Quinn | `PURPOSE_PATCHED Quinn` |
 | Rowan | `PURPOSE_PATCHED Rowan` |
 | Priya | Claude CLI MCP `read_document(purpose)` returned all required sections after caller-scoped patching. |

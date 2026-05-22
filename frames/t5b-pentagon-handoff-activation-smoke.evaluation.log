@@ -100,3 +100,245 @@ tests/test_llm_openai.py
 - Rowan review log: GREEN, `frames/t5b-pentagon-handoff-activation-smoke.review.log`.
 - Grace gate log: GREEN, `frames/t5b-pentagon-handoff-activation-smoke.gates.log`.
 - Fully automatic handoff: RED as a claim; closure is watchdog-assisted.
+
+---
+
+# Goal Reaper re-evaluation after Rowan review.clean
+
+evaluated_utc: 2026-05-22T18:49:00Z
+outer_repo: /Users/gaganarora/Desktop/my projects/active_graph
+inner_repo: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+outer_head: 6e188e6
+inner_head: ccd4f45
+review_signal: review.clean for T5b inner ccd4f45, evidence at outer cb9ed2c
+verdict: goal.incomplete
+
+## Decision
+
+Rowan review evidence is GREEN. T5b still does not satisfy the frame's
+declared autonomous closure target because the status is
+`closed_watchdog_assisted`, not `closed_pentagon_autonomous`, and the recorded
+handoff state explicitly says `autonomous_closure: false`.
+
+## Predicate results
+
+| Predicate | Expected | Actual | Result |
+| --- | --- | --- | --- |
+| core_agents_have_purpose_patched_evidence | all core agents patched | `PURPOSE_PATCHED` evidence exists for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Riley, Grace | GREEN |
+| core_agents_have_interpreter_ok_evidence | all core agents have interpreter proof | `INTERPRETER_OK` evidence exists for Maya, Avery, Sofia, Sasha, Theo, Grace, Quinn, Priya, Rowan, Riley | GREEN |
+| pentagon_default_model_is_gpt_5_5 | `gpt-5.5` | logs record `defaults read ... -> gpt-5.5` and live UI `Default model ... gpt-5.5` | GREEN |
+| t5b_red_predicate_is_new_and_current | red commit after `fce0cab` | `8d3ff89` descends from `fce0cab` and changes only `tests/test_llm_openai.py` | GREEN |
+| theo_commits_only_tests_first | first T5b commit tests-only | `8d3ff89` changes only `tests/test_llm_openai.py` | GREEN |
+| theo_records_failing_command_output | failing red command output recorded | no literal failing red-command output found in T5b dispatch/status/evaluation/review logs | RED |
+| theo_handoff_records_sender_artifact_hash | sender artifact hash recorded | no sender artifact hash found in T5b dispatch/status/evaluation/review logs | RED |
+| maya_activation_proof_after_handoff | Maya visible activation after handoff | `INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89`; watchdog-assisted | GREEN-WATCHDOG |
+| maya_commits_implementation_after_activation | implementation after red/activation | `ccd4f45` descends from `8d3ff89`; commit timestamp after red commit | GREEN |
+| no_codex_fallback_implementation | false fallback flag | `codex_implementation_fallback_used: false` | GREEN |
+| quinn_adversary_log_exists | file exists | `frames/t5b-pentagon-handoff-activation-smoke.adversary.log` exists | GREEN |
+| rowan_review_log_exists | file exists | `frames/t5b-pentagon-handoff-activation-smoke.review.log` exists | GREEN |
+| grace_gate_log_exists | file exists | `frames/t5b-pentagon-handoff-activation-smoke.gates.log` exists | GREEN |
+| priya_evaluation_log_exists | file exists | `frames/t5b-pentagon-handoff-activation-smoke.evaluation.log` exists | GREEN |
+| t5b_status_is_closed_pentagon_autonomous | `closed_pentagon_autonomous` | `closed_watchdog_assisted`; `autonomous_closure: false` | RED |
+| riley_bottleneck_ledger_records_handoff_fixed_or_exact_remaining_failure | ledger records fixed or exact remaining failure | `bottleneck.fixed - T5b Theo-to-Maya handoff activation smoke closed`; also records watchdog-assisted activation | GREEN |
+| targeted_and_relevant_local_verification_passes | targeted/relevant local gates pass | pytest 19 passed, mypy clean, docstring gate OK | GREEN |
+
+## Literal command output
+
+Command:
+
+```text
+git -C activegraph status --short && git -C activegraph rev-parse --short HEAD && git -C activegraph log --oneline -6
+```
+
+Output:
+
+```text
+?? GAUNTLET.md
+ccd4f45
+ccd4f45 Frame t5b impl: handle mapping OpenAI responses
+8d3ff89 Frame t5b test: OpenAI mapping response text
+fce0cab Frame t4 fix OpenAI tool argument normalization
+ab05ed0 Frame t5 test: OpenAI tool call token estimate
+4604f0e Frame t4 docs: close OpenAI tool parity contract
+612ac0a Frame t4: implement OpenAI tool translation\n\nCo-authored-by: Codex <noreply@openai.com>
+```
+
+Command:
+
+```text
+rg -n "PURPOSE_PATCHED|Purpose|INTERPRETER_OK|default.*gpt|gpt-5|gpt_5|model" frames/pentagon-purpose-repair-2026-05-22.log frames/pentagon-live-ui-verification-2026-05-22.log frames/pentagon-model-refresh-2026-05-22.log frames/t5b-pentagon-handoff-activation-smoke.dispatch.log
+```
+
+Output:
+
+```text
+frames/pentagon-purpose-repair-2026-05-22.log:1:# Pentagon Purpose Repair - 2026-05-22
+frames/pentagon-purpose-repair-2026-05-22.log:10:Priya's own Purpose only. It cannot patch arbitrary peer agent Purposes by
+frames/pentagon-purpose-repair-2026-05-22.log:14:Cross-agent Purpose repair requires either exact-DM live activation of the
+frames/pentagon-purpose-repair-2026-05-22.log:25:0/9 PURPOSE_PATCHED, 0/9 PURPOSE_BLOCKED, 9/9 SILENT
+frames/pentagon-purpose-repair-2026-05-22.log:39:| Avery | `PURPOSE_PATCHED Avery` |
+frames/pentagon-purpose-repair-2026-05-22.log:40:| Sofia | `PURPOSE_PATCHED Sofia` |
+frames/pentagon-purpose-repair-2026-05-22.log:41:| Sasha | `PURPOSE_PATCHED Sasha`; `Evidence from read_document: sections present: Role, Inbound Handoff, Outbound Handoff, Groups, Required Skills, Stop Conditions, Evidence Outputs, Escalation Path, Interpreter-Backed Work Rule.` |
+frames/pentagon-purpose-repair-2026-05-22.log:42:| Theo | `PURPOSE_PATCHED Theo` |
+frames/pentagon-purpose-repair-2026-05-22.log:43:| Maya | `PURPOSE_PATCHED Maya` |
+frames/pentagon-purpose-repair-2026-05-22.log:44:| Quinn | `PURPOSE_PATCHED Quinn` |
+frames/pentagon-purpose-repair-2026-05-22.log:45:| Rowan | `PURPOSE_PATCHED Rowan` |
+frames/pentagon-purpose-repair-2026-05-22.log:47:| Riley | `PURPOSE_PATCHED Riley`; `read_document evidence:` visible in DM. |
+frames/pentagon-purpose-repair-2026-05-22.log:48:| Grace | `PURPOSE_PATCHED Grace`; `read_document evidence: sections present — Role, Inbound Handoff, Outbound Handoff, Groups, Required Skills, Stop Conditions, Evidence Outputs, Escalation Path, Interpreter-Backed Work Rule.` |
+frames/pentagon-purpose-repair-2026-05-22.log:52:Before exact-DM verification, coordinate-based clicks landed some Purpose
+frames/pentagon-purpose-repair-2026-05-22.log:60:not counted as target Purpose proof. Exact search plus selected-header
+frames/pentagon-purpose-repair-2026-05-22.log:65:Purpose coverage is repaired for the core team, but T5 autonomy is not closed
+frames/pentagon-model-refresh-2026-05-22.log:1:# Pentagon model refresh - 2026-05-22
+frames/pentagon-model-refresh-2026-05-22.log:3:## Default model
+frames/pentagon-model-refresh-2026-05-22.log:11:- defaults write run.pentagon.app pentagon.defaultModel -string gpt-5.5
+frames/pentagon-model-refresh-2026-05-22.log:15:- defaults read run.pentagon.app pentagon.defaultModel -> gpt-5.5
+frames/pentagon-model-refresh-2026-05-22.log:17:## Per-agent model verification
+frames/pentagon-model-refresh-2026-05-22.log:20:agents with model gpt-5.5 after live patch, but that file was not committed
+frames/pentagon-model-refresh-2026-05-22.log:21:as source-of-truth evidence. This refresh therefore treats per-agent model
+frames/pentagon-model-refresh-2026-05-22.log:28:  must be verified as gpt-5.5.
+frames/pentagon-model-refresh-2026-05-22.log:30:  Simone must be verified as gpt-5.5 or marked on-demand inactive.
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:12:- Core Purpose proof: frames/pentagon-purpose-repair-2026-05-22.log
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:25:maya_activation_after_watchdog: INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89
+frames/pentagon-live-ui-verification-2026-05-22.log:11:- Default model from macOS defaults: gpt-5.5
+frames/pentagon-live-ui-verification-2026-05-22.log:38:INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 1559508
+frames/pentagon-live-ui-verification-2026-05-22.log:62:INTERPRETER_OK Avery /Users/gaganarora/Desktop/my projects/active_graph outer: 1559508 inner: fce0cab
+frames/pentagon-live-ui-verification-2026-05-22.log:90:INTERPRETER_OK Sofia /Users/gaganarora/Desktop/my projects/active_graph 1559508
+frames/pentagon-live-ui-verification-2026-05-22.log:104:INTERPRETER_OK Sasha /Users/gaganarora/Desktop/my projects/active_graph 1559508
+frames/pentagon-live-ui-verification-2026-05-22.log:105:INTERPRETER_OK Theo /Users/gaganarora/Desktop/my projects/active_graph 1559508
+frames/pentagon-live-ui-verification-2026-05-22.log:106:INTERPRETER_OK Grace /Users/gaganarora/Desktop/my projects/active_graph 1559508
+frames/pentagon-live-ui-verification-2026-05-22.log:107:INTERPRETER_OK Quinn /Users/gaganarora/Desktop/my projects/active_graph 1559508
+frames/pentagon-live-ui-verification-2026-05-22.log:108:INTERPRETER_OK Priya /Users/gaganarora/Desktop/my projects/active_graph 1559508
+frames/pentagon-live-ui-verification-2026-05-22.log:109:INTERPRETER_OK Rowan /Users/gaganarora/Desktop/my projects/active_graph 1559508
+frames/pentagon-live-ui-verification-2026-05-22.log:110:INTERPRETER_OK Riley /Users/gaganarora/Desktop/my projects/active_graph 1559508
+```
+
+Command:
+
+```text
+rg -n "fail|FAILED|AssertionError|failing|sender|artifact|hash|handoff|INTERPRETER_OK|Codex|fallback|watchdog|autonomous" frames/t5b-pentagon-handoff-activation-smoke.dispatch.log frames/t5b-pentagon-handoff-activation-smoke.status frames/t5b-pentagon-handoff-activation-smoke.evaluation.log frames/t5b-pentagon-handoff-activation-smoke.review.log
+```
+
+Output:
+
+```text
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:13:- Original T5 invalidation: frames/t5-pentagon-handoff-activation-smoke.status
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:17:Theo must choose the new red predicate. Codex must not implement the fix.
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:22:handoff_state: closed_watchdog_assisted
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:23:autonomous_closure: false
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:25:maya_activation_after_watchdog: INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:47:T5b is closed as watchdog-assisted. Maya activation proof exists, but the
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:48:activation was obtained after watchdog intervention, so this is not a fully
+frames/t5b-pentagon-handoff-activation-smoke.dispatch.log:49:automatic Theo-to-Maya handoff closure.
+frames/t5b-pentagon-handoff-activation-smoke.status:1:status: closed_watchdog_assisted
+frames/t5b-pentagon-handoff-activation-smoke.status:5:codex_implementation_fallback_used: false
+frames/t5b-pentagon-handoff-activation-smoke.status:6:watchdog_assisted: true
+frames/t5b-pentagon-handoff-activation-smoke.status:7:autonomous_closure: false
+frames/t5b-pentagon-handoff-activation-smoke.status:13:  activation_proof_after_handoff: "INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89"
+frames/t5b-pentagon-handoff-activation-smoke.status:31:  closure_result: closed_watchdog_assisted
+frames/t5b-pentagon-handoff-activation-smoke.status:32:supporting_artifacts:
+frames/t5b-pentagon-handoff-activation-smoke.status:33:  - frames/t5b-pentagon-handoff-activation-smoke.dispatch.log
+frames/t5b-pentagon-handoff-activation-smoke.status:34:  - frames/t5b-pentagon-handoff-activation-smoke.gates.log
+frames/t5b-pentagon-handoff-activation-smoke.status:35:  - frames/t5b-pentagon-handoff-activation-smoke.adversary.log
+frames/t5b-pentagon-handoff-activation-smoke.status:36:remaining_failure: none_recorded
+frames/t5b-pentagon-handoff-activation-smoke.status:37:autonomy_note: "Maya activation was proven after watchdog intervention; do not claim fully automatic handoff."
+frames/t5b-pentagon-handoff-activation-smoke.review.log:23:- frames/t5b-pentagon-handoff-activation-smoke.*:rw
+```
+
+Command:
+
+```text
+git -C activegraph show --name-status --format=fuller --no-renames 8d3ff89 && git -C activegraph diff --name-only fce0cab..8d3ff89 && git -C activegraph merge-base --is-ancestor fce0cab 8d3ff89; printf 'ancestor_exit=%s\n' $?
+```
+
+Output:
+
+```text
+commit 8d3ff89e66d38832e83b70bf8830fc900bbdc67c
+Author:     gagan114662 <gagan@designgaga.ca>
+AuthorDate: Fri May 22 14:23:32 2026 -0400
+Commit:     gagan114662 <gagan@designgaga.ca>
+CommitDate: Fri May 22 14:23:32 2026 -0400
+
+    Frame t5b test: OpenAI mapping response text
+
+M	tests/test_llm_openai.py
+tests/test_llm_openai.py
+ancestor_exit=0
+```
+
+Command:
+
+```text
+git -C activegraph show --name-status --format=fuller --no-renames ccd4f45 && git -C activegraph merge-base --is-ancestor 8d3ff89 ccd4f45; printf 'ancestor_exit=%s\n' $?
+```
+
+Output:
+
+```text
+commit ccd4f45fef7e8171dd3a7a089b38b1facc517efb
+Author:     gagan114662 <gagan@designgaga.ca>
+AuthorDate: Fri May 22 14:27:44 2026 -0400
+Commit:     gagan114662 <gagan@designgaga.ca>
+CommitDate: Fri May 22 14:27:44 2026 -0400
+
+    Frame t5b impl: handle mapping OpenAI responses
+
+M	activegraph/llm/openai.py
+ancestor_exit=0
+```
+
+Command:
+
+```text
+../venv/bin/python -m pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py
+```
+
+Output:
+
+```text
+...................                                                      [100%]
+19 passed in 1.38s
+```
+
+Command:
+
+```text
+../venv/bin/python -m mypy
+```
+
+Output:
+
+```text
+Success: no issues found in 23 source files
+```
+
+Command:
+
+```text
+../venv/bin/python scripts/gate_docstrings.py
+```
+
+Output:
+
+```text
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+```
+
+Command:
+
+```text
+test -f frames/t5b-pentagon-handoff-activation-smoke.adversary.log; printf 'adversary_exists=%s\n' $?; test -f frames/t5b-pentagon-handoff-activation-smoke.review.log; printf 'review_exists=%s\n' $?; test -f frames/t5b-pentagon-handoff-activation-smoke.gates.log; printf 'gates_exists=%s\n' $?; test -f frames/t5b-pentagon-handoff-activation-smoke.evaluation.log; printf 'evaluation_exists=%s\n' $?
+```
+
+Output:
+
+```text
+adversary_exists=0
+review_exists=0
+gates_exists=0
+evaluation_exists=0
+```
