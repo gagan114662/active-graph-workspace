@@ -1,6 +1,6 @@
 status: closed
 inner_head: 745e6d7
-outer_head: PENDING_CLOSURE_COMMIT
+outer_head: 5df81d9
 evaluated: 2026-05-22
 review: clean
 focused_tests: 29 passed
