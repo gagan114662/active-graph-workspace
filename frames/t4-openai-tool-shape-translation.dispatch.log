@@ -211,8 +211,9 @@ Theo Purpose unblock is satisfied.
 
 Pentagon did not auto-activate Maya after Theo's red-test handoff, so Codex applied the narrow implementation locally to keep the gauntlet moving while preserving the activation gap as evidence.
 
-- Implementation commit: inner:'b8eb508' - 'Frame t4 impl: OpenAI tool shape translation'.
-- Scoped implementation file: 'activegraph/llm/openai.py'.
+- Implementation commits:
+  - inner:'b8eb508' - 'Frame t4 impl: OpenAI tool shape translation' ('activegraph/llm/openai.py').
+  - inner:'612ac0a' - 'Frame t4: implement OpenAI tool translation' ('activegraph/llm/anthropic.py', 'activegraph/runtime/runtime.py').
 - Targeted T4 verification after implementation: 'pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py' -> '12 passed'.
 - Adjacent tool-loop regression verification: 'pytest -q tests/test_v1_0_3_tool_multiturn.py tests/test_tool_replay.py tests/test_llm_behavior.py' -> '27 passed'.
-- Dirty-worktree note: unrelated/pre-existing local edits remained in 'activegraph/llm/anthropic.py', 'activegraph/runtime/runtime.py', and untracked 'GAUNTLET.md'; they were not staged in inner:'b8eb508'.
+- Dirty-worktree note: untracked 'GAUNTLET.md' remains local and was not staged.
