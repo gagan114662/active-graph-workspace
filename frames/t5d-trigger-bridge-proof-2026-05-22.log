@@ -23,6 +23,18 @@ $ node scripts/pentagon-trigger-bridge.mjs --dry-run --limit 3
 status: ok
 processed: 3
 result statuses: would_process, would_process, would_process
+
+$ node scripts/pentagon-trigger-bridge.mjs --dry-run --limit 5 --max-age-seconds 60
+status: idle
+processed: 0
+```
+
+Safety controls:
+
+```text
+--max-age-seconds <n> filters pending triggers to recent rows only, so a loop
+can avoid draining stale historical triggers.
+--loop --interval-ms <n> keeps checking for fresh triggers at a fixed cadence.
 ```
 
 ## Fresh visible-message probe

@@ -86,9 +86,13 @@ async function mintAgentToken(agentId) {
 }
 
 async function pendingTriggers(limit) {
-  return request(
+  const rows = await request(
     `/rest/v1/agent_triggers?claimed_at=is.null&completed_at=is.null&select=id,conversation_id,agent_id,sender_id,message_id,content,created_at&order=created_at.asc&limit=${limit}`
   );
+  const maxAgeSeconds = Number(arg("--max-age-seconds", "0"));
+  if (!maxAgeSeconds) return rows;
+  const cutoff = Date.now() - maxAgeSeconds * 1000;
+  return rows.filter((row) => Date.parse(row.created_at) >= cutoff);
 }
 
 async function claimTrigger(triggerId) {
@@ -201,22 +205,16 @@ const state = {
 const triggerId = arg("--trigger-id");
 const limit = Number(arg("--limit", "1"));
 const dryRun = has("--dry-run");
+const loop = has("--loop");
+const intervalMs = Number(arg("--interval-ms", "5000"));
 
 if (!existsSync(PENTAGON_BIN)) {
   throw new Error("Pentagon.app is not installed at the expected path.");
 }
 
-const candidates = triggerId
-  ? await request(`/rest/v1/agent_triggers?id=eq.${triggerId}&select=id,conversation_id,agent_id,sender_id,message_id,content,created_at,claimed_at,completed_at`)
-  : await pendingTriggers(limit);
-
-if (!candidates.length) {
-  console.log(JSON.stringify({ status: "idle", processed: 0 }, null, 2));
-  process.exit(0);
-}
-
-const results = [];
-for (const candidate of candidates) {
+async function processCandidates(candidates) {
+  const results = [];
+  for (const candidate of candidates) {
   if (dryRun) {
     results.push({ status: "would_process", trigger: summarizeTrigger(candidate) });
     continue;
@@ -260,5 +258,36 @@ for (const candidate of candidates) {
     });
   }
 }
+  return results;
+}
 
-console.log(JSON.stringify({ status: "ok", processed: results.length, results }, null, 2));
+async function runOnce() {
+  const candidates = triggerId
+    ? await request(`/rest/v1/agent_triggers?id=eq.${triggerId}&select=id,conversation_id,agent_id,sender_id,message_id,content,created_at,claimed_at,completed_at`)
+    : await pendingTriggers(limit);
+
+  if (!candidates.length) {
+    return { status: "idle", processed: 0 };
+  }
+
+  const results = await processCandidates(candidates);
+  return { status: "ok", processed: results.length, results };
+}
+
+if (!loop) {
+  console.log(JSON.stringify(await runOnce(), null, 2));
+} else {
+  console.log(JSON.stringify({
+    status: "loop_started",
+    interval_ms: intervalMs,
+    limit,
+    max_age_seconds: Number(arg("--max-age-seconds", "0")),
+  }));
+  while (true) {
+    const result = await runOnce();
+    if (result.processed) {
+      console.log(JSON.stringify({ checked_at: new Date().toISOString(), ...result }, null, 2));
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
