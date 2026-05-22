@@ -1,0 +1,46 @@
+# t5b-pentagon-handoff-activation-smoke review log
+
+reviewer: Rowan / Code Reviewer
+verdict: review.clean
+reviewed_utc: 2026-05-22T18:31:00Z
+
+## Target
+
+- Frame: t5b-pentagon-handoff-activation-smoke
+- Red test commit: 8d3ff89e66d38832e83b70bf8830fc900bbdc67c
+- Implementation commit: ccd4f45fef7e8171dd3a7a089b38b1facc517efb
+- Inner repo: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+
+## Diff Surface Reviewed
+
+- 8d3ff89: tests/test_llm_openai.py
+- ccd4f45: activegraph/llm/openai.py
+
+The changed files are within the T5b permissions:
+
+- activegraph/tests/**:rw
+- activegraph/activegraph/**/*.py:rw
+- frames/t5b-pentagon-handoff-activation-smoke.*:rw
+
+## Review Notes
+
+No review concerns found.
+
+The test commit adds a deterministic mocked-client regression for OpenAI mapping-style chat completion responses. It does not add live network behavior.
+
+The implementation commit narrows response-field extraction through the existing mapping-aware `_value()` helper and adds `_first_choice()` so text, finish reason, usage, model, and tool-call extraction work for either SDK objects or mapping-shaped responses. Existing object-shaped behavior remains covered by the surrounding OpenAI tests.
+
+## Evidence
+
+Command:
+
+```text
+pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py
+```
+
+Literal output:
+
+```text
+....................                                                     [100%]
+20 passed in 0.37s
+```
