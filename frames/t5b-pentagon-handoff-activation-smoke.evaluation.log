@@ -1,0 +1,102 @@
+# Goal Reaper evaluation — t5b-pentagon-handoff-activation-smoke
+
+evaluated_utc: 2026-05-22T18:36:00Z
+outer_repo: /Users/gaganarora/Desktop/my projects/active_graph
+inner_repo: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+verdict: goal.satisfied_watchdog_assisted
+status: closed_watchdog_assisted
+autonomous_closure: false
+
+## Decision
+
+T5b can close as watchdog-assisted, not fully automatic handoff.
+
+Maya activation proof was supplied after watchdog intervention:
+
+INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89
+
+That proves recipient activation and implementation after the red test, but it
+does not satisfy a fully automatic Theo-to-Maya handoff claim.
+
+## Literal command output
+
+Command:
+
+cd "/Users/gaganarora/Desktop/my projects/active_graph/activegraph" && pwd && git log --oneline -8 && git status --short --branch
+
+Output:
+
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+ccd4f45 Frame t5b impl: handle mapping OpenAI responses
+8d3ff89 Frame t5b test: OpenAI mapping response text
+fce0cab Frame t4 fix OpenAI tool argument normalization
+ab05ed0 Frame t5 test: OpenAI tool call token estimate
+4604f0e Frame t4 docs: close OpenAI tool parity contract
+612ac0a Frame t4: implement OpenAI tool translation\n\nCo-authored-by: Codex <noreply@openai.com>
+b8eb508 Frame t4 impl: OpenAI tool shape translation\n\nCo-authored-by: Codex <noreply@openai.com>
+7c319cf Frame t4 tests: openai tool shape and provider parity
+## main...origin/main
+?? GAUNTLET.md
+
+Command:
+
+cd "/Users/gaganarora/Desktop/my projects/active_graph/activegraph" && ../venv/bin/python -m pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py; printf '---exit=%s---\n' "$?"
+
+Output:
+
+....................                                                     [100%]
+20 passed in 0.34s
+---exit=0---
+
+Command:
+
+cd "/Users/gaganarora/Desktop/my projects/active_graph/activegraph" && git show --format=fuller --stat --no-renames 8d3ff89 && printf '\n---merge-base red ancestor of impl---\n' && git merge-base --is-ancestor 8d3ff89 ccd4f45; printf 'exit=%s\n' "$?" && printf '\n---impl commit---\n' && git show --format=fuller --stat --no-renames ccd4f45
+
+Output:
+
+commit 8d3ff89e66d38832e83b70bf8830fc900bbdc67c
+Author:     gagan114662 <gagan@designgaga.ca>
+AuthorDate: Fri May 22 14:23:32 2026 -0400
+Commit:     gagan114662 <gagan@designgaga.ca>
+CommitDate: Fri May 22 14:23:32 2026 -0400
+
+    Frame t5b test: OpenAI mapping response text
+
+ tests/test_llm_openai.py | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+---merge-base red ancestor of impl---
+exit=0
+
+---impl commit---
+commit ccd4f45fef7e8171dd3a7a089b38b1facc517efb
+Author:     gagan114662 <gagan@designgaga.ca>
+AuthorDate: Fri May 22 14:27:44 2026 -0400
+Commit:     gagan114662 <gagan@designgaga.ca>
+CommitDate: Fri May 22 14:27:44 2026 -0400
+
+    Frame t5b impl: handle mapping OpenAI responses
+
+ activegraph/llm/openai.py | 37 ++++++++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 15 deletions(-)
+
+Command:
+
+cd "/Users/gaganarora/Desktop/my projects/active_graph/activegraph" && git diff --name-only fce0cab..ccd4f45
+
+Output:
+
+activegraph/llm/openai.py
+tests/test_llm_openai.py
+
+## Predicate notes
+
+- Theo red test commit: GREEN, inner 8d3ff89.
+- Theo tests-only first commit: GREEN, 8d3ff89 changes `tests/test_llm_openai.py`.
+- Maya activation proof: GREEN-WATCHDOG, supplied line above.
+- Maya implementation after red test: GREEN, `git merge-base --is-ancestor 8d3ff89 ccd4f45` exit 0.
+- Local verification: GREEN, 20 passed.
+- Quinn adversary log: GREEN, `frames/t5b-pentagon-handoff-activation-smoke.adversary.log`.
+- Rowan review log: GREEN, `frames/t5b-pentagon-handoff-activation-smoke.review.log`.
+- Grace gate log: GREEN, `frames/t5b-pentagon-handoff-activation-smoke.gates.log`.
+- Fully automatic handoff: RED as a claim; closure is watchdog-assisted.

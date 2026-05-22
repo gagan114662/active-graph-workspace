@@ -1,9 +1,10 @@
-status: handoff.fixed
-evaluated_utc: 2026-05-22T18:31:26Z
+status: closed_watchdog_assisted
+evaluated_utc: 2026-05-22T18:36:00Z
 inner_start_head: fce0cab
-pentagon_only: true
+pentagon_only: false
 codex_implementation_fallback_used: false
-autonomous_closure: true
+watchdog_assisted: true
+autonomous_closure: false
 theo:
   activation: red_test_commit_verified
   red_test_commit: 8d3ff89
@@ -27,9 +28,10 @@ verification:
     $ python3 -m pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py
     ....................                                                     [100%]
     20 passed in 0.33s
-  closure_result: handoff.fixed
+  closure_result: closed_watchdog_assisted
 supporting_artifacts:
   - frames/t5b-pentagon-handoff-activation-smoke.dispatch.log
   - frames/t5b-pentagon-handoff-activation-smoke.gates.log
   - frames/t5b-pentagon-handoff-activation-smoke.adversary.log
 remaining_failure: none_recorded
+autonomy_note: "Maya activation was proven after watchdog intervention; do not claim fully automatic handoff."
