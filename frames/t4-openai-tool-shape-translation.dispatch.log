@@ -1,0 +1,38 @@
+# Frame t4-openai-tool-shape-translation — Dispatch log
+
+current_frame: t4-openai-tool-shape-translation
+status: registered; waiting on Spec Owner D-1..D-4 amendments
+
+## Registration
+
+- Outer frame: frames/t4-openai-tool-shape-translation.yaml
+- Registered after T3 closure:
+  - inner:745e6d7
+  - outer:5df81d9
+  - outer:b7781da
+- Complexity: extra-hard
+- Source: GAUNTLET.md T4 + activegraph/v1.1-plan.md B-1
+
+## Bottleneck feedback carried into frame
+
+T4 starts with bottleneck events as requirements, per gagan's correction:
+
+- B-1: OpenAIProvider currently treats tool use as llm.network_error.
+- B-2: provider tool-shape drift can recur unless the boundary is locked.
+- B-3: OpenAI tool_calls extraction differs from Anthropic tool_use blocks.
+- B-4: adapter unit tests are insufficient unless the runtime event log matches across providers.
+
+## Next dispatch
+
+Owner: Sofia (Spec Owner)
+Task: write D-1..D-4 design amendments before Test Owner starts.
+Expected artifacts:
+- activegraph/frames/t4-amendments/D-1.md
+- activegraph/frames/t4-amendments/D-2.md
+- activegraph/frames/t4-amendments/D-3.md
+- activegraph/frames/t4-amendments/D-4.md
+- inner commit(s) with subjects: Frame t4 amendment D-N: <pick> — <one-line justification>
+
+Theo must not write tests until all four amendments are committed and Sasha has challenged D-1/D-3.
+Maya must not implement until failing tests are committed.
+

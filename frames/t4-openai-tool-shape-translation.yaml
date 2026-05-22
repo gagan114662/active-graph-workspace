@@ -1,0 +1,167 @@
+# Frame: t4-openai-tool-shape-translation
+#
+# Registered by Codex on 2026-05-22 after T3 closure.
+# Source: GAUNTLET.md T4, activegraph/v1.1-plan.md B-1, CONTRACT v1.0.1 #5,
+# CONTRACT v0.7 tool-loop clauses, CONTRACT v0.6 #11 reason taxonomy.
+#
+# This is the extra-hard gauntlet frame. It must route bottlenecks as first-class
+# events, not as after-the-fact summaries.
+
+id: t4-openai-tool-shape-translation
+
+goal: >
+  Implement provider-aware tool support for OpenAI so the same tool-using
+  behavior can run through AnthropicProvider and OpenAIProvider with identical
+  audited event semantics, without changing the closed v0.6 #11 reason taxonomy.
+
+complexity: extra-hard
+
+constraints:
+  - "Sequential gauntlet: T4 starts only after T3 status is closed."
+  - "Logs and git evidence are source of truth; no chat-only closure."
+  - "No live network in tests; use fake/provider fixtures for parity."
+  - "Provider swap must not reshape Runtime call sites."
+  - "Reason taxonomy is closed unless CONTRACT explicitly amends v0.6 #11."
+  - "Tool loop remains runtime-owned: provider returns tool_calls, runtime dispatches."
+  - "All bottlenecks must emit bottleneck.detected entries before closure."
+
+source_context:
+  - "GAUNTLET.md T4 — OpenAI tool-shape translation"
+  - "activegraph/v1.1-plan.md B-1"
+  - "CONTRACT.md v1.0.1 #5 clause 2"
+  - "CONTRACT.md v0.7 #4, #10, #15, #21"
+  - "CONTRACT.md v0.6 #11"
+
+design_decisions_required:
+  - id: D-1
+    question: >
+      Provider-aware tool-shape boundary — should Tool.to_definition accept
+      provider="anthropic"|"openai", or should OpenAIProvider convert the
+      Anthropic/internal shape at request time? Pick one and explain the
+      maintenance and drift tradeoff.
+    classification: "provider boundary / API compatibility"
+
+  - id: D-2
+    question: >
+      OpenAI tool_calls extraction — specify the exact raw response fields the
+      adapter reads, the ToolCall id/name/args mapping, and how invalid JSON or
+      missing arguments map into existing reason semantics.
+    classification: "provider response parsing"
+
+  - id: D-3
+    question: >
+      Parity test fixture strategy — how will the SAME @tool-using behavior run
+      against AnthropicProvider and OpenAIProvider without live network, and what
+      event sequence must be identical?
+    classification: "test architecture / source-of-truth evidence"
+
+  - id: D-4
+    question: >
+      Error taxonomy — OpenAI currently raises llm.network_error for tools. Name
+      the allowed reason codes after implementation and confirm no new reason
+      code is introduced unless CONTRACT v0.6 #11 is amended.
+    classification: "contract semantics"
+
+permissions:
+  - "activegraph/activegraph/tools/base.py:rw"
+  - "activegraph/activegraph/llm/openai.py:rw"
+  - "activegraph/activegraph/llm/anthropic.py:rw"
+  - "activegraph/activegraph/llm/types.py:rw"
+  - "activegraph/activegraph/llm/provider.py:rw"
+  - "activegraph/activegraph/runtime/runtime.py:rw"
+  - "activegraph/tests/test_openai_tool_shape.py:rw"
+  - "activegraph/tests/test_provider_tool_parity.py:rw"
+  - "activegraph/tests/test_llm_openai.py:rw"
+  - "activegraph/tests/test_llm_anthropic.py:rw"
+  - "activegraph/tests/test_tool_replay.py:rw"
+  - "activegraph/tests/fixtures/**:rw"
+  - "activegraph/docs/concepts/provider-tool-parity.md:rw"
+  - "activegraph/CHANGELOG.md:rw"
+  - "activegraph/CONTRACT.md:rw"
+  - "activegraph/activegraph/**/*.py:ro"
+  - "activegraph/tests/**/*.py:ro"
+
+success_criteria:
+  # Pre-flight decisions
+  - design_decision_D1_provider_tool_shape_boundary_locked
+  - design_decision_D2_openai_tool_call_extraction_locked
+  - design_decision_D3_parity_fixture_strategy_locked
+  - design_decision_D4_reason_taxonomy_alignment_locked
+
+  # Tool definition / provider request shape
+  - tool_to_definition_or_provider_adapter_emits_openai_function_shape
+  - anthropic_tool_shape_remains_backward_compatible
+  - openai_provider_sends_tools_without_v1_1_pointer_error
+
+  # Response extraction / runtime loop
+  - openai_tool_calls_extract_to_llmresponse_tool_calls
+  - runtime_dispatches_openai_tool_calls_and_appends_tool_results
+  - openai_final_response_after_tool_result_parses_like_anthropic
+
+  # Parity evidence
+  - same_tool_using_behavior_event_sequence_matches_anthropic_and_openai
+  - llm_cache_round_trips_openai_tool_calls
+  - recorded_fixture_mode_covers_openai_tool_calls_without_live_network
+
+  # Error semantics
+  - no_new_reason_codes_without_contract_amendment
+  - provider_errors_map_to_existing_llm_or_tool_reasons
+  - invalid_tool_arguments_use_existing_tool_invalid_input_path
+
+  # Gates
+  - pytest_full_suite_passes
+  - mypy_strict_passes_full_allowlist
+  - ring0_not_missing_pct_equals_100
+  - ring1_not_missing_pct_ge_80
+  - wheel_completeness_passes
+  - no_changes_outside_permissions
+  - changelog_entry_present_for_t4
+  - contract_amendment_locks_openai_tool_parity
+  - docs_provider_tool_parity_page_exists
+
+bottlenecks_required:
+  - id: B-1
+    event: bottleneck.detected
+    source: "CONTRACT v1.0.1 #5 / v1.1-plan B-1"
+    symptom: "OpenAIProvider raises llm.network_error whenever tools= is non-empty."
+    owner: "Sofia (Spec Owner)"
+    feedback_action: "D-1/D-4 must remove the false network-error classification before implementation."
+  - id: B-2
+    event: bottleneck.detected
+    source: "Tool.to_definition + OpenAI function schema"
+    symptom: "Tool shape can drift between providers."
+    owner: "Carmen (Contract Owner)"
+    feedback_action: "Lock one provider-aware boundary and add tests for both shapes."
+  - id: B-3
+    event: bottleneck.detected
+    source: "Provider response parsing"
+    symptom: "OpenAI returns tool_calls rather than Anthropic tool_use blocks."
+    owner: "Theo (Test Owner)"
+    feedback_action: "Add fake OpenAI response fixture and extraction test before Code Owner starts."
+  - id: B-4
+    event: bottleneck.detected
+    source: "Parity / runtime event log"
+    symptom: "Provider support can pass adapter unit tests but fail identical event-sequence parity."
+    owner: "Riley (Evidence Lead)"
+    feedback_action: "Require same-behavior event-sequence comparison in evaluation.log."
+
+routing:
+  - "Avery (Frame Architect): own this frame, dispatch D-1..D-4 to Sofia first."
+  - "Sofia (Spec Owner): write and commit design-decision amendments before tests."
+  - "Sasha (Spec Skeptic): challenge D-1/D-3 before Code Owner starts."
+  - "Theo (Test Owner): write failing provider-shape, extraction, and parity tests."
+  - "Maya (Code Owner): implement only after tests are red and decisions are sealed."
+  - "Carmen (Contract Owner): lock CONTRACT amendment for OpenAI tool parity."
+  - "Rowan (Code Reviewer): review changed provider/runtime semantics."
+  - "Quinn (Test Adversary): attack provider parity and fake fixture coverage."
+  - "Ravi (Replay Validator): verify recorded/cached tool calls replay."
+  - "Grace (Gate Sentinel): run gates."
+  - "Riley (Evidence Lead): aggregate logs, hashes, bottlenecks, and literal outputs."
+  - "Taylor (Trace Archivist): archive bottleneck feedback before status closes."
+
+budget:
+  max_events: 900
+  max_llm_tokens: 350000
+  max_dollars: 12.00
+  max_wall_clock_seconds: 7200
+
