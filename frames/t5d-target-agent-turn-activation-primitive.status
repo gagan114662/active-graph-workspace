@@ -66,6 +66,12 @@ live_checks:
   pentagon_default_model: gpt-5.5
   pentagon_activegraph_agents_model_readback_count: 20
   pentagon_activegraph_agents_non_gpt55_count: 0
+  t5d_file_backed_gauntlet_stamp: 20260522T230015Z
+  t5d_file_backed_gauntlet_easy_artifact: frames/t5d-file-gauntlet-easy-20260522T230015Z.proof
+  t5d_file_backed_gauntlet_medium_artifact: frames/t5d-file-gauntlet-medium-20260522T230015Z.proof
+  t5d_file_backed_gauntlet_hard_artifact: frames/t5d-file-gauntlet-hard-20260522T230015Z.proof
+  t5d_file_backed_gauntlet_extra_hard_artifact: frames/t5d-file-gauntlet-extra-hard-20260522T230015Z.proof
+  t5d_file_backed_gauntlet_reverse_triggers_completed: true
   live_heartbeat_spawned_codex_workers: true
   mapped_mcp_worker_models: gpt-5.5
 
@@ -97,6 +103,7 @@ current_evidence:
   - frames/t5d-launchd-bridge-proof-2026-05-22.log records a clean LaunchAgent proof: hash T5D_LAUNCHD_BRIDGE_CLEAN_20260522T224946Z, Maya trigger 456fbf43-ad74-4850-ae42-abd1aeedbe93 claimed in about 0.6s, visible ACK 156c3045-ff60-43df-a808-5f80cbea2926, trigger completed in about 8.8s, exactly one ACK row, and reverse terminal trigger 3aa8dc2d-7755-416c-aa3d-d1ebb2c55679 completed.
   - frames/t5d-skill-load-clean-proof-2026-05-22.log records the local activegraph skill frontmatter repair, direct Codex skill-load smoke with empty stderr, and a fresh LaunchAgent bridge proof T5D_LAUNCHD_SKILL_CLEAN_20260522T225528Z whose bridge result had stderr_tail empty.
   - frames/pentagon-model-live-readback-2026-05-22.log records defaults read returning gpt-5.5 and live agents-table readback finding 20 active_graph agents with zero non-gpt-5.5 model rows.
+  - frames/t5d-file-backed-gauntlet-2026-05-22.log records a file-backed bridge gauntlet across easy, medium, hard, and extra-hard tasks. Maya and Ravi created four proof files, emitted visible ACKs, and the bridge completed all terminal reverse triggers.
 
 verdict: operational-via-persistent-bridge
 reason: >

@@ -1,0 +1,116 @@
+# T5d file-backed autonomy gauntlet - 2026-05-22
+
+Purpose: prove the persistent Pentagon bridge can run file-backed tasks across
+easy, medium, hard, and extra-hard classes, not just ACK diagnostics.
+
+Stamp: `20260522T230015Z`
+
+Agents:
+
+```text
+Maya (Code Owner): 7b8c44b7-ddeb-4a35-87e4-2ae502fe9001
+Ravi (Replay Validator): 2f800625-2b22-442f-87c2-dd02d1b7838f
+Theo (Test Owner / sender): 1343cc84-5a06-44b7-88f7-f2c3e82d7e1c
+```
+
+## Easy
+
+```text
+hash: T5D_FILE_EASY_20260522T230015Z
+target: Maya
+conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+message_id: fbae512e-d15a-4b4b-9a08-9c21e9335f21
+trigger_id: 36d3e64b-fbe9-4407-b766-2f5e50706b3b
+trigger_claimed_at: 2026-05-22T23:00:16.784559+00:00
+trigger_completed_at: 2026-05-22T23:00:36.924663+00:00
+ack_message_id: 5e60157b-c5d4-448f-a342-240e8639399a
+reverse_trigger_id: 1f4d0ca0-c8f8-49cc-972b-19a4791b4ddd
+reverse_trigger_completed_at: 2026-05-22T23:00:38.226756+00:00
+artifact: frames/t5d-file-gauntlet-easy-20260522T230015Z.proof
+```
+
+Artifact content:
+
+```text
+36d3e64b-fbe9-4407-b766-2f5e50706b3b /Users/gaganarora/Desktop/my projects/active_graph 0842d37
+```
+
+## Medium
+
+```text
+hash: T5D_FILE_MEDIUM_20260522T230015Z
+target: Ravi
+conversation_id: eadb5463-cd69-444c-bdb5-5e878793f9f3
+message_id: 5630db82-3034-49e6-92e9-069a9507d7d3
+trigger_id: 7ca24c70-982d-406b-94d7-b2aa558316b1
+trigger_claimed_at: 2026-05-22T23:00:39.411192+00:00
+trigger_completed_at: 2026-05-22T23:01:32.576269+00:00
+ack_message_id: ddca3312-794b-49d8-aae2-7fd742e26310
+reverse_trigger_id: b8c366f2-b1c8-41b7-a357-9b40f9d312f6
+reverse_trigger_completed_at: 2026-05-22T23:01:33.855189+00:00
+artifact: frames/t5d-file-gauntlet-medium-20260522T230015Z.proof
+```
+
+Artifact content:
+
+```text
+node_check_exit=0
+plutil_lint_exit=0
+hash=0842d37f562c38adcf2b84accd34b7bfe7282224
+```
+
+## Hard
+
+```text
+hash: T5D_FILE_HARD_20260522T230015Z
+target: Maya
+conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+message_id: 73677cf1-aeae-4006-932a-73a84a5211ce
+trigger_id: dd0964dd-9eca-44ad-aed2-db604459a7dd
+trigger_claimed_at: 2026-05-22T23:01:35.045776+00:00
+trigger_completed_at: 2026-05-22T23:02:11.598367+00:00
+ack_message_id: a647a6ef-748d-4f6a-8358-9f075ebf9ad8
+reverse_trigger_id: 918bf738-cb08-419f-8900-4dd9f63e70aa
+reverse_trigger_completed_at: 2026-05-22T23:02:12.877133+00:00
+artifact: frames/t5d-file-gauntlet-hard-20260522T230015Z.proof
+stderr_tail: empty
+```
+
+Artifact content:
+
+```text
+bridge status: operational-via-persistent-bridge
+native caveat: native Pentagon app poller remains amber/unbounded without the workspace bridge
+evidence file list: frames/autonomy-completion-audit-2026-05-22.md; frames/t5d-target-agent-turn-activation-primitive.status; frames/t5d-trigger-bridge-proof-2026-05-22.log; frames/t5d-bridge-sequential-gauntlet-2026-05-22.log; frames/t5d-launchd-bridge-proof-2026-05-22.log; frames/t5d-skill-load-clean-proof-2026-05-22.log
+```
+
+## Extra Hard
+
+```text
+hash: T5D_FILE_EXTRA_HARD_20260522T230015Z
+target: Ravi
+conversation_id: eadb5463-cd69-444c-bdb5-5e878793f9f3
+message_id: ff79d7e9-2f15-432c-bbed-a6c66c4e22e4
+trigger_id: 888c02e5-be31-4288-b5e6-519dbce20eac
+trigger_claimed_at: 2026-05-22T23:02:14.056836+00:00
+trigger_completed_at: 2026-05-22T23:03:48.845474+00:00
+ack_message_id: 4f13e3c0-87f7-4720-b642-d8e66364ab86
+reverse_trigger_id: e05b0123-da60-476f-b945-bdf0a7f590b8
+reverse_trigger_completed_at: 2026-05-22T23:03:50.11886+00:00
+artifact: frames/t5d-file-gauntlet-extra-hard-20260522T230015Z.proof
+stderr_tail: empty
+```
+
+Artifact result:
+
+```text
+PASS for the requested prompt-to-artifact file-backed gauntlet artifact.
+Current repo evidence supports operational target-agent autonomy through the
+persistent workspace bridge, including extra-hard diagnostic coverage and
+launchd-backed bounded execution. Native Pentagon app poller repair remains an
+open gap and is not claimed by this artifact.
+```
+
+Result: green for file-backed Pentagon autonomy through the persistent bridge
+across easy, medium, hard, and extra-hard tasks. Native app poller repair is
+still not claimed.

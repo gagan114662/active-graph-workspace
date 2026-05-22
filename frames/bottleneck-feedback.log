@@ -609,3 +609,27 @@ evidence:
   - frames/t5d-skill-load-clean-proof-2026-05-22.log
   - frames/t5d-target-agent-turn-activation-primitive.status
   - frames/autonomy-completion-audit-2026-05-22.md
+
+## bottleneck.repaired-operational - file-backed gauntlet passes
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: persistent bridge dispatch to Maya and Ravi for file-backed tasks
+symptom: Prior bridge proofs were strong for target activation and ACK routing,
+  but the easy/medium/hard/extra-hard proof was still mostly diagnostic rather
+  than artifact-producing work.
+owner: Riley (Evidence Lead) for proof; Maya and Ravi for target execution.
+feedback_action: Dispatch four bounded Pentagon bridge tasks that require local
+  proof artifacts: easy cwd/head proof, medium parser/plist checks, hard audit
+  verdict, and extra-hard prompt-to-artifact checklist.
+durable_conversion:
+  - Gate: future autonomy completion claims should include at least one
+    file-backed target-agent artifact, not only a chat ACK.
+evidence:
+  - frames/t5d-file-backed-gauntlet-2026-05-22.log
+  - frames/t5d-file-gauntlet-easy-20260522T230015Z.proof
+  - frames/t5d-file-gauntlet-medium-20260522T230015Z.proof
+  - frames/t5d-file-gauntlet-hard-20260522T230015Z.proof
+  - frames/t5d-file-gauntlet-extra-hard-20260522T230015Z.proof
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md

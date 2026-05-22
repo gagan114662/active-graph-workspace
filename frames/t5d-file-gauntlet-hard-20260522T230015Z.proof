@@ -1,0 +1,3 @@
+bridge status: operational-via-persistent-bridge
+native caveat: native Pentagon app poller remains amber/unbounded without the workspace bridge
+evidence file list: frames/autonomy-completion-audit-2026-05-22.md; frames/t5d-target-agent-turn-activation-primitive.status; frames/t5d-trigger-bridge-proof-2026-05-22.log; frames/t5d-bridge-sequential-gauntlet-2026-05-22.log; frames/t5d-launchd-bridge-proof-2026-05-22.log; frames/t5d-skill-load-clean-proof-2026-05-22.log

@@ -1,0 +1,91 @@
+objective
+
+Build a prompt-to-artifact checklist for:
+Pentagon file-backed autonomy gauntlet task T5D_FILE_EXTRA_HARD_20260522T230015Z.
+The artifact must use current repo evidence and include objective, checklist,
+covered, gaps, and final verdict.
+
+checklist
+
+1. Confirm correct workspace.
+   Evidence: pwd returned /Users/gaganarora/Desktop/my projects/active_graph.
+
+2. Confirm current repo head and status.
+   Evidence: git rev-parse HEAD returned
+   0842d37f562c38adcf2b84accd34b7bfe7282224.
+   Evidence: git status --short --branch returned main tracking origin/main,
+   with untracked .review-worktrees/ and file-backed gauntlet proof artifacts.
+
+3. Confirm interpreter availability for this target turn.
+   Evidence: python was unavailable, but python3 --version returned Python 3.14.3.
+   INTERPRETER_OK 2f800625-2b22-442f-87c2-dd02d1b7838f /Users/gaganarora/Desktop/my projects/active_graph 0842d37f562c38adcf2b84accd34b7bfe7282224
+
+4. Confirm the bridge implementation parses.
+   Evidence: node --check scripts/pentagon-trigger-bridge.mjs exited 0.
+
+5. Confirm the persistent bridge LaunchAgent plist parses.
+   Evidence: plutil -lint launchagents/run.pentagon.trigger-bridge.plist
+   returned "launchagents/run.pentagon.trigger-bridge.plist: OK" and exited 0.
+
+6. Confirm prompt-to-artifact precedent for this file gauntlet.
+   Evidence: frames/t5d-file-gauntlet-easy-20260522T230015Z.proof exists.
+   Evidence: frames/t5d-file-gauntlet-medium-20260522T230015Z.proof exists.
+   Evidence: frames/t5d-file-gauntlet-hard-20260522T230015Z.proof exists.
+
+7. Confirm bounded bridge evidence for easy, medium, hard, and extra-hard
+   target tasks.
+   Evidence: frames/t5d-bridge-sequential-gauntlet-2026-05-22.log records
+   fresh target trigger rows claimed within about 1 second, visible target-agent
+   messages persisted for all four diagnostic classes, all target triggers
+   completed within about 17 seconds, and terminal reverse triggers closed.
+
+8. Confirm persistent unattended bridge evidence.
+   Evidence: frames/t5d-launchd-bridge-proof-2026-05-22.log records
+   launchd service run.pentagon.trigger-bridge running, a fresh Theo-to-Maya
+   trigger claimed in about 0.6 seconds, exactly one visible Maya ACK, trigger
+   completion in about 8.8 seconds, and reverse terminal trigger closure.
+
+9. Confirm clean target child startup evidence.
+   Evidence: frames/t5d-skill-load-clean-proof-2026-05-22.log records local
+   activegraph skill frontmatter repair, direct Codex skill-load smoke exit 0
+   with empty stderr, and a fresh LaunchAgent bridge proof with stderr_tail "".
+
+10. Confirm overall autonomy audit status.
+    Evidence: frames/autonomy-completion-audit-2026-05-22.md says the system is
+    operational through the persistent workspace bridge, not a native app poller
+    repair.
+
+covered
+
+- The requested artifact path exists and contains the required sections.
+- The workspace, git head, repo status, python3 interpreter, bridge syntax, and
+  LaunchAgent plist syntax were checked in this turn.
+- Current repo evidence covers file-backed proof creation, bridge-loop
+  activation across easy/medium/hard/extra-hard task classes, persistent
+  launchd-backed target activation, clean skill loading, duplicate ACK guard,
+  and terminal reverse-trigger closure.
+- Pentagon conversation readback confirmed this exact extra-hard prompt was
+  sent in conversation eadb5463-cd69-444c-bdb5-5e878793f9f3 after the medium
+  file-backed proof ACK.
+
+gaps
+
+- The unqualified python command is absent on this machine; python3 is present
+  and was used for interpreter proof.
+- Current git status includes untracked proof artifacts from this file-backed
+  gauntlet and .review-worktrees/.
+- The evidence proves bounded autonomy through the workspace trigger bridge and
+  LaunchAgent. It does not prove the native Pentagon app poller has been
+  repaired.
+- frames/flywheel-readiness.status is older than the later bridge/launchd
+  proofs and still records watchdog_assisted_only; the fresher
+  frames/autonomy-completion-audit-2026-05-22.md supersedes it for the current
+  bridge verdict while preserving the native-poller caveat.
+
+final verdict
+
+PASS for the requested prompt-to-artifact file-backed gauntlet artifact.
+Current repo evidence supports operational target-agent autonomy through the
+persistent workspace bridge, including extra-hard diagnostic coverage and
+launchd-backed bounded execution. Native Pentagon app poller repair remains an
+open gap and is not claimed by this artifact.
