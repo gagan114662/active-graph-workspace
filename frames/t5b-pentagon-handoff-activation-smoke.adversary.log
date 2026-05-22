@@ -1,0 +1,129 @@
+# t5b-pentagon-handoff-activation-smoke adversary log
+
+frame: t5b-pentagon-handoff-activation-smoke
+agent: Quinn / Test Adversary
+evaluated_utc: 2026-05-22T18:31:34Z
+outer_head_before_evidence: 869b2b1
+inner_head_under_test: ccd4f45
+inner_commit_subject: Frame t5b impl: handle mapping OpenAI responses
+verdict: adversary_green_no_mapping_response_breakage_found
+
+## Scope
+
+Theo red test commit: 8d3ff89
+Maya activation proof after watchdog:
+INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89
+Maya implementation commit: ccd4f45
+
+I attacked the OpenAI mapping-response extraction path changed in
+`activegraph/llm/openai.py`. The pass covered the declared regression test
+target plus dict-shaped response variants for text, usage, finish reason,
+content blocks, mapping tool-call arguments, and non-object JSON tool-call
+arguments.
+
+## Command Output
+
+Command:
+
+```text
+cd "/Users/gaganarora/Desktop/my projects/active_graph/activegraph" && pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py
+```
+
+Output:
+
+```text
+....................                                                     [100%]
+20 passed in 0.42s
+```
+
+Command:
+
+```text
+cd "/Users/gaganarora/Desktop/my projects/active_graph/activegraph" && python3 - <<'PY'
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+from activegraph.llm import LLMMessage, OpenAIProvider
+
+
+def complete_for(raw):
+    client = MagicMock()
+    client.chat.completions.create.return_value = raw
+    return OpenAIProvider(client=client).complete(
+        system="sys",
+        messages=[LLMMessage(role="user", content="u")],
+        model="gpt-4o-mini",
+        max_tokens=32,
+        temperature=0.0,
+        top_p=1.0,
+        output_schema=None,
+        timeout_seconds=30,
+        tools=[{"name": "lookup_fact", "description": "d", "input_schema": {}}],
+    )
+
+cases = []
+
+cases.append((
+    "dict_response_text_and_usage",
+    {
+        "choices": [{"message": {"content": "alpha"}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 11, "completion_tokens": 13},
+        "model": "gpt-4o-mini",
+    },
+    lambda r: r.raw_text == "alpha" and r.input_tokens == 11 and r.output_tokens == 13 and r.finish_reason == "stop",
+))
+
+cases.append((
+    "dict_response_content_blocks",
+    {
+        "choices": [{"message": {"content": [{"text": "al"}, {"text": "pha"}]}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 2},
+        "model": "gpt-4o-mini",
+    },
+    lambda r: r.raw_text == "alpha",
+))
+
+cases.append((
+    "dict_response_tool_call_mapping_args",
+    {
+        "choices": [{"message": {"content": None, "tool_calls": [{"id": "call_1", "function": {"name": "lookup_fact", "arguments": {"query": "alpha"}}}]}, "finish_reason": "tool_calls"}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 2},
+        "model": "gpt-4o-mini",
+    },
+    lambda r: r.tool_calls and r.tool_calls[0].args == {"query": "alpha"} and r.finish_reason == "tool_calls",
+))
+
+cases.append((
+    "dict_response_tool_call_non_object_json_is_raw",
+    {
+        "choices": [{"message": {"content": None, "tool_calls": [{"id": "call_2", "function": {"name": "lookup_fact", "arguments": "[1, 2]"}}]}, "finish_reason": "tool_calls"}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 2},
+        "model": "gpt-4o-mini",
+    },
+    lambda r: r.tool_calls and r.tool_calls[0].args == {"_raw": [1, 2]},
+))
+
+for name, raw, predicate in cases:
+    result = complete_for(raw)
+    if not predicate(result):
+        raise AssertionError(f"{name} failed: {result!r}")
+    print(f"PASS {name}: raw_text={result.raw_text!r} finish={result.finish_reason!r} tool_calls={result.tool_calls!r}")
+
+print("ADVERSARY_PROBES_OK 4")
+PY
+```
+
+Output:
+
+```text
+PASS dict_response_text_and_usage: raw_text='alpha' finish='stop' tool_calls=None
+PASS dict_response_content_blocks: raw_text='alpha' finish='stop' tool_calls=None
+PASS dict_response_tool_call_mapping_args: raw_text='' finish='tool_calls' tool_calls=[ToolCall(id='call_1', name='lookup_fact', args={'query': 'alpha'})]
+PASS dict_response_tool_call_non_object_json_is_raw: raw_text='' finish='tool_calls' tool_calls=[ToolCall(id='call_2', name='lookup_fact', args={'_raw': [1, 2]})]
+ADVERSARY_PROBES_OK 4
+```
+
+## Disposition
+
+No new bug was found, so there is no regression test, contract amendment, or
+documented non-goal required from this adversary pass.
