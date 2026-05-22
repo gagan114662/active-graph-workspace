@@ -1,0 +1,48 @@
+# Pentagon MCP Connectivity Log - 2026-05-22
+
+Status: blocked_from_this_codex_session
+
+## Checks
+
+1. Pentagon app process is running.
+   Evidence: ps showed /Applications/Pentagon.app/Contents/MacOS/Pentagon.
+
+2. macOS default model is gpt-5.5.
+   Evidence: defaults read run.pentagon.app pentagon.defaultModel -> gpt-5.5.
+
+3. Local MCP traces exist.
+   Evidence: Claude cache contains mcp-logs-pentagon with successful historical
+   calls to find_conversation, send_message, read_messages, read_document, and
+   patch_document.
+
+4. Claude MCP registration path was tested.
+   Command:
+   claude mcp add --transport http pentagon https://auth.pentagon.run/functions/v1/mcp
+   Result:
+   Pentagon server added to local config, but health check failed to connect.
+   The local registration was removed to avoid leaving a broken config.
+
+5. Direct HTTP probe was tested without exposing secrets.
+   Result:
+   No Authorization header -> 401 missing/invalid Authorization header.
+   Existing app accessToken -> 401 jwt alg mismatch.
+
+## Verdict
+
+Pentagon is running and historical logs prove MCP tools exist, but this Codex
+session does not currently expose mcp__pentagon__ tools and the supported local
+Claude MCP registration path did not authenticate. Therefore Codex cannot
+truthfully claim it patched Pentagon Purpose docs or activated Maya through the
+Pentagon API in this turn.
+
+## Required Human/App Action Or Next Tooling Fix
+
+One of these must happen before T5 can be counted as Pentagon-autonomous:
+
+1. Expose mcp__pentagon__ tools in Codex for this session.
+2. Re-authenticate the Pentagon MCP server for Claude/Codex.
+3. Use Pentagon UI to paste frames/pentagon-agent-activation-packet-2026-05-22.md
+   into each agent and record replies in committed logs.
+
+Until then, frames/flywheel-readiness.status must keep activation_protocol_tested
+red and interpreter_proof_current red.

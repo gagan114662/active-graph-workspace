@@ -224,3 +224,21 @@ evidence:
   - agent-os/skills/evidence-indexing.md
   - agent-os/skills/model-audit.md
   - agent-os/skills/clean-venv-replay.md
+
+## bottleneck.detected - Pentagon MCP unavailable from Codex session
+
+frame: pentagon-flywheel-repair
+complexity: system
+source: claude mcp health, direct HTTP probe, Codex tool surface
+symptom: Historical Pentagon MCP logs prove tools exist, but this Codex session
+  does not expose mcp__pentagon__ tools. Adding the HTTP endpoint through
+  claude mcp failed health checks, and direct HTTP auth did not accept the
+  existing app token.
+owner: gagan / Pentagon auth surface + Riley (Evidence Lead)
+feedback_action: Created frames/pentagon-mcp-connectivity-2026-05-22.log and
+  frames/pentagon-agent-activation-packet-2026-05-22.md. Keep activation and
+  interpreter readiness red until tool access is restored or UI-applied proof is
+  committed.
+evidence:
+  - frames/pentagon-mcp-connectivity-2026-05-22.log
+  - frames/pentagon-agent-activation-packet-2026-05-22.md

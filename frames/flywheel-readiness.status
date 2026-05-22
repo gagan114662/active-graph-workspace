@@ -14,7 +14,7 @@ checks:
   no_untracked_proof: amber
   no_untracked_proof_note: outer proof-like files are committed; inner activegraph/GAUNTLET.md remains untracked and is explicitly excluded from proof until committed or retired
   purpose_coverage_current: red
-  purpose_coverage_note: prior audit showed partial/report-only coverage and unconfirmed specialists; every active core Purpose still needs current proof
+  purpose_coverage_note: repo Purpose inserts and activation packet are current, but actual Pentagon Purpose patch acknowledgements are not proven
   model_audit_current: amber
   model_audit_note: macOS default reads gpt-5.5 and historical audit says live map models were gpt-5.5, but audit still includes legacy identities and must be refreshed after identity normalization
   interpreter_proof_current: red
@@ -23,6 +23,8 @@ checks:
   capability_gate_note: Forge/Nova/Spec Owner silence and suspected shell-tool gaps remain unresolved unless current agents produce literal command evidence
   activation_protocol_tested: red
   activation_protocol_note: T4 and T5 show message delivery without Code Owner activation; Maya activation remains unproven
+  pentagon_mcp_connectivity: red
+  pentagon_mcp_connectivity_note: frames/pentagon-mcp-connectivity-2026-05-22.log records that this Codex session cannot currently call mcp__pentagon__ tools
   skills_installed: green
   skills_installed_note: active_graph skill wrappers installed in /Users/gaganarora/.codex/skills and repo-backed skills added under agent-os/skills
   t2_partial_debt_tracked: green
@@ -35,6 +37,7 @@ required_before_t5_reopen:
   - commit and push all proof/control artifacts, and either commit or retire inner activegraph/GAUNTLET.md if it is used as proof
   - refresh model audit with current names only or explicitly mark legacy agents retired
   - patch every active core Purpose with inbound/outbound rules, evidence output, stop conditions, skills, groups, and escalation
+  - apply frames/pentagon-agent-activation-packet-2026-05-22.md inside Pentagon or restore mcp__pentagon__ tool access
   - record INTERPRETER_OK or INTERPRETER_BLOCKED for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, and Grace
   - prove watcher activation protocol with a visible recipient turn, process/log evidence, commit, or literal INTERPRETER_BLOCKED line
   - keep T5 red test red until Maya activates
