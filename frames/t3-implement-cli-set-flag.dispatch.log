@@ -1,0 +1,116 @@
+# Frame t3-implement-cli-set-flag — Dispatch log
+
+current_frame: t3-implement-cli-set-flag
+status: D-4 sealing in flight; failing tests + impl pre-positioned
+
+## Closure prerequisites snapshot
+
+- T2 closed: `inner:83000f5` / `outer:2764dc0` (Frame t2-build-cli-flag-drift-gate)
+- T2 drift allowlist currently suppresses `--set`/`--memo`/`--search` (T3-pending); must self-resolve or be edited on T3 impl
+
+## Sealed amendments (inner repo, on origin/main)
+
+- D-1 lock-at-creation:
+  - `inner:eb9d154` — monotonic-only / same-value re-sets idempotent; conflicting set events raise ReplayDivergenceError
+  - `inner:316a052` — override captured in `fork.override.applied` event payload at fork creation; replay reads from log
+  - `inner:27d488b` — D-1 LOCKED; v1.1-plan.md F-1 updated
+- D-2 fork-creation pre-event validation:
+  - `inner:b16a308` — `validate_override(key, value, pack)` raises `InvalidOverrideError` before fork.override.applied is minted
+  - `inner:2dfa58c` — pack schema surface + structured InvalidOverrideError payload documented
+- D-3 full-attestation:
+  - `inner:4f6b0a0` — schema snapshot makes `fork.override.applied` replay self-sufficient across pack drift
+- D-4 type coercion: **PENDING** (dispatched to Spec Owner)
+
+## Amendment files on disk (inner repo)
+
+- `activegraph/frames/t3-amendments/D-1.md`
+- `activegraph/frames/t3-amendments/D-2.md`
+- `activegraph/frames/t3-amendments/D-3.md`
+- `activegraph/frames/t3-amendments/D-4.md` — to be authored by Spec Owner
+
+## Outer frame yaml
+
+- `outer:04a6dd5 Frame t3-implement-cli-set-flag: registered (goal refined to one-sentence-testable; D-1..D-4 amendments required before Code Owner starts)`
+
+---
+
+## Dispatch 1 — Spec Owner (D-4 sealing)
+
+- Owner: Spec Owner (`ab752676-b8e9-4bf0-8f0f-6101933177a3`)
+- Conversation: DM `f70ae7bc-a971-47c6-b84e-851f85381edc`
+- Message id: `39e09d78-dd23-4437-8032-becb86f3f3d9`
+- Timestamp: 2026-05-22T13:13:00.894599+00:00
+- Verbatim D-4 from outer yaml line 75:
+  > Type coercion — `--set foo=bar` passes a string. The pack key `diligence.threshold` is a float in code. Options: (a) strings only, consuming code must coerce; (b) infer int/float/bool from the value text; (c) require an explicit typed form like `--set foo:float=0.7`. Pick one and name the failure mode for each rejected alternative.
+- Expected artifact: `activegraph/frames/t3-amendments/D-4.md` + inner commit `Frame t3 amendment D-4: <pick> — <one-line justification>`
+- Cutoff: 30 min from dispatch (~13:43Z 2026-05-22). On stall: Atlas commits the amendment directly per t1a/t2 precedent.
+
+## Dispatch 2 — Test Owner (failing tests, pre-position)
+
+- Owner: Test Owner (`1343cc84-5a06-44b7-88f7-f2c3e82d7e1c`)
+- Conversation: DM `7a161ea9-4613-46b9-96ff-0fb2b5345a5f`
+- Message id: `326735a6-30a5-485c-997f-c9f8a854a14c`
+- Timestamp: 2026-05-22T13:13:19.421155+00:00
+- Blocked on: D-4 hash from Spec Owner
+- Expected inner artifacts:
+  - `activegraph/tests/test_cli_fork_set.py` (CLI surface — valid override, malformed pre-event rejection, unknown key, multiple --set compose)
+  - `activegraph/tests/test_fork_set_persistence.py` (schema migration — pre-D-3 DB upgrade, override payload + schema snapshot)
+  - `activegraph/tests/test_fork_set_replay.py` (replay semantics — log-not-CLI-state, overridden-fork uses logged value, pre-existing fork unchanged)
+- Expected commit subject: `Frame t3 tests: failing test_cli_fork_set + test_fork_set_persistence + test_fork_set_replay`
+- Cutoff: 45 min after D-4 hash lands
+
+## Dispatch 3 — Forge (impl, pre-position)
+
+- Owner: Forge (`7b8c44b7-ddeb-4a35-87e4-2ae502fe9001`)
+- Shell tools confirmed: 2026-05-21T19:56:41Z (Bash + git + pip + python3 executable)
+- Conversation: DM `6d36eb2c-a655-49de-a6b4-02d5f2b01016`
+- Message id: `6a6a2fa0-ac91-4593-98fa-ff4deb4fdbc6`
+- Timestamp: 2026-05-22T13:13:42.377037+00:00
+- Blocked on: Test Owner's failing-test hash
+- Expected inner artifacts:
+  - `activegraph/activegraph/cli/main.py:444` — extend fork command with `--set <key>=<value>` (multiple allowed)
+  - `activegraph/activegraph/cli/_set_parser.py` — `parse_set_flag(token: str) -> tuple[str, Any]` per D-4 pick
+  - `validate_override(key, value, pack)` helper per D-2 (location TBD by Code Owner — likely `activegraph/core/fork.py` or pack module)
+  - `activegraph/activegraph/store/sqlite.py` + `store/memory.py` — schema migration per D-3 (event payload gains `schema_snapshot`, backward-compatible to pre-migration DBs)
+  - `fork.override.applied` event minting at fork creation per D-1 lock-at-creation
+  - Replay path reads override from event log per D-1
+  - Docs updates across 8 markdown files (`docs/concepts/forking.md`, `docs/reference/cli.md`, `docs/quickstart.md`, `docs/cookbook/common-patterns.md`, `docs/cookbook/migration-from-v0-7.md`, `docs/guides/operating-in-production.md`) — remove "part of v1.1" guards, mark shipped
+  - `CHANGELOG.md` v1.1 entry
+  - `CONTRACT.md` v1.1 #1 amendment marking implementation landed
+  - `cli_flag_drift_allowlist.toml` — remove `--set` or rely on AllowlistEntryResolvedError per D-2 footnote
+- Expected verification (rule #3, literal output required):
+  - `../venv/bin/python -m pytest activegraph/tests/test_cli_fork_set.py activegraph/tests/test_fork_set_persistence.py activegraph/tests/test_fork_set_replay.py -v` — focused, all GREEN
+  - `../venv/bin/python -m pytest activegraph/tests/ -q` — full suite GREEN
+  - `../venv/bin/python -m mypy` — allowlist invariant GREEN (23 modules clean)
+  - `../venv/bin/python scripts/gate_docstrings.py` — Ring 0 100%, Ring 1 ≥80%
+  - `../venv/bin/python scripts/gate_cli_flag_drift.py` — GREEN for `--set` (no longer drift)
+- Expected commit subject: `Frame t3-implement-cli-set-flag: shipped — --set end-to-end, schema snapshot, replay self-sufficient, t2 drift allowlist resolves`
+- Cutoff: 90 min after test-hash. On stall: Atlas takes the impl directly.
+
+---
+
+## Closure path
+
+1. Spec Owner: D-4 amendment commit → inner pushed
+2. Test Owner: failing tests commit → inner pushed (RED on new test files, GREEN on rest)
+3. Forge: impl commit → inner pushed (all listed verifications GREEN)
+4. Goal Reaper (Verdict): writes `frames/t3-implement-cli-set-flag.evaluation.log` (inner first, then mirror to outer) with every yaml predicate + literal command output
+5. Code Reviewer: writes `frames/t3-implement-cli-set-flag.review.log`
+6. Atlas: flips `frames/t3-implement-cli-set-flag.status` → `closed` iff all predicates GREEN + review.clean + t2 drift gate GREEN for `--set`
+7. Mirror `.status`/`.evaluation.log`/`.review.log` (+ `.dispatch.log`) to outer, commit/push outer with `Frame t3 shipped: inner <hash>`
+8. Only then: T4 register + dispatch
+
+## Operating constraints (per gagan 2026-05-22)
+
+- current_frame = t3-implement-cli-set-flag
+- No T4 work until T3 status + evaluation.log + review.log are closed
+- T2 drift gate must go green for `--set` after impl lands (no allowlist suppression)
+- If app goes 0-active while T3 is red: self-reactivate, report blocker
+- No ✅ without pushed commit / file artifact
+- Rules #1–4 stand: hash cited, literal command output, gate scripts run not synthesized, committed-and-pushed = ✅
+
+## Watchers (carried from t2)
+
+- Hawk (`3170d32c-8ff8-46e7-811f-2fb2622ab3c5`): budget watch on t3 (600 events / 250k tokens / $8 / 3600s per yaml)
+- Verdict (`642755a2-a869-440b-b4f7-e5a718e0fb8b`): predicate watch; refuses to evaluate until all 4 amendments committed
+- Code Reviewer (`774d5f17-62e9-4d43-9c71-e86ccb12a177`): produces `frames/t3-implement-cli-set-flag.review.log` post-impl
