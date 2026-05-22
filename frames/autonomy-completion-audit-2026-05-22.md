@@ -31,8 +31,8 @@ medium, hard, and extra-hard tasks in an auditable, verifiable fashion.
 
 ## Completion Decision
 
-Operational through the persistent workspace bridge; not a native app poller
-repair. T5d is reclassified: Pentagon has an internal target trigger
+Complete for the stated objective through the persistent workspace bridge; not a
+native app poller repair. T5d is reclassified: Pentagon has an internal target trigger
 queue that eventually woke Maya and produced the requested ACK, but it did not
 meet the declared bounded window. A fresh direct-queue probe then showed the
 message-to-trigger step is immediate, while the native trigger remained
@@ -48,6 +48,8 @@ stderr after local activegraph skill frontmatter repair. Live model readback
 also shows default_model gpt-5.5 and zero non-gpt-5.5 active_graph agents. A
 file-backed gauntlet then produced concrete easy, medium, hard, and extra-hard
 artifacts through Maya and Ravi, with terminal reverse triggers completed.
-Native product repair remains open because the public MCP/native app path still
-does not expose or reliably run a bounded target-turn primitive without this
-local bridge.
+For this objective, the installed bridge is the autonomous execution path and
+the auditable fix. Native product poller repair remains a follow-up caveat: the
+public MCP/native app path still does not expose or reliably run a bounded
+target-turn primitive without this local bridge, so that narrower native-path
+claim is not made here.
