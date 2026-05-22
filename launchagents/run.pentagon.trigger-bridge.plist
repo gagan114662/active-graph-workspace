@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>run.pentagon.trigger-bridge</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs</string>
+    <string>--loop</string>
+    <string>--interval-ms</string>
+    <string>1000</string>
+    <string>--limit</string>
+    <string>8</string>
+    <string>--max-age-seconds</string>
+    <string>180</string>
+    <string>--codex-timeout-ms</string>
+    <string>180000</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/gaganarora/Desktop/my projects/active_graph</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/gaganarora/.pentagon/trigger-bridge.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/gaganarora/.pentagon/trigger-bridge.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>

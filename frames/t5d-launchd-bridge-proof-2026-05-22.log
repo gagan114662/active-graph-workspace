@@ -1,0 +1,99 @@
+# T5d LaunchAgent bridge proof - 2026-05-22
+
+Purpose: prove the Pentagon target-agent trigger bridge is installed as a
+persistent macOS LaunchAgent and can process a fresh target handoff without
+manual per-trigger activation.
+
+Installed service:
+
+```text
+source plist: launchagents/run.pentagon.trigger-bridge.plist
+installed plist: /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist
+label: run.pentagon.trigger-bridge
+stdout: /Users/gaganarora/.pentagon/trigger-bridge.out.log
+stderr: /Users/gaganarora/.pentagon/trigger-bridge.err.log
+```
+
+LaunchAgent command:
+
+```text
+/opt/homebrew/bin/node \
+  /Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs \
+  --loop \
+  --interval-ms 1000 \
+  --limit 8 \
+  --max-age-seconds 180 \
+  --codex-timeout-ms 180000
+```
+
+Validation:
+
+```text
+plutil -lint launchagents/run.pentagon.trigger-bridge.plist
+launchagents/run.pentagon.trigger-bridge.plist: OK
+
+node --check scripts/pentagon-trigger-bridge.mjs
+exit 0
+
+launchctl print gui/501/run.pentagon.trigger-bridge
+state = running
+program = /opt/homebrew/bin/node
+runs = 4
+pid = 72003
+```
+
+## Clean launchd proof
+
+Conversation: `0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1`
+Sender: Theo `1343cc84-5a06-44b7-88f7-f2c3e82d7e1c`
+Target: Maya `7b8c44b7-ddeb-4a35-87e4-2ae502fe9001`
+
+```text
+hash: T5D_LAUNCHD_BRIDGE_CLEAN_20260522T224946Z
+message_id: 70218a82-af0b-4ee7-8406-f1ca8883265e
+message_created_at: 2026-05-22T22:49:46.560083+00:00
+
+trigger_id: 456fbf43-ad74-4850-ae42-abd1aeedbe93
+trigger_claimed_at: 2026-05-22T22:49:47.186524+00:00
+trigger_completed_at: 2026-05-22T22:49:55.381402+00:00
+
+ack_count: 1
+ack_message_id: 156c3045-ff60-43df-a808-5f80cbea2926
+ack_created_at: 2026-05-22T22:49:55.279007+00:00
+ack: MAYA_T5D_LAUNCHD_CLEAN_ACK T5D_LAUNCHD_BRIDGE_CLEAN_20260522T224946Z evidence=pwd:/Users/gaganarora/Desktop/my projects/active_graph head:9daac3a
+
+reverse_trigger_id: 3aa8dc2d-7755-416c-aa3d-d1ebb2c55679
+reverse_trigger_claimed_at: 2026-05-22T22:49:56.572425+00:00
+reverse_trigger_completed_at: 2026-05-22T22:49:56.663951+00:00
+```
+
+Observed bridge log excerpt:
+
+```text
+checked_at: 2026-05-22T22:49:55.354Z
+status: completed
+trigger: 456fbf43-ad74-4850-ae42-abd1aeedbe93
+started_at: 2026-05-22T22:49:47.671Z
+finished_at: 2026-05-22T22:49:54.987Z
+persisted_message: 156c3045-ff60-43df-a808-5f80cbea2926
+completed_at: 2026-05-22T22:49:55.381402+00:00
+
+checked_at: 2026-05-22T22:49:56.637Z
+status: completed_terminal
+trigger: 3aa8dc2d-7755-416c-aa3d-d1ebb2c55679
+completed_at: 2026-05-22T22:49:56.663951+00:00
+```
+
+Result:
+
+- LaunchAgent service stayed running after restart.
+- Fresh Theo-to-Maya trigger was claimed in about 0.6 seconds.
+- Maya ran command evidence from the workspace and produced a visible ACK.
+- The target trigger completed about 8.8 seconds after creation.
+- Exactly one Maya ACK row matched the clean proof hash, confirming the
+  duplicate-persist guard.
+- The reverse ACK trigger was completed as terminal without launching a
+  response loop.
+
+Residual caveat: this proves the persistent workspace bridge. It does not prove
+the native Pentagon app trigger poller has been repaired.

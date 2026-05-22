@@ -1,0 +1,139 @@
+# T5d bridge sequential gauntlet - 2026-05-22
+
+Purpose: prove the workspace trigger bridge can run as a supervised loop and
+process fresh target-agent triggers across easy, medium, hard, and extra-hard
+diagnostic tasks without manual per-trigger activation.
+
+Bridge command:
+
+```text
+node scripts/pentagon-trigger-bridge.mjs \
+  --loop \
+  --interval-ms 1000 \
+  --limit 8 \
+  --max-age-seconds 90 \
+  --codex-timeout-ms 180000
+```
+
+The first attempted loop gauntlet exposed a bridge bug: pending triggers were
+queried oldest-first and filtered by age locally, so stale backlog could hide
+fresh triggers. The bridge was fixed to push `created_at >= cutoff` into the
+REST query. A second safety fix treats terminal `*_ACK` and `*_BLOCKED`
+messages as terminal triggers and completes them without launching a reverse
+agent turn.
+
+Validation:
+
+```text
+node --check scripts/pentagon-trigger-bridge.mjs
+exit 0
+
+node scripts/pentagon-trigger-bridge.mjs --dry-run --limit 8 --max-age-seconds 900
+result statuses included:
+- would_complete_terminal for prior ACK trigger
+- would_process for fresh non-terminal trigger
+```
+
+## Sequential gauntlet results
+
+Stamp: `20260522T224124Z`
+Conversation: `0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1`
+Sender: Theo `1343cc84-5a06-44b7-88f7-f2c3e82d7e1c`
+Target: Maya `7b8c44b7-ddeb-4a35-87e4-2ae502fe9001`
+
+### Easy
+
+```text
+hash: T5D_BRIDGE_SEQ_EASY_20260522T224124Z
+message_id: e7405e43-4b1f-451d-89e5-141e19e82046
+trigger_id: e38ee997-807e-435f-929f-4e1f46631739
+message_created_at: 2026-05-22T22:41:25.028163+00:00
+trigger_claimed_at: 2026-05-22T22:41:25.257482+00:00
+ack_message_id: cb8b613d-839b-4bc2-9845-3f3d0838b717
+ack_created_at: 2026-05-22T22:41:40.887735+00:00
+trigger_completed_at: 2026-05-22T22:41:41.198739+00:00
+ack: MAYA_T5D_SEQ_EASY_ACK T5D_BRIDGE_SEQ_EASY_20260522T224124Z
+  evidence=pwd:/Users/gaganarora/Desktop/my projects/active_graph head:9daac3a
+```
+
+### Medium
+
+```text
+hash: T5D_BRIDGE_SEQ_MEDIUM_20260522T224124Z
+message_id: 15ed304c-1e1b-43a5-9818-66b06b148af0
+trigger_id: 490232a2-2dc0-464a-9a70-be368c79233d
+message_created_at: 2026-05-22T22:41:45.171326+00:00
+trigger_claimed_at: 2026-05-22T22:41:45.879780+00:00
+ack_message_id: 370eb78f-877e-4616-9146-820ff697c1e0
+ack_created_at: 2026-05-22T22:41:55.390736+00:00
+trigger_completed_at: 2026-05-22T22:41:55.493640+00:00
+ack: MAYA_T5D_SEQ_MEDIUM_ACK T5D_BRIDGE_SEQ_MEDIUM_20260522T224124Z
+  evidence=## main...origin/main
+command evidence: git status --short --branch exited 0 and returned
+  ## main...origin/main
+```
+
+### Hard
+
+```text
+hash: T5D_BRIDGE_SEQ_HARD_20260522T224124Z
+message_id: a4a93f80-cc0f-4ce1-92e9-595d6199ad36
+trigger_id: f47f93b5-0450-481b-889d-53b9428788a6
+message_created_at: 2026-05-22T22:41:59.704642+00:00
+trigger_claimed_at: 2026-05-22T22:42:00.159940+00:00
+ack_message_id: be767b7c-f5b4-4cd7-a3a9-712f087bfc62
+ack_created_at: 2026-05-22T22:42:08.537838+00:00
+trigger_completed_at: 2026-05-22T22:42:08.652016+00:00
+ack: MAYA_T5D_SEQ_HARD_ACK T5D_BRIDGE_SEQ_HARD_20260522T224124Z
+  evidence=node--check-exit-status-0
+command evidence: node --check scripts/pentagon-trigger-bridge.mjs exited 0
+```
+
+### Extra Hard
+
+```text
+hash: T5D_BRIDGE_SEQ_EXTRA_HARD_20260522T224124Z
+message_id: 0d95eb24-e229-481d-be66-52c739e7a8b0
+trigger_id: 5443bab5-5379-42d5-b470-55836cf47713
+message_created_at: 2026-05-22T22:42:11.942740+00:00
+trigger_claimed_at: 2026-05-22T22:42:12.233305+00:00
+ack_message_id: dbbc07c9-ecb6-4428-9f7d-c34d1b2b0e70
+ack_created_at: 2026-05-22T22:42:21.778737+00:00
+trigger_completed_at: 2026-05-22T22:42:21.895033+00:00
+ack: MAYA_T5D_SEQ_EXTRA_HARD_ACK T5D_BRIDGE_SEQ_EXTRA_HARD_20260522T224124Z
+  evidence=Completion Decision is not complete; file states "Not complete" and
+  objective remains open until bridge runs continuously/native poller fix plus
+  fresh full audit.
+command evidence: target agent inspected
+  frames/autonomy-completion-audit-2026-05-22.md and quoted the current
+  Completion Decision accurately.
+```
+
+## Reverse-trigger safety
+
+Each persisted ACK produced a reverse trigger for Theo. The bridge completed
+these terminal triggers without launching another Codex turn:
+
+```text
+EASY reverse trigger: 30574594-e198-496d-b267-306b0b4dd780 completed_at
+  2026-05-22T22:41:42.495230+00:00
+MEDIUM reverse trigger: 93817f15-4a8f-4207-b5a4-3968054a8281 completed_at
+  2026-05-22T22:41:56.783490+00:00
+HARD reverse trigger: 831f5804-efa5-4af5-b99a-169b10fed8e6 completed_at
+  2026-05-22T22:42:09.941137+00:00
+EXTRA_HARD reverse trigger: 2abb0804-b0d7-4eaf-a658-4206030fa8e0 completed_at
+  2026-05-22T22:42:23.174044+00:00
+```
+
+## Result
+
+GREEN for the bridge-loop activation slice:
+
+- fresh trigger rows were claimed within about 1 second;
+- visible target-agent messages were persisted for easy, medium, hard, and
+  extra-hard diagnostic tasks;
+- all target triggers completed within about 17 seconds;
+- terminal reverse triggers were closed without a response loop.
+
+Remaining caveat: this proves the workspace bridge loop, not a native Pentagon
+app trigger poller repair.

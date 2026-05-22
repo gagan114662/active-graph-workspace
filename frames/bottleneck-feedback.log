@@ -538,3 +538,53 @@ evidence:
   - frames/t5d-trigger-bridge-proof-2026-05-22.log
   - frames/t5d-target-agent-turn-activation-primitive.status
   - frames/autonomy-completion-audit-2026-05-22.md
+
+## bottleneck.repaired-partial - bridge loop gauntlet passes task-class triggers
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: supervised scripts/pentagon-trigger-bridge.mjs loop with fresh
+  Theo-to-Maya triggers for easy, medium, hard, and extra-hard diagnostics
+symptom: The first loop attempt found two bridge defects: local post-query age
+  filtering let old backlog hide fresh triggers, and persisted ACK messages
+  created reverse triggers that could ping-pong. The bridge now pushes
+  created_at gte cutoff into the query and completes terminal ACK/BLOCKED
+  reverse triggers without a new Codex turn.
+owner: Riley (Evidence Lead) for bridge loop proof; Pentagon app poller still
+  owns native trigger catch-up repair.
+feedback_action: Treat bridge-loop activation as green for bounded diagnostic
+  task classes. Keep full objective open until this bridge is installed as a
+  persistent supervised service or native app poller behavior is fixed.
+durable_conversion:
+  - Gate: loop proof must include at least one easy, medium, hard, and
+    extra-hard trigger with target message id, trigger claim time, and trigger
+    complete time.
+evidence:
+  - frames/t5d-bridge-sequential-gauntlet-2026-05-22.log
+  - scripts/pentagon-trigger-bridge.mjs
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md
+
+## bottleneck.repaired-operational - persistent bridge service proven
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: macOS LaunchAgent run.pentagon.trigger-bridge running
+  scripts/pentagon-trigger-bridge.mjs as a continuous local bridge
+symptom: The bridge-loop slice was green but still depended on a supervised
+  foreground process. Without a persistent service, Pentagon handoffs could
+  regress to the native unbounded trigger poller.
+owner: Riley (Evidence Lead) for proof and logs; Ops owns the launchd service;
+  Pentagon app poller still owns native product repair.
+feedback_action: Install the bridge under
+  /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist with
+  RunAtLoad and KeepAlive, then prove a fresh Theo-to-Maya handoff from launchd.
+durable_conversion:
+  - Gate: launchctl readback must show the service running.
+  - Gate: clean proof must show one visible target ACK, target trigger
+    completion, and terminal reverse-trigger completion.
+evidence:
+  - launchagents/run.pentagon.trigger-bridge.plist
+  - frames/t5d-launchd-bridge-proof-2026-05-22.log
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md

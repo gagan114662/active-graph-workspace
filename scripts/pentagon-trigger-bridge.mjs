@@ -86,13 +86,14 @@ async function mintAgentToken(agentId) {
 }
 
 async function pendingTriggers(limit) {
-  const rows = await request(
-    `/rest/v1/agent_triggers?claimed_at=is.null&completed_at=is.null&select=id,conversation_id,agent_id,sender_id,message_id,content,created_at&order=created_at.asc&limit=${limit}`
-  );
   const maxAgeSeconds = Number(arg("--max-age-seconds", "0"));
-  if (!maxAgeSeconds) return rows;
-  const cutoff = Date.now() - maxAgeSeconds * 1000;
-  return rows.filter((row) => Date.parse(row.created_at) >= cutoff);
+  const ageFilter = maxAgeSeconds
+    ? `&created_at=gte.${encodeURIComponent(new Date(Date.now() - maxAgeSeconds * 1000).toISOString())}`
+    : "";
+  const rows = await request(
+    `/rest/v1/agent_triggers?claimed_at=is.null&completed_at=is.null${ageFilter}&select=id,conversation_id,agent_id,sender_id,message_id,content,created_at&order=created_at.asc&limit=${limit}`
+  );
+  return rows;
 }
 
 async function claimTrigger(triggerId) {
@@ -114,6 +115,12 @@ async function completeTrigger(triggerId) {
 async function persistAgentMessage(trigger, content) {
   const trimmed = String(content ?? "").trim();
   if (!trimmed || trimmed === "[no-response]") return null;
+  const since = encodeURIComponent(trigger.created_at);
+  const existing = await request(
+    `/rest/v1/messages?conversation_id=eq.${trigger.conversation_id}&sender_id=eq.${trigger.agent_id}&created_at=gte.${since}&select=id,conversation_id,sender_id,content,created_at&order=created_at.desc&limit=20`
+  );
+  const alreadySent = existing.find((message) => String(message.content ?? "").trim() === trimmed);
+  if (alreadySent) return alreadySent;
   const rows = await request("/rest/v1/messages?select=id,conversation_id,sender_id,content,created_at", {
     method: "POST",
     prefer: "return=representation",
@@ -185,6 +192,12 @@ function finalAgentMessage(stdout) {
   return latest;
 }
 
+function isTerminalMessage(content) {
+  const firstLine = String(content ?? "").trim().split(/\r?\n/, 1)[0] ?? "";
+  const firstToken = firstLine.split(/\s+/, 1)[0] ?? "";
+  return /_(ACK|BLOCKED)$/.test(firstToken);
+}
+
 function summarizeTrigger(trigger) {
   return {
     id: trigger.id,
@@ -215,49 +228,64 @@ if (!existsSync(PENTAGON_BIN)) {
 async function processCandidates(candidates) {
   const results = [];
   for (const candidate of candidates) {
-  if (dryRun) {
-    results.push({ status: "would_process", trigger: summarizeTrigger(candidate) });
-    continue;
-  }
+    if (isTerminalMessage(candidate.content)) {
+      if (dryRun) {
+        results.push({ status: "would_complete_terminal", trigger: summarizeTrigger(candidate) });
+        continue;
+      }
+      const claimedTerminal = candidate.claimed_at ? candidate : await claimTrigger(candidate.id);
+      const completedTerminal = claimedTerminal ? await completeTrigger(claimedTerminal.id) : null;
+      results.push({
+        status: "completed_terminal",
+        trigger: summarizeTrigger(candidate),
+        completed_at: completedTerminal?.completed_at ?? null,
+      });
+      continue;
+    }
 
-  const claimed = candidate.claimed_at ? candidate : await claimTrigger(candidate.id);
-  if (!claimed) {
-    results.push({ status: "already_claimed_or_missing", trigger: summarizeTrigger(candidate) });
-    continue;
-  }
+    if (dryRun) {
+      results.push({ status: "would_process", trigger: summarizeTrigger(candidate) });
+      continue;
+    }
 
-  const token = await mintAgentToken(claimed.agent_id);
-  const startedAt = new Date().toISOString();
-  const run = runCodex(claimed, token);
-  const finishedAt = new Date().toISOString();
+    const claimed = candidate.claimed_at ? candidate : await claimTrigger(candidate.id);
+    if (!claimed) {
+      results.push({ status: "already_claimed_or_missing", trigger: summarizeTrigger(candidate) });
+      continue;
+    }
 
-  if (run.status === 0) {
-    const finalText = finalAgentMessage(run.stdout);
-    const persistedMessage = await persistAgentMessage(claimed, finalText);
-    const completed = await completeTrigger(claimed.id);
-    results.push({
-      status: "completed",
-      trigger: summarizeTrigger(claimed),
-      started_at: startedAt,
-      finished_at: finishedAt,
-      persisted_message: persistedMessage,
-      completed_at: completed?.completed_at ?? null,
-      stdout_tail: String(run.stdout ?? "").slice(-2000),
-      stderr_tail: String(run.stderr ?? "").slice(-2000),
-    });
-  } else {
-    results.push({
-      status: "codex_failed",
-      trigger: summarizeTrigger(claimed),
-      started_at: startedAt,
-      finished_at: finishedAt,
-      exit_status: run.status,
-      signal: run.signal,
-      stdout_tail: String(run.stdout ?? "").slice(-2000),
-      stderr_tail: String(run.stderr ?? "").slice(-2000),
-    });
+    const token = await mintAgentToken(claimed.agent_id);
+    const startedAt = new Date().toISOString();
+    const run = runCodex(claimed, token);
+    const finishedAt = new Date().toISOString();
+
+    if (run.status === 0) {
+      const finalText = finalAgentMessage(run.stdout);
+      const persistedMessage = await persistAgentMessage(claimed, finalText);
+      const completed = await completeTrigger(claimed.id);
+      results.push({
+        status: "completed",
+        trigger: summarizeTrigger(claimed),
+        started_at: startedAt,
+        finished_at: finishedAt,
+        persisted_message: persistedMessage,
+        completed_at: completed?.completed_at ?? null,
+        stdout_tail: String(run.stdout ?? "").slice(-2000),
+        stderr_tail: String(run.stderr ?? "").slice(-2000),
+      });
+    } else {
+      results.push({
+        status: "codex_failed",
+        trigger: summarizeTrigger(claimed),
+        started_at: startedAt,
+        finished_at: finishedAt,
+        exit_status: run.status,
+        signal: run.signal,
+        stdout_tail: String(run.stdout ?? "").slice(-2000),
+        stderr_tail: String(run.stderr ?? "").slice(-2000),
+      });
+    }
   }
-}
   return results;
 }
 

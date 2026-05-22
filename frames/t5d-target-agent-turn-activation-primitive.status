@@ -45,6 +45,18 @@ live_checks:
   t5d_trigger_bridge_probe_ack_message_id: 4956fb18-ae95-4f78-bf4d-dd0be5de53af
   t5d_trigger_bridge_probe_message_to_ack_seconds: 20
   t5d_trigger_bridge_probe_message_to_complete_seconds: 20
+  t5d_bridge_loop_gauntlet_stamp: 20260522T224124Z
+  t5d_bridge_loop_gauntlet_easy: green
+  t5d_bridge_loop_gauntlet_medium: green
+  t5d_bridge_loop_gauntlet_hard: green
+  t5d_bridge_loop_gauntlet_extra_hard: green
+  t5d_bridge_loop_reverse_terminal_triggers_completed: true
+  t5d_launchd_bridge_service: running
+  t5d_launchd_bridge_clean_hash: T5D_LAUNCHD_BRIDGE_CLEAN_20260522T224946Z
+  t5d_launchd_bridge_clean_trigger_id: 456fbf43-ad74-4850-ae42-abd1aeedbe93
+  t5d_launchd_bridge_clean_ack_message_id: 156c3045-ff60-43df-a808-5f80cbea2926
+  t5d_launchd_bridge_clean_ack_count: 1
+  t5d_launchd_bridge_clean_reverse_trigger_completed: true
   live_heartbeat_spawned_codex_workers: true
   mapped_mcp_worker_models: gpt-5.5
 
@@ -69,8 +81,13 @@ current_evidence:
   - node --check scripts/pentagon-trigger-bridge.mjs passed, and dry-run over 3 pending triggers returned would_process for all 3.
   - A fresh bridge proof for T5D_BRIDGE_VISIBLE_PROBE_20260522T223300Z claimed Maya trigger d2200d94-cb6f-43ba-a85d-9c0f2ef058e2, ran Maya through Codex, persisted visible Maya message 4956fb18-ae95-4f78-bf4d-dd0be5de53af, and completed the trigger about 20 seconds after message creation.
   - frames/t5d-trigger-bridge-proof-2026-05-22.log records the command, trigger ids, visible ACK, and latency.
+  - The first bridge loop gauntlet exposed a query bug: stale old pending rows could hide fresh rows because max-age filtering happened after oldest-first limit. scripts/pentagon-trigger-bridge.mjs now pushes created_at gte cutoff into the REST query.
+  - The bridge now treats terminal *_ACK and *_BLOCKED messages as terminal and completes their reverse triggers without launching a ping-pong agent turn.
+  - frames/t5d-bridge-sequential-gauntlet-2026-05-22.log records a supervised bridge loop processing fresh easy, medium, hard, and extra-hard Theo-to-Maya triggers. Each target trigger was claimed within about 1 second, persisted a visible Maya ACK, and completed inside about 17 seconds.
+  - launchagents/run.pentagon.trigger-bridge.plist installs the bridge as run.pentagon.trigger-bridge with KeepAlive and RunAtLoad. launchctl readback showed state=running, program=/opt/homebrew/bin/node, pid=72003, runs=4.
+  - frames/t5d-launchd-bridge-proof-2026-05-22.log records a clean LaunchAgent proof: hash T5D_LAUNCHD_BRIDGE_CLEAN_20260522T224946Z, Maya trigger 456fbf43-ad74-4850-ae42-abd1aeedbe93 claimed in about 0.6s, visible ACK 156c3045-ff60-43df-a808-5f80cbea2926, trigger completed in about 8.8s, exactly one ACK row, and reverse terminal trigger 3aa8dc2d-7755-416c-aa3d-d1ebb2c55679 completed.
 
-verdict: blocked
+verdict: operational-via-persistent-bridge
 reason: >
   Pentagon does have an internal target-trigger queue: Theo's T5d message
   created a Maya agent_triggers row, the app claimed it, executeAgentTurn
@@ -81,9 +98,11 @@ reason: >
   window. A fresh direct internal-queue probe proved trigger rows are created
   immediately, but the new Maya trigger was still unclaimed after 110 seconds.
   The bridge now proves a bounded target-trigger execution path in this
-  workspace, but it is not yet a native Pentagon app poller repair and has not
-  been audited across easy/medium/hard/extra-hard task classes. The public MCP
-  wrapper also still lacks an explicit target-agent trigger_turn or routed
-  scheduled-action primitive with schema/readback, so the whole objective
-  remains open pending continuous bridge/native poller operation and a fresh
-  completion audit.
+  workspace, including a supervised loop gauntlet across easy, medium, hard,
+  and extra-hard diagnostic task classes. It is now installed and live as a
+  persistent macOS LaunchAgent and has a clean launchd-backed proof with exactly
+  one visible Maya ACK, duplicate-persist guard coverage, and terminal reverse
+  trigger completion. It is still not a native Pentagon app poller repair.
+  The public MCP wrapper also still lacks an explicit target-agent trigger_turn
+  or routed scheduled-action primitive with schema/readback, so native product
+  repair remains open even though the workspace autonomy bridge is operational.
