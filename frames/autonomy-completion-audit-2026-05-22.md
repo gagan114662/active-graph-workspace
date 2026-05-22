@@ -14,7 +14,7 @@ medium, hard, and extra-hard tasks in an auditable, verifiable fashion.
 | Agents work fully autonomously | target handoff wakes recipient without manual/Codex intervention | T5c shows no visible Maya response after Theo handoff | red |
 | Auditable and verifiable | committed or tracked logs/status/eval with literal command/API output | frame artifacts exist; two fresh eval logs are currently untracked | amber |
 | Model policy stable | current defaults and live per-agent readback all gpt-5.5 | default drifted to claude-opus-4-7[1m], repaired to gpt-5.5; live readback pending | amber |
-| Activation primitive available | explicit target-agent turn API or equivalent visible output channel | this Codex session has no native Pentagon tools; Claude MCP tools/list has no target-turn primitive; spawn_agent plus send_message created a T5d agent conversation but no worker process/reply appeared | red |
+| Activation primitive available | explicit target-agent turn API or equivalent visible output channel | this Codex session has no native Pentagon tools; Claude MCP tools/list has no target-turn primitive; spawn_agent plus send_message created a T5d agent conversation but no worker process/reply appeared; hidden schedule_action target fields fired/cleared without target output | red |
 
 ## Prompt-To-Artifact Checklist
 
@@ -26,6 +26,7 @@ medium, hard, and extra-hard tasks in an auditable, verifiable fashion.
 | Pentagon model policy | defaults read run.pentagon.app pentagon.defaultModel; frames/pentagon-model-refresh-2026-05-22.log | repaired again to gpt-5.5, durability unproven |
 | handoff activation | T5c dispatch/status/evaluation | blocked; no WATCHDOG_ACK or WATCHDOG_NO_HANDOFF |
 | live Pentagon work dispatch | MCP spawn_agent/send_message, ps, read_messages | created T5d Activation Engineer but did not prove execution; no codex exec process and no agent reply observed |
+| hidden target scheduling | MCP schedule_action with agent_id/target_agent_id/conversation_id, list_scheduled_actions, ps, read_messages | action was accepted and then cleared, but produced no visible target reply or worker process |
 
 ## Completion Decision
 

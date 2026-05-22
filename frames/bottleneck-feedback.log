@@ -383,3 +383,28 @@ durable_conversion:
 evidence:
   - frames/t5d-target-agent-turn-activation-primitive.status
   - frames/autonomy-completion-audit-2026-05-22.md
+
+## bottleneck.detected - hidden schedule_action target fields did not activate target
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: Claude MCP schedule_action with extra agent_id, target_agent_id, and
+  conversation_id fields; list_scheduled_actions; read_messages; local process
+  check
+symptom: schedule_action accepted hidden target fields and returned action
+  0162deda-7227-47f4-bb66-4b44023acc1e. list_scheduled_actions showed the
+  prompt and fire_at only, with no target metadata. After the cron window the
+  action was gone from pending actions, but the T5d conversation had no target
+  reply and no codex exec worker process was present.
+owner: Pentagon MCP schedule_action wrapper + activation substrate
+feedback_action: Treat schedule_action as caller-scoped unless the public tool
+  schema and readback expose target agent/conversation routing and the target
+  thread emits visible output.
+durable_conversion:
+  - Gate: hidden/undocumented tool arguments are not valid activation proof.
+  - Product requirement: expose target_agent_id/conversation_id in the schema
+    and return them in scheduled action readback, or provide a separate
+    trigger_turn tool.
+evidence:
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md

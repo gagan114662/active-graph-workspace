@@ -14,6 +14,10 @@ live_checks:
   spawned_t5d_conversation_id: 259f5017-654f-443c-a87e-62fd74ebab64
   spawned_t5d_current_task_after_message: null
   spawned_t5d_visible_reply_after_30s: false
+  hidden_target_schedule_action_id: 0162deda-7227-47f4-bb66-4b44023acc1e
+  hidden_target_schedule_pending_after_cron_window: false
+  hidden_target_schedule_target_reply_after_cron_window: false
+  hidden_target_schedule_worker_process_after_cron_window: false
 
 current_evidence:
   - frames/t5b-pentagon-handoff-activation-smoke.evaluation.log records closed_watchdog_assisted and autonomous_closure false.
@@ -22,6 +26,7 @@ current_evidence:
   - frames/pentagon-model-refresh-2026-05-22.log records the latest default-model drift and repair.
   - Direct MCP tools/list at 2026-05-22T21:57Z exposed send_message, find_conversation, read_messages, caller-scoped schedule_action, and spawn_agent, but no trigger_turn, target_agent_id, executeAgentTurn, or target conversation scheduling primitive.
   - MCP spawn_agent created T5d Activation Engineer and send_message delivered the T5d prompt, but no local codex exec worker process appeared and read_messages showed only Priya's spawn/message entries after the observation window.
+  - A negative probe passed hidden agent_id, target_agent_id, and conversation_id fields to schedule_action. The tool accepted the request and returned action 0162deda-7227-47f4-bb66-4b44023acc1e, but list_scheduled_actions showed no target metadata. After the cron window the action was no longer pending, yet the T5d conversation still contained only Priya's spawn/message entries, T5d current_task was null, and no codex exec worker process appeared.
 
 verdict: blocked
 reason: >
@@ -31,4 +36,6 @@ reason: >
   routing and visible target-thread output, is required before easy/medium/hard/
   extra-hard autonomy can be claimed. spawn_agent plus send_message creates an
   agent/conversation and context, but did not prove autonomous execution in the
-  live observation window.
+  live observation window. Hidden target fields on schedule_action also did not
+  prove target execution; the public MCP wrapper remains caller-scoped in
+  practice.
