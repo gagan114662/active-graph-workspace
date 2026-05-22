@@ -1,0 +1,20 @@
+status: opened_waiting_for_theo_red_test
+evaluated_utc: 2026-05-22T18:24:00Z
+inner_start_head: fce0cab
+pentagon_only: true
+codex_implementation_fallback_used: false
+autonomous_closure: false
+theo:
+  activation: pending
+  red_test_commit: pending
+  red_test_file: pending
+maya:
+  activation_proof_after_handoff: pending
+  implementation_commit: pending
+verification:
+  targeted_red_test_result: pending
+  closure_result: pending
+required_next_action:
+  - "Theo creates and pushes a tests-only red commit from inner head fce0cab."
+  - "Theo hands off to Maya with the sender artifact hash."
+  - "Maya must visibly activate before implementation."

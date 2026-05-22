@@ -1,0 +1,17 @@
+# t5b-pentagon-handoff-activation-smoke dispatch log
+
+frame: t5b-pentagon-handoff-activation-smoke
+opened_utc: 2026-05-22T18:24:00Z
+outer_repo: /Users/gaganarora/Desktop/my projects/active_graph
+inner_repo: /Users/gaganarora/Desktop/my projects/active_graph/activegraph
+inner_start_head: fce0cab
+
+## Dispatch Preconditions
+
+- Core interpreter proof: frames/pentagon-live-ui-verification-2026-05-22.log
+- Core Purpose proof: frames/pentagon-purpose-repair-2026-05-22.log
+- Original T5 invalidation: frames/t5-pentagon-handoff-activation-smoke.status
+
+## Initial Owner
+
+Theo must choose the new red predicate. Codex must not implement the fix.

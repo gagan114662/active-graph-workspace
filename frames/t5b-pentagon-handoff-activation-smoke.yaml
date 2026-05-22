@@ -1,0 +1,70 @@
+id: t5b-pentagon-handoff-activation-smoke
+goal: >
+  Re-run the Pentagon handoff activation smoke after Purpose/interpreter repair
+  using a fresh red predicate. Theo must create and push a tests-only red
+  commit, hand off to Maya, Maya must visibly activate before implementation,
+  and closure must be verified by Quinn, Rowan, Grace, Priya, and Riley.
+
+complexity: reliability-smoke
+
+why_t5b_exists:
+  - Original T5 red commit ab05ed0 was superseded by inner commit fce0cab.
+  - fce0cab fixed the old token-count predicate outside the required
+    Theo-to-Maya handoff proof.
+  - Therefore the old T5 cannot be closed as autonomous and a fresh red
+    predicate is required.
+
+constraints:
+  - No Codex implementation fallback.
+  - A DM from Theo to Maya is context delivery only, not activation proof.
+  - Maya is active only after visible turn, worker/process/log evidence, or a
+    commit after the handoff timestamp.
+  - All proof must land in committed frame artifacts.
+  - Use exact-DM selected-header verification for UI-driven operations.
+  - Use the activegraph inner repo and push to gagan114662/activegraph.
+
+task_shape:
+  target: tiny low-risk repo-relevant defect or missing edge case chosen by Theo
+  required_red_test_owner: Theo (Test Owner)
+  required_code_owner: Maya (Code Owner)
+  required_adversary: Quinn (Test Adversary)
+  required_reviewer: Rowan (Code Reviewer)
+  required_gates: Grace (Gate Sentinel)
+  required_evaluator: Priya (Goal Reaper)
+  required_evidence: Riley (Evidence Lead)
+
+preflight_success_criteria:
+  - core_agents_have_purpose_patched_evidence
+  - core_agents_have_interpreter_ok_evidence
+  - pentagon_default_model_is_gpt_5_5
+  - t5b_red_predicate_is_new_and_current
+
+handoff_success_criteria:
+  - theo_commits_only_tests_first
+  - theo_records_failing_command_output
+  - theo_handoff_records_sender_artifact_hash
+  - maya_activation_proof_after_handoff
+  - maya_commits_implementation_after_activation
+  - no_codex_fallback_implementation
+
+closure_success_criteria:
+  - quinn_adversary_log_exists
+  - rowan_review_log_exists
+  - grace_gate_log_exists
+  - priya_evaluation_log_exists
+  - t5b_status_is_closed_pentagon_autonomous
+  - riley_bottleneck_ledger_records_handoff_fixed_or_exact_remaining_failure
+  - targeted_and_relevant_local_verification_passes
+
+permissions:
+  - activegraph/tests/**:rw
+  - activegraph/activegraph/**/*.py:rw
+  - frames/t5b-pentagon-handoff-activation-smoke.*:rw
+
+forbidden_success_claims:
+  - implementation_completed_by_codex_fallback
+  - handoff_sent_without_activation
+  - untracked_file_used_as_proof
+  - chat_summary_without_hash_or_command_output
+
+status_target: closed_pentagon_autonomous
