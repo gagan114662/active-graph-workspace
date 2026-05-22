@@ -23,6 +23,8 @@ checks:
   capability_gate_note: Forge/Nova/Spec Owner silence and suspected shell-tool gaps remain unresolved unless current agents produce literal command evidence
   activation_protocol_tested: red
   activation_protocol_note: T4 and T5 show message delivery without Code Owner activation; Maya activation remains unproven
+  skills_installed: green
+  skills_installed_note: active_graph skill wrappers installed in /Users/gaganarora/.codex/skills and repo-backed skills added under agent-os/skills
   t2_partial_debt_tracked: green
   t1b_accounted: green
   v0_1_accounted: green

@@ -204,3 +204,23 @@ feedback_action: Created frames/flywheel-readiness.status and
 evidence:
   - frames/flywheel-readiness.status
   - frames/flywheel-bottleneck-gate-map.md
+
+## bottleneck.resolved - Skills not installed / chat-only work
+
+frame: pentagon-flywheel-repair
+complexity: system
+source: local Codex skills folder, agent-os/skills, purpose docs
+symptom: Core agents had repo runbooks, but Codex did not have active_graph
+  skills installed and the repo lacked dedicated skills for interpreter smoke,
+  activation watchdog, evidence indexing, model audit, and clean replay.
+owner: Riley (Evidence Lead) + Grace (Gate Sentinel)
+feedback_action: Installed active_graph skill wrappers into
+  /Users/gaganarora/.codex/skills and added missing repo-backed skills under
+  agent-os/skills.
+evidence:
+  - frames/skills-installation-2026-05-22.md
+  - agent-os/skills/interpreter-smoke.md
+  - agent-os/skills/activation-watchdog.md
+  - agent-os/skills/evidence-indexing.md
+  - agent-os/skills/model-audit.md
+  - agent-os/skills/clean-venv-replay.md

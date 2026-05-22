@@ -64,6 +64,11 @@ The skill pack lives in `agent-os/skills/`:
 5. `closure-discipline.md`
 6. `handoff-recovery.md`
 7. `bottleneck-feedback.md`
+8. `interpreter-smoke.md`
+9. `activation-watchdog.md`
+10. `evidence-indexing.md`
+11. `model-audit.md`
+12. `clean-venv-replay.md`
 
 Each core agent's Purpose doc should name the skills they must use.
 
@@ -99,4 +104,3 @@ Avery -> Sofia -> Sasha -> Theo -> Maya -> Quinn -> Rowan/Grace -> Priya/Riley
 
 with every bottleneck captured as an event and every claim backed by git/log
 evidence.
-
