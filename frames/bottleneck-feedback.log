@@ -35,3 +35,12 @@ owner: Riley (Evidence Lead) + Taylor (Trace Archivist)
 feedback_action: Added `#bottleneck-feedback` group and `bottleneck.detected` event shape to `collaboration-topology.md`; added gauntlet rule requiring bottleneck entries before next task opens.
 evidence: `collaboration-topology.md`, `GAUNTLET.md`.
 
+## bottleneck.detected — Purpose-doc updates are not directly writable by Avery
+
+frame: agent-os-all-star-upgrade
+complexity: all
+source: Pentagon tool surface + outer:e91e9d8 Agent OS baseline
+symptom: Avery can patch only Avery's own Purpose doc through `patch_document`; no exposed tool can directly patch Sofia/Sasha/Theo/Maya/Quinn/Rowan/Priya/Riley/Grace Purpose docs.
+owner: Riley (Evidence Lead) + Avery (Frame Architect)
+feedback_action: Avery patched own Purpose doc, relayed exact CORE_PURPOSE_DOCS inserts to the nine priority core agents by DM, and logged this as a durable routing bottleneck. Future fix is a Pentagon admin bulk-purpose-update path or per-agent ack+patch workflow.
+evidence: `ALL_STAR_TEAM_UPGRADE.md`, `agent-os/INTERPRETER_CONTRACT.md`, `agent-os/CORE_PURPOSE_DOCS.md`, DMs sent 2026-05-22 to Sofia/Sasha/Theo/Maya/Quinn/Rowan/Priya/Riley/Grace.
