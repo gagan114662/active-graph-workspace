@@ -1,7 +1,32 @@
 # Frame t3-implement-cli-set-flag — Dispatch log
 
 current_frame: t3-implement-cli-set-flag
-status: D-4 sealing in flight; failing tests + impl pre-positioned
+status: D-4 SEALED (inner:6e167ae, Atlas direct-fallback); failing tests dispatched (Test Owner live), impl pre-positioned (Forge live after test hash)
+
+## D-4 fallback landing (2026-05-22)
+
+- Trigger: app 0-active while T3 red and Spec Owner D-4 dispatch unacked past gagan's tolerance
+- Authority: gagan 2026-05-22 ("Do fallback now. Commit D-4 directly or reactivate Spec Owner immediately.")
+- Author: Atlas direct-fallback (same pattern as t1a Step A and t2 closure)
+- Amendment doc: activegraph/frames/t3-amendments/D-4.md (237 lines)
+- Inner commit: 6e167ae Frame t3 amendment D-4: pydantic-schema — coerce override values through Pack.settings_schema field validators at validate_override; raw string in CLI, typed value in event log
+- Push: 09766d2..6e167ae main -> main on gagan114662/activegraph
+
+### D-4 pick summary (binding on Test Owner + Forge)
+
+- (b) Schema-driven Pydantic coercion through Pack.settings_schema field validators
+- D-2 helper signature refined: validate_override(key, raw_value, pack) -> CoercedOverride (was -> None)
+- CoercedOverride is internal dataclass: (typed_value, value_type, schema_constraint_snapshot)
+- CLI passes raw string; helper coerces; typed value lands in fork.override.applied.value per D-3
+- Rejected (a) strings-only: silent replay divergence by type drift to consumers
+- Rejected (c) explicit typed form: would regress T2 drift gate by forcing 8-doc rewrite or shipping undocumented CLI form
+
+### Test Owner unblock
+
+- Conversation: DM 7a161ea9-4613-46b9-96ff-0fb2b5345a5f
+- Unblock dispatch sent 2026-05-22 ~13:18Z citing inner:6e167ae
+- 45-min cutoff: ~14:03Z (45 min from unblock)
+- Atlas direct-fallback authorized if Test Owner silent past cutoff with app 0-active
 
 ## Closure prerequisites snapshot
 
