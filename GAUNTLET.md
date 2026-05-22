@@ -17,6 +17,12 @@ Five sequential tasks dispatched by gagan via the assistant. The assistant is th
   The entry must name the complexity level, source evidence, owner, and the
   feedback action that prevents recurrence. Repeated bottlenecks become either
   a new gate, a Purpose-doc routing rule, or a frame-yaml amendment.
+- **Interpreter-backed work.** Core agents use the contract in
+  `agent-os/INTERPRETER_CONTRACT.md`: shell, Python, git, test execution,
+  scratch state, and literal-output capture. Interpreter output becomes trusted
+  only after it is committed or copied into frame logs.
+- **Skill-backed work.** Core agents use the runbooks in `agent-os/skills/`.
+  Missing or skipped skill usage is itself a `bottleneck.detected` event.
 
 ---
 

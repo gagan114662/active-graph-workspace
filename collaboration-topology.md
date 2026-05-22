@@ -132,6 +132,23 @@ Goal Reaper posts the predicate count: "12/15 green, 3 pending."
 Riley posts the current bottleneck count: "2 bottlenecks open, 1 converted to
 gate, 1 routed to Frame Architect."
 
+## All-Star Operating Layer
+
+The production-grade operating layer is repo-backed in `agent-os/`.
+
+- `agent-os/INTERPRETER_CONTRACT.md` defines what "give agents an interpreter"
+  means for this workspace.
+- `agent-os/CORE_PURPOSE_DOCS.md` contains the Purpose document inserts for
+  the core all-star loop.
+- `agent-os/skills/` contains the reusable skills that agents must apply
+  before opening, testing, implementing, reviewing, or closing a frame.
+
+Core agents with interpreter priority:
+
+`Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, Grace`.
+
+Specialists stay on demand unless a frame predicate names them.
+
 ## Tasks & Progress
 
 Pentagon's built-in task system, NOT a separate spreadsheet. Each agent
