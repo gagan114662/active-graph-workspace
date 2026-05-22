@@ -1,0 +1,62 @@
+id: t5d-target-agent-turn-activation-primitive
+goal: >
+  Prove or implement a real Pentagon target-agent activation primitive that can
+  wake Maya from Theo's handoff without a human/Codex watchdog nudge, then
+  rerun a tiny Theo-to-Maya handoff smoke with auditable evidence.
+
+complexity: reliability-product-blocker
+
+why_t5d_exists:
+  - T5b closed only as watchdog-assisted.
+  - T5c proved that recipient-owned scheduled actions did not visibly wake
+    Maya after Theo's handoff.
+  - MCP send_message has repeatedly proven delivery/context only, not
+    executeAgentTurn or recipient activation.
+  - Full easy/medium/hard/extra-hard autonomy cannot be claimed until handoffs
+    wake the target agent and leave visible evidence.
+
+required_product_capability:
+  one_of:
+    - send_message supports an explicit trigger_turn or target_agent_id mode
+      that starts a turn for the target recipient.
+    - schedule_action supports target_agent_id and conversation_id and writes
+      visible output into the target agent's thread.
+    - Pentagon exposes another documented target-turn activation tool with
+      equivalent evidence.
+
+preflight_success_criteria:
+  - current_defaults_read_is_gpt_5_5
+  - live_per_agent_model_readback_is_gpt_5_5_for_active_core
+  - core_agents_have_current_purpose_patched_evidence
+  - core_agents_have_current_interpreter_ok_evidence
+  - pentagon_mcp_or_ui_surface_exposes_target_activation_primitive
+
+handoff_success_criteria:
+  - theo_sends_handoff_with_unique_hash
+  - activation_primitive_targets_maya_by_agent_or_conversation_id
+  - maya_outputs_the_same_unique_hash_without_manual_post_handoff_message
+  - maya_output_is_visible_in_committed_status_or_dispatch_log
+  - read_messages_or_ui_capture_proves_recipient_thread_output
+
+closure_success_criteria:
+  - t5d_status_is_closed_pentagon_autonomous
+  - priya_evaluation_log_exists
+  - riley_bottleneck_ledger_records_activation_fixed
+  - no_codex_or_human_watchdog_intervention_after_theo_handoff
+  - exact_command_or_api_output_is_recorded_without_secrets
+
+failure_criteria:
+  - only send_message delivery is proven
+  - only caller-scoped scheduled action is proven
+  - Maya responds only after a direct manual message
+  - success evidence depends on untracked files or chat summaries
+  - model default or active-agent model readback is stale, missing, or mixed
+
+permissions:
+  - frames/t5d-target-agent-turn-activation-primitive.*:rw
+  - frames/flywheel-readiness.status:rw
+  - frames/bottleneck-feedback.log:rw
+  - frames/pentagon-model-refresh-2026-05-22.log:rw
+  - frames/flywheel-bottleneck-gate-map.md:rw
+
+status_target: closed_pentagon_autonomous

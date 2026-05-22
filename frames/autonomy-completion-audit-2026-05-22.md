@@ -1,0 +1,33 @@
+# Pentagon Autonomy Completion Audit - 2026-05-22
+
+Objective: fix Pentagon AI agents to work fully autonomously across easy,
+medium, hard, and extra-hard tasks in an auditable, verifiable fashion.
+
+## Success Criteria
+
+| Requirement | Evidence required | Current evidence | Result |
+| --- | --- | --- | --- |
+| Easy task completed with evidence | frame status/eval/review plus test output | T1a status closed; T1b accounted as pre-satisfied in evidence index | partial, historical |
+| Medium task completed with evidence | frame status/eval/review plus test output | T2 status closed, T3 status closed | green for repo tasks |
+| Hard task completed with evidence | frame status/eval/review plus test output | T3 status closed with focused/full tests and gates | green for repo task |
+| Extra-hard task completed with evidence | frame status/eval/review plus test output | T4/T5b repo work landed, but T4 has autonomy gap and T5b is watchdog-assisted | repo green, autonomy not green |
+| Agents work fully autonomously | target handoff wakes recipient without manual/Codex intervention | T5c shows no visible Maya response after Theo handoff | red |
+| Auditable and verifiable | committed or tracked logs/status/eval with literal command/API output | frame artifacts exist; two fresh eval logs are currently untracked | amber |
+| Model policy stable | current defaults and live per-agent readback all gpt-5.5 | default drifted to claude-opus-4-7[1m], repaired to gpt-5.5; live readback pending | amber |
+| Activation primitive available | explicit target-agent turn API or equivalent visible output channel | no Pentagon MCP tools exposed in this Codex session; no active Pentagon-spawned agents at audit time | red |
+
+## Prompt-To-Artifact Checklist
+
+| Prompt item | Artifact or command checked | Result |
+| --- | --- | --- |
+| fully autonomous agents | frames/t5b-pentagon-handoff-activation-smoke.evaluation.log, frames/t5c-recipient-self-watchdog-smoke.evaluation.log | not achieved |
+| easy/medium/hard/extra-hard | frames/gauntlet-completion-audit-2026-05-22.md, frames/evidence-index-2026-05-22.md | repo tasks mostly accounted; autonomy caveats remain |
+| auditable/verifiable | frames/*.status, frames/*.evaluation.log, frames/bottleneck-feedback.log, git status | incomplete until fresh/untracked proof is committed or retired |
+| Pentagon model policy | defaults read run.pentagon.app pentagon.defaultModel; frames/pentagon-model-refresh-2026-05-22.log | repaired again to gpt-5.5, durability unproven |
+| handoff activation | T5c dispatch/status/evaluation | blocked; no WATCHDOG_ACK or WATCHDOG_NO_HANDOFF |
+
+## Completion Decision
+
+Not complete. The next required product fix is T5d: expose or implement a
+target-agent activation primitive, then prove Theo can wake Maya without a
+manual/Codex watchdog intervention and record the proof in committed artifacts.

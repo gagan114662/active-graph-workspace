@@ -1,0 +1,57 @@
+# Goal Reaper evaluation - t5c-recipient-self-watchdog-smoke
+
+evaluated_utc: 2026-05-22T21:37:24Z
+verdict: goal.incomplete
+
+## Decision
+
+T5c remains incomplete. The self-watchdog scheduling and Theo handoff evidence
+exist, but there is no visible Maya response after the handoff without a manual
+post-handoff activation.
+
+## Predicate results
+
+| Predicate | Expected | Actual | Result |
+| --- | --- | --- | --- |
+| Maya reports a scheduled self-watchdog action id or literal blocked reason | scheduled action id or blocked reason | `WATCHDOG_SCHEDULED Maya 7933eaf1-694d-4839-8d55-de1e3a03046d/2026-05-22T18:59:01.748+00:00`; repeated action `41aec883-ed28-47bf-b65c-1b0e337c28d5` | GREEN |
+| Theo sends a T5c handoff with hash `t5c-activation-check-2026-05-22` | handoff sent with exact hash | dispatch/status record `HANDOFF_SENT Theo t5c-activation-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1` | GREEN |
+| Maya responds to that handoff via her self-watchdog without a direct manual Maya reactivation after Theo's handoff | visible `WATCHDOG_ACK` or `WATCHDOG_NO_HANDOFF` from Maya after handoff | no visible response in status/dispatch/bottleneck logs; Pentagon `read_messages` for recorded conversation returned `[]` | RED |
+| Riley records whether this proves recipient-self-watchdog activation | Riley/evidence status records proven or blocked | status records `verdict: blocked` and required product fix | GREEN |
+
+## Literal command output
+
+Command:
+
+```text
+rg -n "WATCHDOG_ACK|WATCHDOG_NO_HANDOFF|t5c-activation-check|t5c-repeat-check|WATCHDOG_SCHEDULED|HANDOFF_SENT" frames/t5c-recipient-self-watchdog-smoke.status frames/t5c-recipient-self-watchdog-smoke.dispatch.log frames/bottleneck-feedback.log
+```
+
+Output:
+
+```text
+frames/t5c-recipient-self-watchdog-smoke.status:3:hash: t5c-activation-check-2026-05-22
+frames/t5c-recipient-self-watchdog-smoke.status:5:  one_shot_scheduled_action: "WATCHDOG_SCHEDULED Maya 7933eaf1-694d-4839-8d55-de1e3a03046d/2026-05-22T18:59:01.748+00:00"
+frames/t5c-recipient-self-watchdog-smoke.status:9:  one_shot_hash: "HANDOFF_SENT Theo t5c-activation-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent."
+frames/t5c-recipient-self-watchdog-smoke.status:10:  repeated_hash: "HANDOFF_SENT Theo t5c-repeat-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent."
+frames/t5c-recipient-self-watchdog-smoke.status:18:  visible WATCHDOG_ACK/WATCHDOG_NO_HANDOFF appeared after either the one-shot
+frames/t5c-recipient-self-watchdog-smoke.dispatch.log:5:test_hash: t5c-activation-check-2026-05-22
+frames/t5c-recipient-self-watchdog-smoke.dispatch.log:25:WATCHDOG_SCHEDULED Maya 7933eaf1-694d-4839-8d55-de1e3a03046d/2026-05-22T18:59:01.748+00:00
+frames/t5c-recipient-self-watchdog-smoke.dispatch.log:31:HANDOFF_SENT Theo t5c-activation-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent.
+frames/t5c-recipient-self-watchdog-smoke.dispatch.log:34:No visible `WATCHDOG_ACK` or `WATCHDOG_NO_HANDOFF` appeared.
+frames/t5c-recipient-self-watchdog-smoke.dispatch.log:45:HANDOFF_SENT Theo t5c-repeat-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent.
+frames/t5c-recipient-self-watchdog-smoke.dispatch.log:48:After waiting through the visible window, no `WATCHDOG_ACK` or
+frames/t5c-recipient-self-watchdog-smoke.dispatch.log:49:`WATCHDOG_NO_HANDOFF` appeared in Maya's exact-DM thread or Theo's thread.
+frames/bottleneck-feedback.log:329:  WATCHDOG_ACK or WATCHDOG_NO_HANDOFF appeared in Maya/Theo threads after the
+```
+
+Command:
+
+```text
+mcp__pentagon__.read_messages({"conversation_id":"0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1","limit":50})
+```
+
+Output:
+
+```text
+[]
+```

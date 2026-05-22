@@ -341,3 +341,21 @@ durable_conversion:
 evidence:
   - frames/t5c-recipient-self-watchdog-smoke.status
   - frames/t5c-recipient-self-watchdog-smoke.dispatch.log
+
+## bottleneck.detected - Pentagon default model drifted after repair
+
+frame: pentagon-flywheel-repair
+complexity: system
+source: live macOS defaults check at 2026-05-22T21:54Z
+symptom: Earlier logs recorded the default model repaired to gpt-5.5, but a
+  fresh check returned claude-opus-4-7[1m]. The default was immediately repaired
+  again with defaults write and rechecked as gpt-5.5.
+owner: Pentagon app settings surface + Riley (Evidence Lead)
+feedback_action: Keep model_audit_current amber until a fresh Pentagon launch
+  and live per-agent readback prove the gpt-5.5 assignment is durable.
+durable_conversion:
+  - Gate: no autonomous gauntlet frame may start from a historical model audit
+    only; it needs current defaults plus live per-agent readback.
+evidence:
+  - frames/pentagon-model-refresh-2026-05-22.log
+  - frames/flywheel-readiness.status

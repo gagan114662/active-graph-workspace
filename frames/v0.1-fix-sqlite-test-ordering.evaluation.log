@@ -1,0 +1,117 @@
+# Goal Reaper evaluation - v0.1-fix-sqlite-test-ordering
+
+evaluated_utc: 2026-05-22T21:37:24Z
+verdict: goal.predicate_unrunnable
+
+## Decision
+
+v0.1 cannot close. The current full suite and isolated wheel-completeness test
+pass, but the frame requires `pytest_random_order_passes_3_seeds` and the local
+test environment exposes no random-order pytest option/plugin. Because that
+predicate cannot be evaluated, the frame is blocked until the random-order gate
+is installed or the frame is amended.
+
+## Predicate results
+
+| Predicate | Expected | Actual | Result |
+| --- | --- | --- | --- |
+| pytest_full_suite_passes | pytest exits 0 | `693 passed, 15 skipped in 40.79s` | GREEN |
+| pytest_test_wheel_completeness_isolated_passes | isolated wheel test exits 0 | `1 passed in 25.54s` | GREEN |
+| pytest_test_wheel_completeness_in_full_suite_passes | wheel test passes during full suite | full suite exited 0, so included wheel test passed | GREEN |
+| pytest_random_order_passes_3_seeds | three random-order pytest runs exit 0 | `pytest --help | rg "random|randomly"` returned exit 1 and no output; no random-order option available | UNRUNNABLE |
+| sqlite_file_handles_closed_in_fixture_teardown | evidence of fixture teardown closing leaked handles | no v0.1-specific status/commit evidence found in current frame artifacts | RED |
+| no_temp_dir_collision_across_concurrent_tests | evidence temp dirs are collision-safe | no v0.1-specific status/commit evidence found in current frame artifacts | RED |
+| root_cause_documented_in_commit_message | commit message documents root cause | no v0.1 status file or closure commit identified | RED |
+| no_changes_outside_permissions | changes bounded to YAML permissions | no v0.1 implementation range identified; cannot prove closure surface | RED |
+| changelog_entry_present_for_sqlite_fix | changelog entry for sqlite ordering fix | no matching v0.1/sqlite test-ordering changelog entry found in current grep output | RED |
+| contract_amendment_or_explicitly_deferred | CONTRACT amendment or explicit deferral present | no matching v0.1/sqlite ordering amendment/deferral found in current grep output | RED |
+| mypy_strict_passes_on_modified_files | mypy clean on modified files | no modified-file set identified for v0.1 | RED |
+| wheel_completeness_passes | wheel gate exits 0 | `1 passed in 25.54s` | GREEN |
+| replay_in_fresh_venv_passes | replay fresh-venv gate exits 0 | no replay command/path specified by frame; not evaluated this heartbeat | RED |
+
+## Literal command output
+
+Command:
+
+```text
+../venv/bin/pytest -q tests/test_wheel_completeness.py
+```
+
+Output:
+
+```text
+.                                                                        [100%]
+1 passed in 25.54s
+```
+
+Command:
+
+```text
+../venv/bin/pytest -q
+```
+
+Output:
+
+```text
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 30%]
+........................................................................ [ 40%]
+........................................................................ [ 50%]
+................ssssss.................................................. [ 61%]
+........................................................................ [ 71%]
+...............................sssssssss................................ [ 81%]
+........................................................................ [ 91%]
+............................................................             [100%]
+693 passed, 15 skipped in 40.79s
+```
+
+Command:
+
+```text
+../venv/bin/python -m pytest --help | rg -n "random|randomly"
+```
+
+Output:
+
+```text
+```
+
+Exit code: 1.
+
+Command:
+
+```text
+test -f frames/v0.1-fix-sqlite-test-ordering.status && sed -n '1,220p' frames/v0.1-fix-sqlite-test-ordering.status || true; test -f frames/v0.1-fix-sqlite-test-ordering.evaluation.log && sed -n '1,220p' frames/v0.1-fix-sqlite-test-ordering.evaluation.log || true
+```
+
+Output before this evaluation log was created:
+
+```text
+```
+
+Command:
+
+```text
+rg -n "disk I/O|sqlite|wheel completeness|test order|v0\\.1|file handle|temp dir|temporary|changelog|CONTRACT" CHANGELOG.md CONTRACT.md tests activegraph/store/sqlite.py tests/conftest.py tests/test_wheel_completeness.py
+```
+
+Output:
+
+```text
+tests/test_wheel_completeness.py:1:"""Wheel-completeness gate. CONTRACT v1.1 #8.
+tests/test_wheel_completeness.py:11:(CONTRACT v1.0 #1), fixture-backed, no network, no API key. It
+activegraph/store/sqlite.py:1:"""SQLite-backed EventStore. CONTRACT v0.5 #3 (schema locked).
+activegraph/store/sqlite.py:31:NOTE on the UNIQUE constraint (CONTRACT v0.5 diff #3): the locked schema
+activegraph/store/sqlite.py:46:import sqlite3
+activegraph/store/sqlite.py:94:def _ensure_schema(conn: sqlite3.Connection) -> None:
+activegraph/store/sqlite.py:115:            f"sqlite store schema_version {row[0]!r} does not match this build's expected {SCHEMA_VERSION!r}",
+activegraph/store/sqlite.py:143:                "driver": "sqlite",
+activegraph/store/sqlite.py:201:        self._conn = sqlite3.connect(path, isolation_level=None)
+activegraph/store/sqlite.py:365:        except sqlite3.ProgrammingError:
+activegraph/store/sqlite.py:446:        conn = sqlite3.connect(path, isolation_level=None)
+activegraph/store/sqlite.py:457:        conn = sqlite3.connect(path, isolation_level=None)
+activegraph/store/sqlite.py:492:        conn = sqlite3.connect(path, isolation_level=None)
+CHANGELOG.md:19:- Promoted `activegraph.runtime.diff` to mypy --strict clean allowlist (CONTRACT v1.0 #C5 type-completeness progression).
+CHANGELOG.md:22:- Closed all Ring 0 docstring exemptions (CONTRACT v1.1 #4 Wave 1): added docstrings to `Budget`, `InMemoryEventStore`, `Runtime`, `View`, `clear_tool_registry`, and `get_tool_registry`. Ring 0 coverage now 100% not-missing.
+```

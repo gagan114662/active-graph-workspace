@@ -1,5 +1,5 @@
 status: watchdog_assisted_only
-evaluated_utc: 2026-05-22T18:31:26Z
+evaluated_utc: 2026-05-22T21:54:19Z
 owner: Riley / Evidence Lead
 scope: Pentagon autonomy flywheel readiness before reopening T5
 
@@ -16,7 +16,7 @@ checks:
   purpose_coverage_current: green
   purpose_coverage_note: frames/pentagon-purpose-repair-2026-05-22.log records exact-DM PURPOSE_PATCHED evidence for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Riley, and Grace; Priya was patched through the caller-scoped Pentagon MCP token
   model_audit_current: amber
-  model_audit_note: macOS default reads gpt-5.5 and historical audit says live map models were gpt-5.5, but audit still includes legacy identities and must be refreshed after identity normalization
+  model_audit_note: macOS default drifted back to claude-opus-4-7[1m] and was repaired again at 2026-05-22T21:54Z; current defaults read is gpt-5.5, but durability and live per-agent readback remain unproven after the drift
   interpreter_proof_current: green
   interpreter_proof_note: frames/pentagon-live-ui-verification-2026-05-22.log records live UI INTERPRETER_OK proof for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, and Grace
   capability_gate_current: green
@@ -37,8 +37,10 @@ checks:
 required_before_t5_reopen:
   - commit and push all proof/control artifacts, and either commit or retire inner activegraph/GAUNTLET.md if it is used as proof
   - refresh model audit with current names only or explicitly mark legacy agents retired
+  - prove the gpt-5.5 default remains durable after a fresh Pentagon launch and live per-agent readback
+  - implement or expose a target-agent activation primitive; MCP send_message and caller-scoped scheduled actions are not enough
   - use exact-DM selected-header verification for any UI-driven activation; do not rely on moving-list coordinates
   - no remaining T5b closure blockers recorded
 
 verdict: watchdog_assisted_only
-reason: core Purpose/interpreter readiness are proven and T5b records successful watchdog-assisted delivery, but T5c shows fully autonomous target-agent activation is still blocked by the current Pentagon activation surface.
+reason: core Purpose/interpreter readiness are proven and T5b records successful watchdog-assisted delivery, but T5c shows fully autonomous target-agent activation is still blocked by the current Pentagon activation surface; the default model also drifted once after repair and must be proven durable before autonomous reopening.

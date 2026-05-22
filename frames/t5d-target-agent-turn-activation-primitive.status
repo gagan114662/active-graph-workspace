@@ -1,0 +1,24 @@
+status: blocked_missing_target_agent_activation_primitive
+evaluated_utc: 2026-05-22T21:54:19Z
+owner: Riley / Evidence Lead
+
+live_checks:
+  pentagon_app_running: true
+  codex_session_has_pentagon_mcp_tools: false
+  pentagon_spawned_agent_processes_active: false
+  default_model_before_repair: claude-opus-4-7[1m]
+  default_model_after_repair: gpt-5.5
+
+current_evidence:
+  - frames/t5b-pentagon-handoff-activation-smoke.evaluation.log records closed_watchdog_assisted and autonomous_closure false.
+  - frames/t5c-recipient-self-watchdog-smoke.evaluation.log records goal.incomplete because Maya did not produce WATCHDOG_ACK or WATCHDOG_NO_HANDOFF after Theo's handoff.
+  - frames/pentagon-purpose-repair-2026-05-22.log records that MCP send_message produced 0/9 PURPOSE_PATCHED, 0/9 PURPOSE_BLOCKED, 9/9 SILENT before exact-DM UI activation.
+  - frames/pentagon-model-refresh-2026-05-22.log records the latest default-model drift and repair.
+
+verdict: blocked
+reason: >
+  The current Pentagon surface proves direct UI activation and watchdog-assisted
+  delivery, but not fully autonomous peer handoff activation. A target-agent
+  turn primitive, or an equivalent scheduled action with explicit target
+  routing and visible target-thread output, is required before easy/medium/hard/
+  extra-hard autonomy can be claimed.
