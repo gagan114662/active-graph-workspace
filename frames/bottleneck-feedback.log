@@ -104,3 +104,4 @@ evidence:
   - "T4 red-test commit: inner:7c319cf."
   - "Targeted pytest before implementation: 10 failed, 2 passed."
   - "Post-handoff process check: Pentagon app alive, no codex exec / pytest / Maya worker."
+  - "Fallback implementation landed by Codex at inner:b8eb508 after activation gap; this is not counted as Maya autonomous completion."
