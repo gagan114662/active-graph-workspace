@@ -455,3 +455,33 @@ durable_conversion:
 evidence:
   - frames/t5d-target-agent-turn-activation-primitive.status
   - frames/autonomy-completion-audit-2026-05-22.md
+
+## bottleneck.reclassified - internal trigger queue works but is not bounded/public
+
+frame: t5d-target-agent-turn-activation-primitive
+complexity: system
+source: Supabase REST readback of agent_triggers/messages/conversation_participants
+  plus ~/.pentagon/conversation-debug.log
+symptom: The previous T5d reading was too broad. Theo's T5d message did create
+  target trigger 3737cf58-35d1-497b-a076-7ea5649758e7 for Maya in the
+  Theo-Maya conversation, and the local app later claimed it, ran
+  executeAgentTurn for Maya, and produced the requested MAYA_T5D_ACK. However,
+  the trigger was claimed about 5m37s after message creation and ACKed about
+  6m10s after message creation, outside the 90s watchdog window. The public MCP
+  tool catalog still lacks an explicit routed target-agent trigger primitive.
+owner: Pentagon trigger catch-up + MCP activation surface
+feedback_action: Reclassify the failure from "no target execution" to
+  "internal target execution exists but lacks bounded public/auditable
+  activation semantics." Do not close full autonomy until the exposed control
+  plane can trigger and read back target execution inside the declared window.
+durable_conversion:
+  - Gate: a handoff frame must record message_created_at, trigger_created_at,
+    trigger_claimed_at, executeAgentTurn START, target ACK time, and
+    message-to-ACK latency.
+  - Product requirement: expose target trigger creation/claim/readback through
+    the public MCP/tool surface or prove the existing send_message path claims
+    triggers inside the declared SLA.
+evidence:
+  - frames/t5d-internal-trigger-queue-readback-2026-05-22.log
+  - frames/t5d-target-agent-turn-activation-primitive.status
+  - frames/autonomy-completion-audit-2026-05-22.md

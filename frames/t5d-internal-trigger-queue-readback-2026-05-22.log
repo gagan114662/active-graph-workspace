@@ -1,0 +1,92 @@
+# T5d internal trigger queue readback - 2026-05-22
+
+Purpose: correct the T5d evidence boundary after direct readback of Pentagon's
+cloud tables and local debug log. This file intentionally records no auth
+tokens.
+
+## Direct table readback
+
+Source: Supabase REST read-only queries using the active Pentagon app session.
+Tables checked: `conversation_participants`, `messages`, `agent_triggers`.
+
+Conversation:
+
+```text
+conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+participants:
+- Theo (Test Owner): 1343cc84-5a06-44b7-88f7-f2c3e82d7e1c
+- Maya (Code Owner): 7b8c44b7-ddeb-4a35-87e4-2ae502fe9001
+```
+
+T5d handoff message:
+
+```text
+message_id: 91ea5635-b7a3-474a-904d-80db9eb652e2
+sender_id: 1343cc84-5a06-44b7-88f7-f2c3e82d7e1c
+created_at: 2026-05-22T22:06:08.790789+00:00
+content: T5d heartbeat handoff proof. Hash:
+  T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z. Maya: if your current autonomous
+  heartbeat/active turn sees this without a direct post-handoff Maya poke,
+  reply exactly MAYA_T5D_ACK T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z and
+  include pwd plus git rev-parse --short HEAD output. If blocked, reply
+  MAYA_T5D_BLOCKED T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z <literal reason>.
+```
+
+Matching target trigger:
+
+```text
+trigger_id: 3737cf58-35d1-497b-a076-7ea5649758e7
+agent_id: 7b8c44b7-ddeb-4a35-87e4-2ae502fe9001
+sender_id: 1343cc84-5a06-44b7-88f7-f2c3e82d7e1c
+message_id: 91ea5635-b7a3-474a-904d-80db9eb652e2
+created_at: 2026-05-22T22:06:08.790789+00:00
+claimed_at: 2026-05-22T22:11:46.338353+00:00
+completed_at: 2026-05-22T22:12:35.690+00:00
+```
+
+Maya ACK:
+
+```text
+message_id: c180a208-dbfb-4ef9-ac06-2a4bf4bfba36
+sender_id: 7b8c44b7-ddeb-4a35-87e4-2ae502fe9001
+created_at: 2026-05-22T22:12:19.578074+00:00
+content: MAYA_T5D_ACK T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z
+  pwd=/Users/gaganarora/Desktop/my projects/active_graph HEAD=2e79a56
+```
+
+## Local app log corroboration
+
+```text
+[2026-05-22T22:11:46.333Z] [handleAgentTrigger] Executing -- trigger:
+  3737CF58-35D1-497B-A076-7EA5649758E7, agent:
+  7B8C44B7-DDEB-4A35-87E4-2AE502FE9001
+[2026-05-22T22:11:46.333Z] [executeAgentTurn] START -- agent:
+  7B8C44B7-DDEB-4A35-87E4-2AE502FE9001, conversation:
+  0D996A94-45A6-4EF6-B8BD-45BC3F84D7E1, isA2A: true
+[2026-05-22T22:12:17.294Z] [executeClaudeP] Tool call:
+  mcp__pentagon__patch_document -- content summary:
+  T5d heartbeat handoff proof acknowledged
+[2026-05-22T22:12:18.944Z] [executeClaudeP] Assistant text:
+  MAYA_T5D_ACK T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z
+  pwd=/Users/gaganarora/Desktop/my projects/active_graph HEAD=2e79a56
+```
+
+## Evidence interpretation
+
+This is stronger than the previous T5d blocker text: Pentagon did create an
+internal target trigger for Maya from Theo's message, and the app eventually
+claimed that trigger and ran Maya in the target conversation.
+
+It still does not close full autonomy:
+
+- message-to-claim latency was about 5m37s, outside the 90s watchdog window
+  used in the T5d observation;
+- message-to-ACK latency was about 6m10s, also outside that window;
+- the public MCP catalog still does not expose an explicit target-agent
+  trigger_turn/claimable-trigger primitive with routing readback;
+- this proof depended on later table/log readback and does not by itself prove
+  a stable bounded SLA for easy/medium/hard/extra-hard autonomous handoffs.
+
+Reclassified blocker: not "no target execution exists", but "target execution
+exists through the internal trigger queue and is not yet exposed/proven as a
+bounded public activation primitive."

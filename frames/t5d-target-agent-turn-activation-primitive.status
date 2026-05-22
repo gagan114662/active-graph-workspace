@@ -1,5 +1,5 @@
-status: blocked_missing_target_agent_activation_primitive
-evaluated_utc: 2026-05-22T21:54:19Z
+status: blocked_unbounded_internal_trigger_queue
+evaluated_utc: 2026-05-22T22:28:00Z
 owner: Riley / Evidence Lead
 
 live_checks:
@@ -23,6 +23,14 @@ live_checks:
   t5d_heartbeat_handoff_hash: T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z
   t5d_heartbeat_handoff_sent_by_theo_at: 2026-05-22T22:06:08Z
   t5d_maya_ack_after_90s: false
+  t5d_internal_trigger_id: 3737cf58-35d1-497b-a076-7ea5649758e7
+  t5d_internal_trigger_created_at: 2026-05-22T22:06:08Z
+  t5d_internal_trigger_claimed_at: 2026-05-22T22:11:46Z
+  t5d_internal_trigger_completed_at: 2026-05-22T22:12:35Z
+  t5d_maya_ack_at: 2026-05-22T22:12:19Z
+  t5d_message_to_trigger_claim_seconds: 337
+  t5d_message_to_ack_seconds: 370
+  t5d_trigger_claim_to_ack_seconds: 33
   live_heartbeat_spawned_codex_workers: true
   mapped_mcp_worker_models: gpt-5.5
 
@@ -37,16 +45,19 @@ current_evidence:
   - A later readback of the Theo-Maya conversation found delayed T5c ACKs from Maya at 2026-05-22T20:50:57Z and 2026-05-22T20:53:08Z. These invalidate a permanent "no ACK ever" claim, but not the autonomy blocker because they landed far outside the intended watchdog window.
   - After live UI selection/heartbeat catch-up, Pentagon spawned multiple local codex exec workers. Token-to-agent mapping showed MCP-attributed workers running gpt-5.5 for Maya, Theo, Priya, Rowan, Quinn, Avery, Sam, Ravi, Casey, Simone, Sofia, and Carmen.
   - Theo's live token sent a fresh T5d hash to Maya at 2026-05-22T22:06:08Z. After a 90 second observation window, the Theo-Maya conversation still had no MAYA_T5D_ACK or MAYA_T5D_BLOCKED response for T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z.
+  - Direct readback of Pentagon's internal agent_triggers table later found trigger 3737cf58-35d1-497b-a076-7ea5649758e7 for Maya, created from Theo's 2026-05-22T22:06:08Z T5d message, claimed at 2026-05-22T22:11:46Z, and completed at 2026-05-22T22:12:35Z.
+  - Local Pentagon debug logs corroborate executeAgentTurn START for Maya in conversation 0D996A94-45A6-4EF6-B8BD-45BC3F84D7E1 at 2026-05-22T22:11:46Z.
+  - Maya's ACK arrived at 2026-05-22T22:12:19Z: MAYA_T5D_ACK T5D_HEARTBEAT_HANDOFF_2026-05-22T2208Z pwd=/Users/gaganarora/Desktop/my projects/active_graph HEAD=2e79a56.
+  - frames/t5d-internal-trigger-queue-readback-2026-05-22.log records the table/log evidence and reclassifies the blocker from no target execution to unbounded/internal-only target activation.
 
 verdict: blocked
 reason: >
-  The current Pentagon surface proves direct UI activation and watchdog-assisted
-  delivery, but not fully autonomous peer handoff activation. A target-agent
-  turn primitive, or an equivalent scheduled action with explicit target
-  routing and visible target-thread output, is required before easy/medium/hard/
-  extra-hard autonomy can be claimed. spawn_agent plus send_message creates an
-  agent/conversation and context, but did not prove autonomous execution in the
-  live observation window. Hidden target fields on schedule_action also did not
-  prove target execution; the public MCP wrapper remains caller-scoped in
-  practice. Heartbeat catch-up can eventually start agents, but current evidence
-  does not prove bounded Theo-to-Maya activation after a new handoff.
+  Pentagon does have an internal target-trigger queue: Theo's T5d message
+  created a Maya agent_triggers row, the app claimed it, executeAgentTurn
+  started for Maya, and Maya emitted the requested ACK. That corrects the
+  earlier "no target execution" reading. The objective is still not complete
+  because the target trigger was claimed about 5m37s after message creation and
+  ACKed about 6m10s after message creation, outside the declared 90s watchdog
+  window. The public MCP wrapper also still lacks an explicit target-agent
+  trigger_turn or routed scheduled-action primitive with schema/readback, so
+  bounded easy/medium/hard/extra-hard autonomy remains unproven.
