@@ -1,0 +1,32 @@
+id: t5c-recipient-self-watchdog-smoke
+goal: >
+  Prove Pentagon can avoid the Theo-to-Maya activation gap without a human
+  watchdog nudge by having Maya install a caller-scoped self-watchdog heartbeat
+  and then respond to a new Theo handoff.
+
+complexity: reliability-smoke
+
+why_t5c_exists:
+  - T5b delivered repo work, but closure was watchdog-assisted by Codex.
+  - Pentagon MCP schedule_action is caller-scoped, so a reliable recipient
+    watchdog must be scheduled by the recipient agent itself.
+
+constraints:
+  - Keep this smoke lightweight; no repo implementation work.
+  - Use Pentagon turns and committed frame evidence.
+  - Do not manually reactivate Maya after Theo sends the T5c handoff.
+  - Maya must install the self-watchdog before Theo sends the handoff.
+
+success_criteria:
+  - Maya reports a scheduled self-watchdog action id or literal blocked reason.
+  - Theo sends a T5c handoff with hash t5c-activation-check-2026-05-22.
+  - Maya responds to that handoff via her self-watchdog without a direct manual
+    Maya reactivation after Theo's handoff.
+  - Riley records whether this proves recipient-self-watchdog activation.
+
+failure_criteria:
+  - Maya cannot schedule her own watchdog.
+  - Theo handoff is delivered but Maya does not respond before watchdog window.
+  - Any success claim depends on a manual post-handoff Maya poke.
+
+status_target: closed_recipient_self_watchdog_proven

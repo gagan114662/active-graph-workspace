@@ -1,0 +1,18 @@
+# t5c-recipient-self-watchdog-smoke dispatch log
+
+frame: t5c-recipient-self-watchdog-smoke
+opened_utc: 2026-05-22T18:55:00Z
+test_hash: t5c-activation-check-2026-05-22
+
+## Purpose
+
+Install and test recipient-owned handoff activation without a human/Codex
+post-handoff nudge. This is intentionally non-code to avoid machine load.
+
+## Steps
+
+1. Maya installs a caller-scoped self-watchdog scheduled action.
+2. Theo sends a T5c handoff containing test_hash.
+3. Codex waits and observes only; it must not message Maya after Theo's
+   handoff.
+4. Maya's self-watchdog should reply with the test_hash if it sees the handoff.
