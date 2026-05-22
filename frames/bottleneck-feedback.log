@@ -295,3 +295,26 @@ durable_conversion:
     activation before implementation.
 evidence:
   - frames/pentagon-purpose-repair-2026-05-22.log
+
+## bottleneck.fixed - T5b Theo-to-Maya handoff activation smoke closed
+
+frame: t5b-pentagon-handoff-activation-smoke
+complexity: handoff-smoke
+source: Theo red test commit, Maya post-watchdog activation proof, Maya implementation commit, local Codex pytest verification
+symptom: Earlier T5/T5b state required proof that a Theo-to-Maya handoff caused visible recipient activation before downstream implementation.
+owner: Theo (red predicate) + Maya (implementation) + Riley (Evidence Lead)
+feedback_action: Recorded handoff.fixed because the handoff now has a current
+  Theo red predicate commit, Maya activation proof after the watchdog, Maya's
+  implementation commit, and a focused pytest pass covering the red predicate
+  and OpenAI tool-shape surface.
+evidence:
+  - frames/t5b-pentagon-handoff-activation-smoke.status
+  - frames/t5b-pentagon-handoff-activation-smoke.dispatch.log
+  - frames/t5b-pentagon-handoff-activation-smoke.gates.log
+  - frames/t5b-pentagon-handoff-activation-smoke.adversary.log
+handoff_fixed:
+  theo_red_test_commit: 8d3ff89
+  maya_activation_after_watchdog: "INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89"
+  maya_implementation_commit: ccd4f45
+  local_verification: "python3 -m pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py -> 20 passed"
+remaining_failure: none_recorded

@@ -1,20 +1,35 @@
-status: opened_waiting_for_theo_red_test
-evaluated_utc: 2026-05-22T18:24:00Z
+status: handoff.fixed
+evaluated_utc: 2026-05-22T18:31:26Z
 inner_start_head: fce0cab
 pentagon_only: true
 codex_implementation_fallback_used: false
-autonomous_closure: false
+autonomous_closure: true
 theo:
-  activation: pending
-  red_test_commit: pending
-  red_test_file: pending
+  activation: red_test_commit_verified
+  red_test_commit: 8d3ff89
+  red_test_file: tests/test_llm_openai.py
 maya:
-  activation_proof_after_handoff: pending
-  implementation_commit: pending
+  activation_proof_after_handoff: "INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89"
+  implementation_commit: ccd4f45
 verification:
-  targeted_red_test_result: pending
-  closure_result: pending
-required_next_action:
-  - "Theo creates and pushes a tests-only red commit from inner head fce0cab."
-  - "Theo hands off to Maya with the sender artifact hash."
-  - "Maya must visibly activate before implementation."
+  commit_existence_check: |
+    $ git -C activegraph cat-file -t 8d3ff89 && git -C activegraph cat-file -t ccd4f45
+    commit
+    commit
+  inner_log_evidence: |
+    $ git -C activegraph log --oneline -5
+    ccd4f45 Frame t5b impl: handle mapping OpenAI responses
+    8d3ff89 Frame t5b test: OpenAI mapping response text
+    fce0cab Frame t4 fix OpenAI tool argument normalization
+    ab05ed0 Frame t5 test: OpenAI tool call token estimate
+    4604f0e Frame t4 docs: close OpenAI tool parity contract
+  targeted_red_test_result: |
+    $ python3 -m pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py
+    ....................                                                     [100%]
+    20 passed in 0.33s
+  closure_result: handoff.fixed
+supporting_artifacts:
+  - frames/t5b-pentagon-handoff-activation-smoke.dispatch.log
+  - frames/t5b-pentagon-handoff-activation-smoke.gates.log
+  - frames/t5b-pentagon-handoff-activation-smoke.adversary.log
+remaining_failure: none_recorded

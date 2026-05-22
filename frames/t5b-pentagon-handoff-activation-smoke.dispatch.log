@@ -15,3 +15,28 @@ inner_start_head: fce0cab
 ## Initial Owner
 
 Theo must choose the new red predicate. Codex must not implement the fix.
+
+## Closure Evidence
+
+closed_utc: 2026-05-22T18:31:26Z
+handoff_state: handoff.fixed
+theo_red_test_commit: 8d3ff89
+maya_activation_after_watchdog: INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89
+maya_implementation_commit: ccd4f45
+
+Literal verification:
+
+```text
+$ git -C activegraph log --oneline -5
+ccd4f45 Frame t5b impl: handle mapping OpenAI responses
+8d3ff89 Frame t5b test: OpenAI mapping response text
+fce0cab Frame t4 fix OpenAI tool argument normalization
+ab05ed0 Frame t5 test: OpenAI tool call token estimate
+4604f0e Frame t4 docs: close OpenAI tool parity contract
+```
+
+```text
+$ python3 -m pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py
+....................                                                     [100%]
+20 passed in 0.33s
+```
