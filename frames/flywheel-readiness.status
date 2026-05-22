@@ -9,10 +9,10 @@ bottleneck_gate_map: frames/flywheel-bottleneck-gate-map.md
 identity_map: agent-os/AGENT_IDENTITY_MAP.md
 
 checks:
-  evidence_index_clean: amber
-  evidence_index_note: current index created; must be rechecked after commit/push and clean git status
-  no_untracked_proof: red
-  no_untracked_proof_note: outer proof-like files are being committed; inner activegraph/GAUNTLET.md remains untracked and cannot be used as proof
+  evidence_index_clean: green
+  evidence_index_note: outer workspace is clean at e12873f after committing and pushing the evidence index and historical proof files
+  no_untracked_proof: amber
+  no_untracked_proof_note: outer proof-like files are committed; inner activegraph/GAUNTLET.md remains untracked and is explicitly excluded from proof until committed or retired
   purpose_coverage_current: red
   purpose_coverage_note: prior audit showed partial/report-only coverage and unconfirmed specialists; every active core Purpose still needs current proof
   model_audit_current: amber
@@ -30,7 +30,7 @@ checks:
   t5_red_state_preserved: green
 
 required_before_t5_reopen:
-  - commit and push all proof/control artifacts
+  - commit and push all proof/control artifacts, and either commit or retire inner activegraph/GAUNTLET.md if it is used as proof
   - refresh model audit with current names only or explicitly mark legacy agents retired
   - patch every active core Purpose with inbound/outbound rules, evidence output, stop conditions, skills, groups, and escalation
   - record INTERPRETER_OK or INTERPRETER_BLOCKED for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, and Grace
