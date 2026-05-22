@@ -71,10 +71,10 @@ evidence:
     - Quinn (Test Adversary): "Patched section 'Breakage Discovery After Implementation' in purpose."
     - Rowan (Code Reviewer): "Patched section 'Review OS' in purpose."
     - Grace (Gate Sentinel): "Patched section 'Gate Sentinel Ownership' in purpose."
+    - Theo (Test Owner): "Patched section 'Agent OS Test Owner Purpose' in purpose."; reply "PURPOSE_PATCHED Agent OS Test Owner Purpose."
   acknowledged_or_report_only:
     - Sasha (Spec Skeptic): "Purpose update recorded; knowledge article written, no captured Purpose patch result."
     - Riley (Evidence Lead): "Acknowledged evidence/bottleneck role; knowledge article written, no captured Purpose patch result."
-    - Theo (Test Owner): "Holding tests and acknowledging role; no captured Purpose patch result."
   no_captured_self_patch_reply:
     - Blake (Budget Marshal)
     - Sam (Docs Owner)
@@ -85,4 +85,22 @@ evidence:
     - Taylor (Trace Archivist)
     - Ravi (Replay Validator)
     - Carmen (Contract Owner)
-  t4_unblock_rule: "Theo remains blocked until Sasha re-challenges inner:7ae37da and inner:2f82f19, and Theo has a PURPOSE_OK/PURPOSE_PATCHED receipt or a captured Purpose patch."
+  t4_unblock_rule: "Satisfied for Theo on 2026-05-22 after Sasha second-pass inner:12f71bf and Theo PURPOSE_PATCHED. Theo wrote and pushed T4 red tests at inner:7c319cf."
+
+## bottleneck.detected - Pentagon handoff message does not auto-activate Code Owner
+
+frame: t4-openai-tool-shape-translation
+complexity: extra-hard
+source: Pentagon conversation-debug logs + process list
+symptom: Theo sent the red-test handoff to Maya (Code Owner), but no Maya
+  'executeAgentTurn' or 'codex exec' worker appeared afterward. Pentagon UI
+  stayed alive; only the Pentagon app process was running.
+owner: Avery (Frame Architect) + Riley (Evidence Lead)
+feedback_action: Treat direct 'send_message' as context delivery only unless a
+  recipient turn is observed in logs. Require an explicit activation step or
+  visible worker process before claiming an owner is working.
+evidence:
+  - "Theo sent handoff to conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1 at 2026-05-22T16:20:27Z."
+  - "T4 red-test commit: inner:7c319cf."
+  - "Targeted pytest before implementation: 10 failed, 2 passed."
+  - "Post-handoff process check: Pentagon app alive, no codex exec / pytest / Maya worker."

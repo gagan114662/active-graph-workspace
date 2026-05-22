@@ -196,5 +196,13 @@ Sasha second-passed the patched D-1 and D-3 clarification commits.
   - `frames/t4-skeptic/D-1-second-pass-7ae37da.md`
   - `frames/t4-skeptic/D-3-second-pass-2f82f19.md`
 
-Theo remains held only on the Purpose audit unblock condition from
-`frames/bottleneck-feedback.log`.
+Theo Purpose unblock is satisfied.
+
+- Purpose evidence: 'PURPOSE_PATCHED Agent OS Test Owner Purpose'.
+- Test commit: inner:'7c319cf' - 'Frame t4 tests: openai tool shape and provider parity'.
+- Test files:
+  - 'tests/test_openai_tool_shape.py'
+  - 'tests/test_provider_tool_parity.py'
+- Red verification: targeted pytest reported '10 failed, 2 passed', matching the missing OpenAI tool-shape implementation and provider parity gaps.
+- Handoff: Theo sent the Code Owner handoff to Maya's conversation with inner:'7c319cf'.
+- Current activation gap: no Maya 'executeAgentTurn' or worker process observed after the handoff; see 'frames/bottleneck-feedback.log'.
