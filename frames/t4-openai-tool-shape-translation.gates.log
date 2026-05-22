@@ -1,0 +1,135 @@
+# Frame t4-openai-tool-shape-translation - Gate Sentinel snapshot
+
+timestamp: 2026-05-22
+agent: Grace (Gate Sentinel)
+scope: outer frame artifact for inner repo gate evidence
+
+## Purpose Update
+
+Avery updated Grace's Agent OS purpose:
+
+- Own gates.
+- Use closure-discipline and evidence-audit.
+- Run required gate commands and paste literal outputs.
+- Red gates route to owner plus bottleneck log.
+- Interpreter-backed work is required.
+- Gate output only counts once copied into a committed frame artifact.
+
+Applied local skills:
+
+- `agent-os/skills/closure-discipline.md`
+- `agent-os/skills/evidence-audit.md`
+
+## Repo State Evidence
+
+### `pwd && git status --short && git log --oneline -5`
+
+```text
+/Users/gaganarora/Desktop/my projects/active_graph
+?? GAGAN_DECISIONS_2026-05-21.md
+?? JUDGE_LOG_2026-05-21.md
+?? MINI_AGI_COMPANY_MODEL.md
+?? PENTAGON_MODEL_AUDIT_2026-05-22.md
+?? PENTAGON_ORG_CHART.md
+49d1350 Agent OS: log purpose-doc update bottleneck
+e91e9d8 Agent OS: add interpreter contract and all-star skills
+1cda5b2 Frame t4 logs: record Sasha challenge bottlenecks
+7bed421 Frame t4 dispatch: record Sofia amendment hashes and RLS bottleneck
+4146392 Frame t4 dispatch: Sofia amendments + Sasha challenge gate + Theo hold
+```
+
+### `git -C activegraph status --short && git -C activegraph log --oneline -5`
+
+```text
+?? GAUNTLET.md
+329c2b4 Frame t4 skeptic challenge: D-1 D-3 gaps
+2414c7d Frame t4 amendment D-4: no-new-reasons — remove false OpenAI tool network_error and reuse existing LLM/tool taxonomy
+104ab0c Frame t4 amendment D-3: fake-provider-parity — same behavior, native provider fixtures, normalized event-sequence match
+3778bb5 Frame t4 amendment D-2: chat-tool-calls — extract choices[0].message.tool_calls into ToolCall without new reason codes
+261c3b4 Frame t4 amendment D-1: provider-adapter-boundary — keep Tool definition stable; OpenAIProvider translates to function shape at request time
+```
+
+## Gate Commands
+
+### `../venv/bin/python -m mypy; ec=$?; printf '\nexit=%s\n' "$ec"; exit "$ec"`
+
+```text
+Success: no issues found in 23 source files
+
+exit=0
+```
+
+### `PYTHONPATH=. ../venv/bin/python scripts/gate_docstrings.py; ec=$?; printf '\nexit=%s\n' "$ec"; exit "$ec"`
+
+```text
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+exit=0
+```
+
+### `../venv/bin/python scripts/gate_cli_flag_drift.py; ec=$?; printf '\nexit=%s\n' "$ec"; exit "$ec"`
+
+```text
+OK — cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+exit=0
+```
+
+### `../venv/bin/python -m pytest tests/test_doc_links.py -q --no-header; ec=$?; printf '\nexit=%s\n' "$ec"; exit "$ec"`
+
+```text
+...                                                                      [100%]
+3 passed in 0.11s
+
+exit=0
+```
+
+### `../venv/bin/python -m pytest tests/test_wheel_completeness.py -q --no-header; ec=$?; printf '\nexit=%s\n' "$ec"; exit "$ec"`
+
+```text
+.                                                                        [100%]
+1 passed in 9.20s
+
+exit=0
+```
+
+### `../venv/bin/python -m pytest tests/ -q --no-header; ec=$?; printf '\nexit=%s\n' "$ec"; exit "$ec"`
+
+```text
+.................................... [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 31%]
+........................................................................ [ 41%]
+........................................................................ [ 51%]
+..............ssssss.................................................... [ 62%]
+........................................................................ [ 72%]
+......................sssssssss......................................... [ 83%]
+........................................................................ [ 93%]
+.............................................                            [100%]
+678 passed, 15 skipped in 29.80s
+
+exit=0
+```
+
+## Predicate-to-Evidence Table
+
+| Predicate | Evidence |
+| --- | --- |
+| `mypy_strict_passes_full_allowlist` | `../venv/bin/python -m mypy`, exit 0, output above |
+| `ring0_not_missing_pct_equals_100` | `scripts/gate_docstrings.py`, exit 0, output above |
+| `ring1_not_missing_pct_ge_80` | `scripts/gate_docstrings.py`, exit 0, output above |
+| `gate.docstrings` | `scripts/gate_docstrings.py`, exit 0, output above |
+| `gate.broken_link` | `tests/test_doc_links.py`, exit 0, output above |
+| `wheel_completeness_passes` | `tests/test_wheel_completeness.py`, exit 0, output above |
+| `pytest_full_suite_passes` | `pytest tests/`, exit 0, output above |
+| `gate.cli_flag_drift` | `scripts/gate_cli_flag_drift.py`, exit 0, output above |
+
+## Unresolved Gaps
+
+- inner repo has untracked `GAUNTLET.md`; no closure claim from this snapshot.
+- outer repo has unrelated untracked audit/model docs; this artifact does not resolve or claim them.
+- T4 implementation predicates are not claimed here; this is a gate snapshot for the current inner head.
