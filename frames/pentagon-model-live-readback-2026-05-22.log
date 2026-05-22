@@ -1,0 +1,50 @@
+# Pentagon model live readback - 2026-05-22
+
+Purpose: close the model-policy audit gap with a live readback from Pentagon's
+agents table.
+
+Command source:
+
+```text
+defaults read run.pentagon.app pentagon.defaultModel
+result: gpt-5.5
+
+Supabase REST agents readback:
+/rest/v1/agents?select=id,name,provider,model,directory,deleted_at,last_seen_at,heartbeat_interval_seconds,updated_at&deleted_at=is.null&order=name.asc&limit=200
+filtered directory: /Users/gaganarora/Desktop/my projects/active_graph
+```
+
+Summary:
+
+```text
+total_activegraph_agents: 20
+non_gpt55_count: 0
+default_model: gpt-5.5
+```
+
+Agent rows:
+
+```text
+Avery (Frame Architect)              gpt-5.5 codex
+Blake (Budget Marshal)               gpt-5.5 codex
+Carmen (Contract Owner)              gpt-5.5 codex
+Casey (Compatibility Auditor)        gpt-5.5 codex
+Finn (Fork Debugger)                 gpt-5.5 codex
+Grace (Gate Sentinel)                gpt-5.5 codex
+Maya (Code Owner)                    gpt-5.5 codex
+Parker (Performance Sentinel)        gpt-5.5 codex
+Priya (Goal Reaper)                  gpt-5.5 codex
+Quinn (Test Adversary)               gpt-5.5 codex
+Ravi (Replay Validator)              gpt-5.5 codex
+Riley (Evidence Lead)                gpt-5.5 codex
+Rowan (Code Reviewer)                gpt-5.5 codex
+Sam (Docs Owner)                     gpt-5.5 codex
+Sasha (Spec Skeptic)                 gpt-5.5 codex
+Simone (Security Auditor)            gpt-5.5 codex
+Sofia (Spec Owner)                   gpt-5.5 codex
+T5d Activation Engineer              gpt-5.5 claude-code
+Taylor (Trace Archivist)             gpt-5.5 codex
+Theo (Test Owner)                    gpt-5.5 codex
+```
+
+Result: green for live model policy readback.
