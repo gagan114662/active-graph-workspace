@@ -44,3 +44,45 @@ symptom: Avery can patch only Avery's own Purpose doc through `patch_document`; 
 owner: Riley (Evidence Lead) + Avery (Frame Architect)
 feedback_action: Avery patched own Purpose doc, relayed exact CORE_PURPOSE_DOCS inserts to the nine priority core agents by DM, and logged this as a durable routing bottleneck. Future fix is a Pentagon admin bulk-purpose-update path or per-agent ack+patch workflow.
 evidence: `ALL_STAR_TEAM_UPGRADE.md`, `agent-os/INTERPRETER_CONTRACT.md`, `agent-os/CORE_PURPOSE_DOCS.md`, DMs sent 2026-05-22 to Sofia/Sasha/Theo/Maya/Quinn/Rowan/Priya/Riley/Grace.
+
+## purpose.audit — Agent OS Purpose coverage is partial
+
+frame: agent-os-all-star-upgrade
+complexity: all
+source: Pentagon conversation-debug logs + repo commits
+symptom: The team can receive Purpose updates, but not all agents have confirmed
+  durable Purpose-doc patches. Some agents only acknowledged in report or
+  knowledge, and some full-team agents have no captured self-patch reply yet.
+owner: Riley (Evidence Lead) + Avery (Frame Architect)
+feedback_action: Treat Purpose coverage as a live bottleneck. Do not unblock
+  downstream T4 tests only from chat acknowledgements; require either a
+  Pentagon `patch_document(doc_type="purpose")` result or a literal
+  `PURPOSE_OK` / `PURPOSE_PATCHED` reply per agent. Keep missing agents on the
+  audit list until their own Purpose docs are verified.
+evidence:
+  outer_agent_os_baseline: outer:e91e9d8
+  direct_write_bottleneck: outer:49d1350
+  gate_snapshot_after_grace_patch: outer:cc7e493
+  confirmed_purpose_patches:
+    - Avery (Frame Architect): "Patched section 'Agent OS Core Purpose' in purpose."
+    - Sofia (Spec Owner): "Patched section 'Activegraph Frame Work' in purpose."
+    - Maya (Code Owner): "Patched section 'Agent OS Purpose' in purpose."
+    - Priya (Goal Reaper): "Patched section 'Goal Reaper Predicate Evaluation' in purpose."
+    - Quinn (Test Adversary): "Patched section 'Breakage Discovery After Implementation' in purpose."
+    - Rowan (Code Reviewer): "Patched section 'Review OS' in purpose."
+    - Grace (Gate Sentinel): "Patched section 'Gate Sentinel Ownership' in purpose."
+  acknowledged_or_report_only:
+    - Sasha (Spec Skeptic): "Purpose update recorded; knowledge article written, no captured Purpose patch result."
+    - Riley (Evidence Lead): "Acknowledged evidence/bottleneck role; knowledge article written, no captured Purpose patch result."
+    - Theo (Test Owner): "Holding tests and acknowledging role; no captured Purpose patch result."
+  no_captured_self_patch_reply:
+    - Blake (Budget Marshal)
+    - Sam (Docs Owner)
+    - Simone (Security Auditor)
+    - Parker (Performance Sentinel)
+    - Casey (Compatibility Auditor)
+    - Finn (Fork Debugger)
+    - Taylor (Trace Archivist)
+    - Ravi (Replay Validator)
+    - Carmen (Contract Owner)
+  t4_unblock_rule: "Theo remains blocked until Sasha re-challenges inner:7ae37da and inner:2f82f19, and Theo has a PURPOSE_OK/PURPOSE_PATCHED receipt or a captured Purpose patch."
