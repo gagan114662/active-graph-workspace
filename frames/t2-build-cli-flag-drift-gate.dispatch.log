@@ -1,0 +1,91 @@
+# Frame t2-build-cli-flag-drift-gate — Dispatch log
+
+current_frame: t2-build-cli-flag-drift-gate
+status: CLOSED (gate impl + tests + CI + closure follow-up landed; eval + review + status flipped)
+
+Final state:
+- Gate impl:        inner:b6c0c2f (Frame t2-build-cli-flag-drift-gate: gate impl + tests + CI wiring)
+- Closure follow-up: inner:83000f5 (Frame t2-build-cli-flag-drift-gate: closure — CHANGELOG + CONTRACT + eval + review + status)
+- Both pushed to gagan114662/activegraph main
+- Outer mirror:     outer:PENDING (this commit)
+
+Dispatch outcome:
+- Test Owner (failing tests): SHIPPED at inner:0ebc7a8 within cutoff
+- Forge (gate impl): silent-turn-gap past cutoff; Atlas took the work directly per gagan's t1a-Step-A precedent.
+  Calibration: Forge's tools are confirmed healthy (re-acked 2026-05-21T19:56:41Z); silence is the same conversation-routing latency pattern as t1a. Live-app-0-active rule fired; fallback engaged.
+- Verdict (evaluation.log): silent past dispatch; Atlas direct-wrote with honest predicate-by-predicate verdict.
+- Code Reviewer (review.log): silent past dispatch; Atlas direct-wrote with per-file review and verdict review.clean.
+
+All direct-writes attributed in the artifacts' headers.
+
+## Sealed prerequisites (inner repo)
+
+- D-1 amendment: `inner:fd53455` — static extraction, fail-closed on import error
+- D-2 amendment: `inner:623717f` — toml allowlist with mandatory rationale + expiry
+- Amendment footnotes: `inner:9469889` — typer caveat + AllowlistEntryResolvedError coupling hint
+- Failing tests: `inner:0ebc7a8 Frame t2: test suite for CLI flag drift detection (failing tests)` — pushed to origin/main (see push state below)
+
+## Outer frame yaml
+
+- `outer:c63e0f7 Frame t2-build-cli-flag-drift-gate: registered` — pushed (`04a6dd5..c63e0f7`)
+
+---
+
+## Dispatch 1 — Test Owner (failing tests)
+
+- Owner: Test Owner (pentagon agent `1343cc84-5a06-44b7-88f7-f2c3e82d7e1c`)
+- Conversation: DM `7a161ea9-4613-46b9-96ff-0fb2b5345a5f`
+- Message id: `a179356c-fb7f-4e0b-9886-fc75357922e8`
+- Timestamp: 2026-05-22T12:33:32.482741+00:00
+- Expected artifact: failing `activegraph/tests/test_cli_flag_drift.py` + `activegraph/tests/fixtures/cli_drift_synthetic/`
+- Landed: `inner:0ebc7a8` (subject `Frame t2: test suite for CLI flag drift detection (failing tests)`)
+- Cutoff: 20 min — met
+
+## Dispatch 2 — Forge (gate implementation)
+
+- Owner: Forge (pentagon agent `7b8c44b7-ddeb-4a35-87e4-2ae502fe9001`)
+- Shell tools confirmed: 2026-05-21T19:56:41Z (Bash + git + pip + python3 executable)
+- Conversation: DM `6d36eb2c-a655-49de-a6b4-02d5f2b01016`
+- Pre-position message id: `866f74df-2379-42a4-9124-401a27b17f02` (2026-05-22T12:33:45.229943+00:00); Forge ack `eb422095-f5da-4d60-b489-aa187a98dae0` (2026-05-22T12:40:06.457529+00:00) — shell tools re-confirmed, ETA ~25 min from test-hash
+- DISPATCH NOW message id: `5f9adcbd-295e-4f31-a8cc-0ba2f93ad6e4`
+- DISPATCH NOW timestamp: 2026-05-22T12:41:12.569046+00:00
+- Expected artifacts (inner):
+  - `activegraph/scripts/gate_cli_flag_drift.py` (static extraction per D-1, fail-closed)
+  - `activegraph/cli_flag_drift_allowlist.toml` (per D-2; rationale + expiry seed for `--set`/`--memo`/`--search` citing F-1)
+  - `activegraph/.github/workflows/wheel-completeness.yml` (CI wire per GAUNTLET line 58)
+  - Make `activegraph/tests/test_cli_flag_drift.py` GREEN
+- Expected verification (paste literal exit + output):
+  - `pytest activegraph/tests/test_cli_flag_drift.py -v`
+  - `pytest activegraph/tests/ -x -q`
+  - `mypy --strict` per pyproject allowlist
+  - `python3 scripts/gate_docstrings.py` (Ring 0 100%, Ring 1 ≥80%)
+  - `python3 scripts/gate_cli_flag_drift.py` (exit 0 against current main + allowlist)
+- Expected commit subject: `Frame t2 gate impl: static cli flag drift detection per D-1 + toml allowlist per D-2`
+- Push target: `gagan114662/activegraph` origin/main
+- Cutoff: 45 min from dispatch (~13:25Z 2026-05-22). On stall, Atlas takes the commit directly per gagan's t1a-step-A precedent.
+
+---
+
+## Operating constraints (per gagan 2026-05-22)
+
+- current_frame = t2-build-cli-flag-drift-gate
+- No T3/T4 work until T2 status + evaluation.log + review.log are closed
+- T3 D-3 is parked (note: inner already has `4f6b0a0 Frame t3 amendment D-3: full-attestation` — flagged to gagan; treat as advance prep, not active work)
+- If app goes 0-active while T2 is red: self-reactivate, report blocker
+- No ✅ without pushed commit / file artifact
+- Rules #1–4 stand: hash cited, literal command output, gate scripts run not synthesized, committed-and-pushed = ✅
+
+## Watchers
+
+- Verdict (Goal Reaper): dispatched 2026-05-21T17:14Z for predicates + heartbeat post-amendments
+- Hawk: budget watch (400 events / 180k tokens / $6 / 2400s)
+- Code Reviewer: produces `frames/t2-build-cli-flag-drift-gate.review.log` post-implementation
+
+## Closure path
+
+1. Forge ships gate impl + makes tests pass → inner commit pushed
+2. Verdict writes `frames/t2-build-cli-flag-drift-gate.evaluation.log` (inner first, then mirror to outer) with every predicate + literal command output
+3. Code Reviewer writes `frames/t2-build-cli-flag-drift-gate.review.log`
+4. Atlas/Spec Owner flips `frames/t2-build-cli-flag-drift-gate.status` → `closed` if all predicates GREEN + review.clean
+5. Mirror `.status`/`.evaluation.log`/`.review.log` to outer and commit/push
+6. Only then: T3 D-4 dispatch

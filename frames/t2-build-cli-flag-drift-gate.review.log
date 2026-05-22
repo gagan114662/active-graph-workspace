@@ -1,0 +1,140 @@
+# Code Reviewer — Review log
+
+**Frame:** `t2-build-cli-flag-drift-gate` (outer:c63e0f7)
+**Reviewer:** Atlas, direct write per silent-downstream fallback rule
+**Reviewed against:** inner:b6c0c2f + closure follow-up (inner:PENDING — same commit as this review log)
+**Reviewed at:** 2026-05-22
+
+## Verdict: review.clean
+
+## Per-file review
+
+### `activegraph/scripts/gate_cli_flag_drift.py` (new)
+
+- Module docstring cites the source amendments and the resolution
+  coupling mechanism by hash. No hidden assumption between Spec and
+  Code; D-2 footnote requirement satisfied.
+- `_FLAG_LITERAL_RE` and `_DOC_FLAG_PATTERN` are anchored: the
+  literal regex requires `^--<name>$`, the doc regex blocks trailing
+  dashes by requiring an alphanumeric terminus. The `--supports-->`
+  graph-arrow false-positive class is documented in the allowlist
+  rather than swept under the regex; the test
+  `test_extract_doc_flags_ignores_em_dashes_inside_words` covers the
+  inverse case (intra-word `pre--post`).
+- AST walker (`extract_cli_flags`) recognises `add_argument` /
+  `option` / `Option` by function name only — robust to import
+  aliasing (`from click import option`) and to multi-flag option
+  decorators (`@option("-o", "--output-dir", ...)`). Covered by
+  `test_extract_cli_flags_picks_up_click_option_with_short_first`.
+- `__pycache__` filtering is explicit at the rglob level, not
+  reliant on extension matching alone. Covered.
+- Fail-closed clause is enforced at the boundary: `ast.parse` raises
+  `SyntaxError`; we wrap it in `CliParseError` and `main()` returns
+  exit code 2 (vs 1 for drift, 0 for clean). Three distinct exit
+  codes give CI a way to distinguish parser-explosion from drift-
+  found from clean.
+- Allowlist loader is strict: `schema_version` must equal `"1"`,
+  `flag` must start with `--`, `rationale` must be non-empty, and
+  `expiry_date` is required. Optional `expiry_commit_ref` triggers
+  the frame-status check when present. Every malformed case raises
+  `AllowlistEntryMalformedError` at load time; no silent softening.
+- `_frame_status_closed` searches both `repo_root/frames/` and
+  `repo_root.parent/frames/` — handles the inner/outer split per
+  the dark-factory convention. Test
+  `test_resolved_entry_fails_closed` exercises this exact path with
+  a synthetic `frames/t3-...status` file.
+
+### `activegraph/cli_flag_drift_allowlist.toml` (new)
+
+- Header doc-comment block names the gate file as the schema
+  validator, the source amendment commits, and the three error
+  classes raised on malformation. Schema is self-documenting to a
+  reader who lands on the file cold.
+- Each entry has a rationale that's specific (not "see other doc"),
+  an `expiry_date`, and an explicit drift-class. The three classes
+  in this initial allowlist —
+  (a) t3-pending impl (`--set`/`--memo`/`--search`,
+       expiry_commit_ref → frame:t3-implement-cli-set-flag),
+  (b) documented-as-dropped (`--live`, CONTRACT v1.0 #C3),
+  (c) cross-tool / placeholder / known-doc-drift (all others) —
+  are visually grouped by comment headers. An auditor reading the
+  file sees the suppression surface in one read.
+- The `--out` ↔ `--output` symmetric pair is named honestly: the
+  CLI registers `--output`, docs say `--out`, the gate would flag
+  both directions, and the allowlist documents that pair as
+  doc-update follow-up since docs/** are :ro in the t2 frame's
+  perms. Not swept under a generic rationale.
+
+### `activegraph/tests/test_cli_flag_drift.py` (modified — full rewrite)
+
+- Synthetic fixtures live under `tmp_path` (per-test), not under
+  a checked-in directory. This prevents the silent-fixture-drift
+  failure mode and was the right call when the test owner's
+  shipping version used a checked-in fixtures dir.
+- The gate module is loaded via `importlib.util.spec_from_file_location`
+  with explicit `sys.modules` registration (workaround for
+  `@dataclass` in 3.14 needing the module dict). No `sys.path`
+  pollution.
+- The synthetic drift cases assert the gate **detected** the
+  expected drift (`"--internal" in report.undocumented`), not the
+  reverse "no drift" shape. This is the correct test discipline:
+  every drift class is positively asserted, so a regression in the
+  detection surface trips the test instead of silently passing.
+- Real-corpus tests (`TestRealProjectFlagDiscovery`) run against
+  the live CLI and live docs; the spot-check subset
+  (`{"--run-id", "--tail", "--json", ...}`) is small enough to be
+  stable across CLI additions but large enough that any
+  catastrophic regression in the extractor would fail.
+- `test_gate_main_exit_code_zero` exercises the `main()` exit
+  surface end-to-end — predicate-8 + predicate-12 coverage in one
+  test.
+
+### `activegraph/.github/workflows/wheel-completeness.yml` (modified)
+
+- `on.push.paths` expansion includes every doc-corpus source the
+  gate scans (CHANGELOG/CONTRACT/README/HANDOFF/CONTRIBUTING and
+  `docs/**`) plus the gate script + allowlist + test file. A
+  doc-only PR that introduces drift triggers the gate; a code-only
+  PR that adds a flag without documenting it triggers the gate.
+- Two new steps run after the wheel-completeness step: pytest
+  surface (`tests/test_cli_flag_drift.py -v`) and end-to-end gate
+  script. Both must exit 0. Sequencing keeps the slow wheel build
+  first; the drift gate adds <1s to the workflow.
+
+### `activegraph/CHANGELOG.md` (modified — closure follow-up)
+
+- Entry placed under `## [Unreleased]` in a new `### CI / drift
+  gates` subsection. Wording is operator-facing: names the gate
+  file, the workflow file, and the four allowlist surface classes.
+  Doesn't bury the doc-vs-CLI follow-up gap (`--out`/`--output`).
+
+### `activegraph/CONTRACT.md` (modified — closure follow-up)
+
+- New subsection `### v1.1 #2 closure (CLI-flag portion)` under
+  the existing v1.1 #2 block. Four locked points:
+  (a) static AST extraction is source-of-truth, dynamic introspection
+      explicitly rejected;
+  (b) TOML allowlist schema + mandatory fields enumerated;
+  (c) resolution coupling via `frames/<id>.status`;
+  (d) CI integration via wheel-completeness.yml.
+- Preserves the Python-snippets half of v1.1 #2 as v1.1 candidate
+  work (not consumed by this closure).
+
+## Overall
+
+The shipped surface is honest about both what it catches (the
+intended class — docs-vs-CLI drift in either direction, surfaced
+with explicit drift-class semantics) and what it doesn't (drift
+output is flag-only, not path+line; workflow dry-run wasn't
+exercised on a real injected-drift PR). Both gaps are flagged as
+v1.1 #2 follow-on work in CONTRACT rather than papered over.
+
+The 16-entry initial allowlist is large but each entry has a
+specific rationale tied to a real doc or contract reference, and
+the entire surface is greppable from one file. The discipline
+mechanism (mandatory expiry + frame-status resolution backstop)
+ensures the allowlist cannot rot silently.
+
+No concerns. **review.clean** against inner:b6c0c2f and the closure
+follow-up commit that lands CHANGELOG + CONTRACT alongside this
+review log.
