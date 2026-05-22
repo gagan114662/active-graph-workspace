@@ -16,3 +16,41 @@ post-handoff nudge. This is intentionally non-code to avoid machine load.
 3. Codex waits and observes only; it must not message Maya after Theo's
    handoff.
 4. Maya's self-watchdog should reply with the test_hash if it sees the handoff.
+
+## Result - 2026-05-22T19:08Z
+
+Maya installed a one-shot self-watchdog:
+
+~~~text
+WATCHDOG_SCHEDULED Maya 7933eaf1-694d-4839-8d55-de1e3a03046d/2026-05-22T18:59:01.748+00:00
+~~~
+
+Theo sent the matching handoff:
+
+~~~text
+HANDOFF_SENT Theo t5c-activation-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent.
+~~~
+
+No visible `WATCHDOG_ACK` or `WATCHDOG_NO_HANDOFF` appeared.
+
+Maya then installed a repeated self-watchdog:
+
+~~~text
+WATCHDOG_REPEAT_SCHEDULED Maya 41aec883-ed28-47bf-b65c-1b0e337c28d5/2026-05-22T19:04:06.227+00:00/repeat=3
+~~~
+
+Theo sent the repeated-window handoff:
+
+~~~text
+HANDOFF_SENT Theo t5c-repeat-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent.
+~~~
+
+After waiting through the visible window, no `WATCHDOG_ACK` or
+`WATCHDOG_NO_HANDOFF` appeared in Maya's exact-DM thread or Theo's thread.
+
+Verdict:
+The current Pentagon surfaces allow context delivery and caller-scoped
+scheduling, but they still do not prove reliable target-agent activation.
+This smoke is blocked on a Pentagon product/tooling primitive: target-agent
+turn activation or scheduled actions with explicit target agent/conversation
+routing and visible output.

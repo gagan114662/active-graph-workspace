@@ -1,10 +1,25 @@
-status: opened
-evaluated_utc: 2026-05-22T18:55:00Z
+status: blocked_recipient_self_watchdog_no_visible_ack
+evaluated_utc: 2026-05-22T19:08:00Z
 hash: t5c-activation-check-2026-05-22
 maya_self_watchdog:
-  scheduled_action: pending
+  one_shot_scheduled_action: "WATCHDOG_SCHEDULED Maya 7933eaf1-694d-4839-8d55-de1e3a03046d/2026-05-22T18:59:01.748+00:00"
+  repeated_scheduled_action: "WATCHDOG_REPEAT_SCHEDULED Maya 41aec883-ed28-47bf-b65c-1b0e337c28d5/2026-05-22T19:04:06.227+00:00/repeat=3"
 theo_handoff:
-  sent: pending
+  sent: true
+  one_shot_hash: "HANDOFF_SENT Theo t5c-activation-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent."
+  repeated_hash: "HANDOFF_SENT Theo t5c-repeat-check-2026-05-22 conversation 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1, send_message result: Message sent."
 maya_response_without_manual_poke:
-  result: pending
-verdict: pending
+  result: missing
+  observed_ack: none
+  observed_no_handoff: none
+verdict: blocked
+reason: >
+  Maya can schedule caller-scoped actions, and Theo can send handoffs, but no
+  visible WATCHDOG_ACK/WATCHDOG_NO_HANDOFF appeared after either the one-shot
+  or repeated self-watchdog window. This means recipient-owned scheduled
+  actions are not sufficient evidence for reliable peer-handoff activation on
+  the current Pentagon surface.
+required_product_fix:
+  - "Pentagon needs a target-agent activation primitive, or send_message must support trigger_turn=true / target_agent_id."
+  - "Scheduled actions need target_agent_id/conversation_id or a visible output channel tied to the agent thread."
+  - "Until then, handoff closure can be watchdog-assisted but not fully autonomous."

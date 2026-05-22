@@ -1,4 +1,4 @@
-status: t5b_handoff_fixed
+status: watchdog_assisted_only
 evaluated_utc: 2026-05-22T18:31:26Z
 owner: Riley / Evidence Lead
 scope: Pentagon autonomy flywheel readiness before reopening T5
@@ -21,8 +21,8 @@ checks:
   interpreter_proof_note: frames/pentagon-live-ui-verification-2026-05-22.log records live UI INTERPRETER_OK proof for Avery, Sofia, Sasha, Theo, Maya, Quinn, Rowan, Priya, Riley, and Grace
   capability_gate_current: green
   capability_gate_note: current core owners produced literal command evidence; legacy Forge/Nova/Spec Owner identities are retired by agent-os/AGENT_IDENTITY_MAP.md and cannot own active frames
-  activation_protocol_tested: green
-  activation_protocol_note: T5b closed handoff.fixed: Theo red test commit 8d3ff89, Maya post-watchdog activation proof INTERPRETER_OK Maya /Users/gaganarora/Desktop/my projects/active_graph 8d3ff89, Maya implementation commit ccd4f45, and local targeted pytest verification 20 passed.
+  activation_protocol_tested: amber
+  activation_protocol_note: T5b closed watchdog-assisted, but T5c proved recipient-owned scheduled watchdogs do not yet produce visible target-agent activation. Full autonomous handoff still requires a Pentagon target-agent activation primitive.
   pentagon_mcp_connectivity: green
   pentagon_mcp_connectivity_note: Claude Code CLI registered pentagon via claude mcp add with a valid pentagon_agent bearer token; claude mcp get pentagon reports Status ✓ Connected and tools/list returns the patch_document catalog. Token identifies as Pentagon agent 642755A2-A869-440B-B4F7-E5A718E0FB8B so MCP calls attribute to that agent. See Resolution section in frames/pentagon-mcp-connectivity-2026-05-22.log dated 2026-05-22T17:50Z. Per-agent attribution rotation and a fresh-session tool-exposure check are still pending.
   skills_installed: green
@@ -40,5 +40,5 @@ required_before_t5_reopen:
   - use exact-DM selected-header verification for any UI-driven activation; do not rely on moving-list coordinates
   - no remaining T5b closure blockers recorded
 
-verdict: t5b_handoff_fixed
-reason: core Purpose/interpreter readiness are proven and T5b now records a current Theo red predicate, Maya post-watchdog activation proof, Maya implementation commit, and targeted pytest pass.
+verdict: watchdog_assisted_only
+reason: core Purpose/interpreter readiness are proven and T5b records successful watchdog-assisted delivery, but T5c shows fully autonomous target-agent activation is still blocked by the current Pentagon activation surface.

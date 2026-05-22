@@ -318,3 +318,26 @@ handoff_fixed:
   maya_implementation_commit: ccd4f45
   local_verification: "python3 -m pytest -q tests/test_llm_openai.py::test_complete_extracts_text_from_mapping_response_shape tests/test_llm_openai.py tests/test_openai_tool_shape.py -> 20 passed"
 remaining_failure: none_recorded
+
+## bottleneck.detected - Recipient self-watchdog schedule did not visibly activate Maya
+
+frame: t5c-recipient-self-watchdog-smoke
+complexity: handoff-smoke
+source: Pentagon live UI, Maya scheduled actions, Theo handoff messages
+symptom: Maya successfully scheduled one-shot and repeated caller-scoped
+  self-watchdog actions, and Theo sent matching handoffs, but no visible
+  WATCHDOG_ACK or WATCHDOG_NO_HANDOFF appeared in Maya/Theo threads after the
+  watchdog windows.
+owner: Pentagon activation substrate + Riley (Evidence Lead)
+feedback_action: Recorded T5c as blocked and converted the failure into a
+  product/tooling gate. Do not claim fully autonomous handoff reliability until
+  Pentagon exposes target-agent activation or scheduled actions with explicit
+  target agent/conversation routing and visible output.
+durable_conversion:
+  - Gate: scheduled_action is not activation proof unless a visible recipient
+    output appears.
+  - Product predicate: target-agent activation primitive is required for full
+    autonomous handoffs.
+evidence:
+  - frames/t5c-recipient-self-watchdog-smoke.status
+  - frames/t5c-recipient-self-watchdog-smoke.dispatch.log
