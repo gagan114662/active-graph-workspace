@@ -221,8 +221,13 @@ function pathExistsAtHead(relativePath) {
 
 function innerRepoPath(relativePath) {
   if (relativePath?.startsWith("activegraph/activegraph/")) return relativePath.slice("activegraph/".length);
-  if (relativePath?.startsWith("activegraph/tests/")) return relativePath.slice("activegraph/".length);
   return relativePath;
+}
+
+function innerRepoPathCandidates(relativePath) {
+  const candidates = [innerRepoPath(relativePath)];
+  if (relativePath?.startsWith("activegraph/tests/")) candidates.push(relativePath.slice("activegraph/".length));
+  return [...new Set(candidates.filter(Boolean))];
 }
 
 function gitShowForTarget(commitSha, relativePath) {
@@ -231,13 +236,15 @@ function gitShowForTarget(commitSha, relativePath) {
     const outerDiff = command("git", ["show", "--unified=0", "--format=", commitSha, "--", relativePath]);
     return { ok: true, pathForCompare: relativePath, nameOnly: outerName.stdout, diff: outerDiff.stdout };
   }
-  const innerPath = innerRepoPath(relativePath);
+  const innerPaths = innerRepoPathCandidates(relativePath);
   const innerName = spawnSync("git", ["show", "--name-only", "--format=", commitSha], {
     cwd: ROOT + "/activegraph",
     encoding: "utf8",
     maxBuffer: 20 * 1024 * 1024,
   });
   if (innerName.status !== 0) return { ok: false, error: outerName.stderr || innerName.stderr || "git show failed" };
+  const changedFiles = innerName.stdout.split(/\r?\n/).filter(Boolean);
+  const innerPath = innerPaths.find((candidate) => changedFiles.includes(candidate)) ?? innerPaths[0];
   const innerDiff = spawnSync("git", ["show", "--unified=0", "--format=", commitSha, "--", innerPath], {
     cwd: ROOT + "/activegraph",
     encoding: "utf8",
@@ -296,14 +303,14 @@ function verifyAgentCommitAddsTests(proof) {
 }
 
 function innerPathExistsAtHead(relativePath) {
-  const innerPath = innerRepoPath(relativePath);
-  if (!innerPath) return false;
-  const res = spawnSync("git", ["cat-file", "-e", "HEAD:" + innerPath], {
-    cwd: ROOT + "/activegraph",
-    encoding: "utf8",
-    maxBuffer: 1024 * 1024,
+  return innerRepoPathCandidates(relativePath).some((innerPath) => {
+    const res = spawnSync("git", ["cat-file", "-e", "HEAD:" + innerPath], {
+      cwd: ROOT + "/activegraph",
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+    });
+    return res.status === 0;
   });
-  return res.status === 0;
 }
 
 function collectCountFromOutput(output) {
@@ -329,7 +336,14 @@ function pytestCollectCountForSymbol(symbol) {
 }
 
 function ruffCheckInnerPath(relativePath) {
-  const innerPath = innerRepoPath(relativePath);
+  const innerPath = innerRepoPathCandidates(relativePath).find((candidate) => {
+    const res = spawnSync("git", ["cat-file", "-e", "HEAD:" + candidate], {
+      cwd: ROOT + "/activegraph",
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+    });
+    return res.status === 0;
+  }) ?? innerRepoPath(relativePath);
   const res = spawnSync("uv", ["run", "ruff", "check", innerPath], {
     cwd: ROOT + "/activegraph",
     encoding: "utf8",
