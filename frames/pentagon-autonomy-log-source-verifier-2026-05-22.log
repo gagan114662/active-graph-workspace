@@ -44,6 +44,15 @@ What the verifier proves from logs/live rows:
 - The live Pentagon DB has active_graph agent rows, and all read back gpt-5.5.
 ```
 
+What the verifier does not prove:
+
+```text
+- It does not prove the native Pentagon app poller is repaired.
+- It does not prove a public/native trigger_turn tool exists.
+- It does not prove target handoffs work without the external
+  run.pentagon.trigger-bridge LaunchAgent.
+```
+
 JWT-expiry finding from logs:
 
 ```text

@@ -11,16 +11,16 @@ medium, hard, and extra-hard tasks in an auditable, verifiable fashion.
 | Medium task completed with evidence | frame status/eval/review plus test output | T2 status closed, T3 status closed | green for repo tasks |
 | Hard task completed with evidence | frame status/eval/review plus test output | T3 status closed with focused/full tests and gates | green for repo task |
 | Extra-hard task completed with evidence | frame status/eval/review plus test output | T4/T5b repo work landed; file-backed bridge gauntlet produced frames/t5d-file-gauntlet-extra-hard-20260522T230015Z.proof with prompt-to-artifact checklist and final verdict | green via bridge |
-| Agents work fully autonomously | target handoff wakes recipient without manual/Codex intervention inside a bounded window | T5c eventually produced delayed Maya ACKs after the watchdog window; native trigger catch-up is not bounded; bridge proof produced visible Maya ACK in about 20s; supervised bridge loop passed easy/medium/hard/extra-hard diagnostic triggers; LaunchAgent proof processed a fresh Theo-to-Maya trigger in about 9s; file-backed gauntlet produced artifacts through Maya and Ravi | green via bridge, amber native |
+| Agents work fully autonomously | target handoff wakes recipient without manual/Codex intervention inside a bounded window | T5c eventually produced delayed Maya ACKs after the watchdog window; native trigger catch-up is not bounded; bridge proof produced visible Maya ACK in about 20s; supervised bridge loop passed easy/medium/hard/extra-hard diagnostic triggers; LaunchAgent proof processed a fresh Theo-to-Maya trigger in about 9s; file-backed gauntlet produced artifacts through Maya and Ravi | not met natively; bridge-only green |
 | Auditable and verifiable | committed or tracked logs/status/eval with literal command/API output | frame artifacts exist; bridge gauntlet, launchd proof, and skill-load clean proof logs capture message ids, trigger ids, ACK ids, timings, commands, stderr state, and launchctl readback | green |
 | Model policy stable | current defaults and live per-agent readback all gpt-5.5 | defaults read returned gpt-5.5; live agents-table readback found 20 active_graph agents and 0 non-gpt-5.5 rows | green |
-| Activation primitive available | explicit target-agent turn API or equivalent visible output channel | this Codex session has no native Pentagon tools; Claude MCP tools/list has no target-turn primitive; internal agent_triggers table plus scripts/pentagon-trigger-bridge.mjs provide a bounded workspace bridge loop, installed as a persistent LaunchAgent | green via bridge, amber native |
+| Activation primitive available | explicit target-agent turn API or equivalent visible output channel | this Codex session has no native Pentagon tools; Claude MCP tools/list has no target-turn primitive; internal agent_triggers table plus scripts/pentagon-trigger-bridge.mjs provide a bounded workspace bridge loop, installed as a persistent LaunchAgent | not met natively; bridge-only green |
 
 ## Prompt-To-Artifact Checklist
 
 | Prompt item | Artifact or command checked | Result |
 | --- | --- | --- |
-| fully autonomous agents | frames/t5b-pentagon-handoff-activation-smoke.evaluation.log, frames/t5c-recipient-self-watchdog-smoke.evaluation.log, frames/t5d-bridge-sequential-gauntlet-2026-05-22.log, frames/t5d-launchd-bridge-proof-2026-05-22.log, frames/t5d-file-backed-gauntlet-2026-05-22.log | achieved through persistent bridge; native app poller remains unbounded |
+| fully autonomous agents | frames/t5b-pentagon-handoff-activation-smoke.evaluation.log, frames/t5c-recipient-self-watchdog-smoke.evaluation.log, frames/t5d-bridge-sequential-gauntlet-2026-05-22.log, frames/t5d-launchd-bridge-proof-2026-05-22.log, frames/t5d-file-backed-gauntlet-2026-05-22.log | not achieved for native Pentagon; achieved only through persistent bridge |
 | easy/medium/hard/extra-hard | frames/gauntlet-completion-audit-2026-05-22.md, frames/evidence-index-2026-05-22.md, frames/t5d-file-backed-gauntlet-2026-05-22.log | file-backed bridge gauntlet produced easy, medium, hard, and extra-hard artifacts |
 | auditable/verifiable | frames/*.status, frames/*.evaluation.log, frames/bottleneck-feedback.log, git status | bridge, launchd, skill-load-clean, model readback, and file-backed gauntlet proof are captured for commit |
 | Pentagon model policy | defaults read run.pentagon.app pentagon.defaultModel; frames/pentagon-model-refresh-2026-05-22.log; frames/pentagon-model-live-readback-2026-05-22.log | default and all 20 active_graph agent rows read back as gpt-5.5 |
@@ -31,8 +31,9 @@ medium, hard, and extra-hard tasks in an auditable, verifiable fashion.
 
 ## Completion Decision
 
-Complete for the stated objective through the persistent workspace bridge; not a
-native app poller repair. T5d is reclassified: Pentagon has an internal target trigger
+Not complete for the full Pentagon autonomy goal because native Pentagon
+activation remains unbounded without the external bridge. T5d is reclassified:
+Pentagon has an internal target trigger
 queue that eventually woke Maya and produced the requested ACK, but it did not
 meet the declared bounded window. A fresh direct-queue probe then showed the
 message-to-trigger step is immediate, while the native trigger remained
@@ -48,8 +49,7 @@ stderr after local activegraph skill frontmatter repair. Live model readback
 also shows default_model gpt-5.5 and zero non-gpt-5.5 active_graph agents. A
 file-backed gauntlet then produced concrete easy, medium, hard, and extra-hard
 artifacts through Maya and Ravi, with terminal reverse triggers completed.
-For this objective, the installed bridge is the autonomous execution path and
-the auditable fix. Native product poller repair remains a follow-up caveat: the
-public MCP/native app path still does not expose or reliably run a bounded
-target-turn primitive without this local bridge, so that narrower native-path
-claim is not made here.
+The installed bridge is a useful, auditable mitigation and its behavior is
+verified from logs and live rows, but it is not the native Pentagon app poller.
+The full goal remains open until the native public MCP/app path exposes or
+reliably runs a bounded target-turn primitive without this local bridge.
