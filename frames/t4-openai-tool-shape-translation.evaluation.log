@@ -83,6 +83,271 @@ $ ../venv/bin/pytest -q
 690 passed, 15 skipped in 17.96s
 ~~~
 
+## 2026-05-23T19:33:59Z Goal Reaper heartbeat
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Predicate actuals vs expected:
+
+- `targeted_provider_tool_parity_and_replay`: expected pass; actual `19 passed`; GREEN.
+- `mypy_strict_passes_full_allowlist`: expected success; actual `Success: no issues found in 23 source files`; GREEN.
+- `ring0_not_missing_pct_equals_100`: expected `102/102`; actual `102/102`; GREEN.
+- `ring1_not_missing_pct_ge_80`: expected >= 80%; actual `103/120 not-missing (85.8%)`; GREEN.
+- `pushed_head_closure`: expected `origin/main...HEAD = 0 0`; actual `0 3`; RED.
+- `no_changes_outside_permissions`: expected all changed files covered by `:rw`; actual `activegraph/behaviors/base.py`, `activegraph/llm/cache.py`, and `activegraph/llm/recorded.py` are covered only by `activegraph/activegraph/**/*.py:ro`; RED.
+
+Commands and full outputs:
+
+~~~text
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && pwd && git status --short --branch && git rev-parse --short HEAD && git rev-parse --short origin/main && git log -3 --oneline
+/Users/gaganarora/Desktop/my projects/active_graph
+## main...origin/main
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+ M frames/t4-openai-tool-shape-translation.status
+?? .review-worktrees/
+?? frames/t13-and-beyond-factory-survivability-2026-05-23.md
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+?? frames/t6-native-easy-run-20260523.log
+?? frames/t6-real-autonomy-gauntlet-2026-05-23.md
+?? frames/t7-t12-scale-reliability-gauntlet-2026-05-23.md
+82a01fa
+82a01fa
+82a01fa Update T4 closure disposition evidence
+05d93fe T6 easy: diagnostic dump of Pentagon event shapes during the easy run
+900b742 Update T4 heartbeat for inner 5c2cd8e
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git rev-parse --short HEAD && git rev-parse --short origin/main && git rev-list --left-right --count origin/main...HEAD && git status --short && ../venv/bin/pytest tests/test_provider_tool_parity.py tests/test_llm_replay.py -q; printf '\n---pytest_exit=%s---\n' "$?"
+5c2cd8e
+62015ed
+0	3
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? frames/t6-native-gauntlet-easy-20260523.proof
+?? uv.lock
+...................                                                      [100%]
+19 passed in 0.11s
+
+---pytest_exit=0---
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && ../venv/bin/mypy; printf '\n---mypy_exit=%s---\n' "$?"; ../venv/bin/python scripts/gate_docstrings.py; printf '\n---docstrings_exit=%s---\n' "$?"
+Success: no issues found in 23 source files
+
+---mypy_exit=0---
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+---docstrings_exit=0---
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && python3 - <<'PY'
+import fnmatch, subprocess, yaml
+from pathlib import Path
+outer=Path('/Users/gaganarora/Desktop/my projects/active_graph')
+frame=yaml.safe_load((outer/'frames/t4-openai-tool-shape-translation.yaml').read_text())
+rw=[]; ro=[]
+for item in frame['permissions']:
+    path, mode = item.rsplit(':',1)
+    (rw if mode=='rw' else ro).append(path)
+def matches(pattern, path):
+    return fnmatch.fnmatchcase(path, pattern)
+def classify(inner_path):
+    full='activegraph/'+inner_path
+    rwm=[p for p in rw if matches(p, full)]
+    rom=[p for p in ro if matches(p, full)]
+    if rwm: return 'IN_SCOPE_RW', rwm[0]
+    if rom: return 'OUT_OF_SCOPE_RO_CHANGED', rom[0]
+    return 'OUT_OF_SCOPE_NO_MATCH', '-'
+for label, cmd in [('committed_range_62015ed..HEAD',['git','-C',str(outer/'activegraph'),'diff','--name-only','62015ed..HEAD']), ('dirty_tree',['git','-C',str(outer/'activegraph'),'diff','--name-only'])]:
+    print(label)
+    for p in subprocess.check_output(cmd, text=True).splitlines():
+        status, pat=classify(p)
+        print(f'{p}\t{status}\t{pat}')
+    print()
+PY
+committed_range_62015ed..HEAD
+activegraph/behaviors/base.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/types.py	IN_SCOPE_RW	activegraph/activegraph/llm/types.py
+activegraph/runtime/runtime.py	IN_SCOPE_RW	activegraph/activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py	IN_SCOPE_RW	activegraph/tests/test_provider_tool_parity.py
+
+dirty_tree
+CHANGELOG.md	IN_SCOPE_RW	activegraph/CHANGELOG.md
+CONTRACT.md	IN_SCOPE_RW	activegraph/CONTRACT.md
+README.md	IN_SCOPE_RW	activegraph/README.md
+docs/concepts/provider-tool-parity.md	IN_SCOPE_RW	activegraph/docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md	IN_SCOPE_RW	activegraph/docs/reference/llm-providers.md
+~~~
+
+## 2026-05-23T19:33:02Z Goal Reaper stale outer-head correction
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Predicate actuals vs expected:
+- `outer_head_current`: expected status file to reflect current outer evidence head; actual current outer `HEAD=82a01fa`, previous status recorded `outer_head: 900b742` RED/stale. Status corrected to `outer_head: 82a01fa`, `outer_evidence_head: 82a01fa`.
+- `focused_t4_gate`: expected pass; actual `19 passed` GREEN.
+- `pushed_head_closure`: expected `origin/main...HEAD = 0 0`; actual `0 3` RED.
+- `dirty_tree_clean_for_closure`: expected clean inner tree; actual dirty inner tree persists RED.
+- `no_changes_outside_permissions`: expected no changed read-only permission paths; actual `HEAD^..HEAD` includes `activegraph/llm/cache.py` and `activegraph/llm/recorded.py`; `62015ed..HEAD` also includes `activegraph/behaviors/base.py` RED.
+
+Literal command output:
+
+~~~text
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && pwd
+/Users/gaganarora/Desktop/my projects/active_graph
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && git rev-parse --short HEAD
+82a01fa
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && git rev-parse --short origin/main
+82a01fa
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && git rev-list --left-right --count origin/main...HEAD
+0	0
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && git status --short --branch
+## main...origin/main
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+?? .review-worktrees/
+?? frames/t13-and-beyond-factory-survivability-2026-05-23.md
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+?? frames/t6-native-easy-run-20260523.log
+?? frames/t6-real-autonomy-gauntlet-2026-05-23.md
+?? frames/t7-t12-scale-reliability-gauntlet-2026-05-23.md
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git rev-parse --short HEAD && git rev-parse --short origin/main && git rev-list --left-right --count origin/main...HEAD
+5c2cd8e
+62015ed
+0	3
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git status --short --branch
+## main...origin/main [ahead 3]
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? frames/t6-native-gauntlet-easy-20260523.proof
+?? uv.lock
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && ../venv/bin/python --version
+Python 3.14.3
+
+INTERPRETER_OK Goal Reaper /Users/gaganarora/Desktop/my projects/active_graph/activegraph 5c2cd8e
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && ../venv/bin/pytest tests/test_provider_tool_parity.py tests/test_llm_replay.py -q
+...................                                                      [100%]
+19 passed in 0.10s
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git diff --name-only HEAD^..HEAD
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git diff --name-only 62015ed..HEAD
+activegraph/behaviors/base.py
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+~~~
+
+## 2026-05-23 Goal Reaper live re-evaluation after Rowan 5c2cd8e acceptance
+
+Verdict: `goal.incomplete`.
+
+Predicate actuals vs expected:
+
+- `review.clean`: expected commit-scoped review for current inner HEAD; actual Rowan `review.clean` remains commit-scoped to `inner:5c2cd8e`; GREEN for commit review only.
+- `targeted_provider_tool_parity_and_replay`: expected pass; actual `19 passed`; GREEN.
+- `pushed_head_closure`: expected `origin/main...HEAD = 0 0`; actual `0 3`; RED.
+- `dirty_tree_clean_for_closure`: expected no dirty/untracked closure-impacting files; actual dirty tree includes docs/contract/readme/provider docs plus untracked artifacts; RED.
+- `no_changes_outside_permissions`: expected no changes under read-only permissions; actual `HEAD^..HEAD` includes `activegraph/llm/cache.py` and `activegraph/llm/recorded.py`; `62015ed..HEAD` also includes `activegraph/behaviors/base.py`; RED.
+
+Commands and full outputs:
+
+~~~text
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && pwd; git rev-parse --short HEAD; git status --short; python --version
+/Users/gaganarora/Desktop/my projects/active_graph
+900b742
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+ M scripts/verify-pentagon-autonomy-from-logs.mjs
+?? .review-worktrees/
+?? frames/t13-and-beyond-factory-survivability-2026-05-23.md
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+?? frames/t6-easy-pentagon-event-shapes-20260523.log
+?? frames/t6-native-easy-run-20260523.log
+?? frames/t6-real-autonomy-gauntlet-2026-05-23.md
+?? frames/t7-t12-scale-reliability-gauntlet-2026-05-23.md
+zsh:1: command not found: python
+exit 127
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && pwd; git rev-parse HEAD; git rev-parse --short HEAD; git rev-parse --short origin/main; git rev-list --left-right --count origin/main...HEAD; git status --short; python --version
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+5c2cd8ecc1c28421b840f41695c61a04e88fe959
+5c2cd8e
+62015ed
+0	3
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? frames/t6-native-gauntlet-easy-20260523.proof
+?? uv.lock
+zsh:1: command not found: python
+exit 127
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && ../venv/bin/python --version
+Python 3.14.3
+exit 0
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git diff --name-only HEAD^..HEAD; git diff --name-only 62015ed..HEAD
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+activegraph/behaviors/base.py
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+exit 0
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && ../venv/bin/pytest tests/test_provider_tool_parity.py tests/test_llm_replay.py -q
+...................                                                      [100%]
+19 passed in 0.06s
+exit 0
+~~~
+
+`INTERPRETER_OK Goal Reaper /Users/gaganarora/Desktop/my projects/active_graph/activegraph 5c2cd8e`
+
 ## Frame Architect closure disposition intake 2026-05-23T19:28:50Z
 
 Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.

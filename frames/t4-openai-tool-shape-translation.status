@@ -1,7 +1,7 @@
 status: incomplete_dirty_unpushed
 inner_head: 5c2cd8e
-outer_head: 900b742
-outer_evidence_head: 900b742
+outer_head: 82a01fa
+outer_evidence_head: 82a01fa
 evaluated: 2026-05-23
 review: clean_for_inner_5c2cd8e_commit_scoped_only
 focused_tests: "provider parity + llm replay 19 passed"
@@ -36,7 +36,6 @@ untracked_not_claimed:
     - .review-worktrees/
     - frames/t13-and-beyond-factory-survivability-2026-05-23.md
     - frames/t4-invalid-marker-internal-7886d71.bottleneck.log
-    - frames/t6-native-easy-activation-bottleneck-20260523.log
     - frames/t6-native-easy-run-20260523.log
     - frames/t6-real-autonomy-gauntlet-2026-05-23.md
     - frames/t7-t12-scale-reliability-gauntlet-2026-05-23.md
