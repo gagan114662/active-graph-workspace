@@ -20,6 +20,7 @@ const CURRENT_BRIDGE_FILE_TASK_LOG = "frames/t5j-current-bridge-file-task-2026-0
 const CURRENT_BRIDGE_FILE_TASK_PROOF = "frames/t5j-current-bridge-easy-20260523T1330Z.proof";
 const NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG = "frames/t5k-native-probe-and-bridge-queue-hardening-2026-05-23.log";
 const NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG = "frames/t5l-native-app-poller-and-probe-output-audit-2026-05-23.log";
+const REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG = "frames/t5m-repeatable-native-app-poller-diagnostic-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -39,8 +40,10 @@ const CRITICAL_PROOF_FILES = [
   CURRENT_BRIDGE_FILE_TASK_PROOF,
   NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG,
   NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG,
+  REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
   "scripts/probe-native-poller.mjs",
+  "scripts/probe-native-app-poller.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
 ];
 
@@ -220,6 +223,8 @@ async function main() {
   must("bridge script parses", bridgeCheck.status === 0, bridgeCheck.stderr);
   const nativeProbeCheck = command("node", ["--check", "scripts/probe-native-poller.mjs"]);
   must("native poller probe script parses", nativeProbeCheck.status === 0, nativeProbeCheck.stderr);
+  const nativeAppPollerCheck = command("node", ["--check", "scripts/probe-native-app-poller.mjs"]);
+  must("native app poller diagnostic script parses", nativeAppPollerCheck.status === 0, nativeAppPollerCheck.stderr);
   const bridgeScript = repoFile("scripts/pentagon-trigger-bridge.mjs");
   must("bridge script exists", bridgeScript);
   if (bridgeScript) {
@@ -240,6 +245,15 @@ async function main() {
     requireText("native poller probe script", nativeProbeScript, "bridge_assisted_pass");
     requireText("native poller probe script", nativeProbeScript, "bridge_assisted_poller_passed_native_unproven");
     requireText("native poller probe script", nativeProbeScript, "native_poller_no_trigger_created");
+  }
+  const nativeAppPollerScript = repoFile("scripts/probe-native-app-poller.mjs");
+  must("native app poller diagnostic script exists", nativeAppPollerScript);
+  if (nativeAppPollerScript) {
+    requireText("native app poller diagnostic script", nativeAppPollerScript, "pentagonProcesses");
+    requireText("native app poller diagnostic script", nativeAppPollerScript, "probe-native-poller.mjs");
+    requireText("native app poller diagnostic script", nativeAppPollerScript, "Filtering the log data using");
+    requireText("native app poller diagnostic script", nativeAppPollerScript, "log_match_counts");
+    requireText("native app poller diagnostic script", nativeAppPollerScript, "native_app_poller_still_blocked");
   }
 
   const plistCheck = command("plutil", ["-lint", "launchagents/run.pentagon.trigger-bridge.plist"]);
@@ -422,6 +436,20 @@ async function main() {
     requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "native_pass=false");
     requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "review.concern remained would_process");
     requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "Native Pentagon handoff activation remains red.");
+  }
+
+  const repeatableNativeAppPollerDiagnosticLog = repoFile(REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG);
+  must("repeatable native app poller diagnostic log exists", repeatableNativeAppPollerDiagnosticLog, REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG);
+  if (repeatableNativeAppPollerDiagnosticLog) {
+    requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "scripts/probe-native-app-poller.mjs");
+    requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "T5M_NATIVE_APP_POLLER_SCRIPT_20260523T1425Z");
+    requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "T5M_NATIVE_APP_POLLER_CLEAN_COUNTS_20260523T1430Z");
+    requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "binary_hooks.TriggerPoller=true");
+    requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "binary_hooks.complete_agent_trigger=true");
+    requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "probe.final_claimed_at=null");
+    requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "log_match_counts.TriggerPoller=0");
+    requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "state=running");
+    requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "Native Pentagon handoff activation remains red.");
   }
 
   if (requireNative) {

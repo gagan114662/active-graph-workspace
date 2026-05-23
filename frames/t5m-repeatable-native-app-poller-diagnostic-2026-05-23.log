@@ -1,0 +1,138 @@
+# T5M Repeatable Native App Poller Diagnostic
+
+Date: 2026-05-23
+Repo: /Users/gaganarora/Desktop/my projects/active_graph
+Head before change: 86412ae
+
+## Predicate
+
+The native Pentagon.app poller diagnostic must be repeatable from a committed script, must stop the bridge during the probe, must confirm the app/native hook surface, and must not count diagnostic scaffolding as native TriggerPoller activity.
+
+## Interpreter Smoke
+
+INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph 86412ae
+
+Commands:
+
+git status --short --branch
+## main...origin/main
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+?? .review-worktrees/
+
+git rev-parse --short HEAD
+86412ae
+
+node --version
+v25.8.2
+
+python3 --version
+Python 3.14.3
+
+## Implementation
+
+Added:
+
+scripts/probe-native-app-poller.mjs
+
+The script:
+
+- Opens Pentagon.app.
+- Records the installed app version.
+- Records the actual Pentagon app process without including the log-stream process.
+- Confirms native hook strings exist in the installed app binary.
+- Starts a focused /usr/bin/log stream.
+- Runs scripts/probe-native-poller.mjs with the bridge stopped.
+- Parses the probe JSON even when the probe exits nonzero.
+- Removes the Filtering-the-log-data banner before counting native log matches.
+- Exits 2 when native_pass is false.
+
+## First Diagnostic Run
+
+Command:
+
+node scripts/probe-native-app-poller.mjs --watch-seconds 20 --hash T5M_NATIVE_APP_POLLER_SCRIPT_20260523T1425Z
+
+Result:
+
+exit=2
+app_version=1.7.3
+app_process_before included /Applications/Pentagon.app/Contents/MacOS/Pentagon
+binary_hooks.TriggerPoller=true
+binary_hooks.claim_agent_trigger=true
+binary_hooks.complete_agent_trigger=false
+binary_hooks.triggerAgentResponse=true
+probe.message=d00d1bf0-1af6-42e0-b217-ad2a91958cc5
+probe.trigger=763c4401-facf-4690-bcd0-ff9ea722bd79
+probe.final_claimed_at=null
+probe.final_completed_at=null
+probe.native_pass=false
+verdict=native_app_poller_still_blocked
+
+Issue found:
+
+The first script version counted the log-stream predicate banner as native hook activity and included the log-stream process in the process readback.
+
+## Diagnostic Tightening
+
+Changes:
+
+- Added pentagonProcesses() to read only /Applications/Pentagon.app/Contents/MacOS/Pentagon.
+- Treated messaging.complete-trigger as equivalent installed-app evidence for the complete-trigger hook string.
+- Filtered out log lines containing Filtering the log data using before calculating log_match_counts.
+
+## Clean Diagnostic Run
+
+Command:
+
+node scripts/probe-native-app-poller.mjs --watch-seconds 15 --hash T5M_NATIVE_APP_POLLER_CLEAN_COUNTS_20260523T1430Z
+
+Result:
+
+exit=2
+app_version.short_version=1.7.3
+app_version.bundle_version=1.7.3
+app_process_before=/Applications/Pentagon.app/Contents/MacOS/Pentagon
+app_process_after_open=/Applications/Pentagon.app/Contents/MacOS/Pentagon
+binary_hooks.TriggerPoller=true
+binary_hooks.claim_agent_trigger=true
+binary_hooks.complete_agent_trigger=true
+binary_hooks.triggerAgentResponse=true
+probe.message=52485763-7cd3-4c62-9908-0af8916a1d0b
+probe.trigger=ed31e13d-3aa0-4205-9b93-26425355f06a
+probe.bridge_mode=stopped_for_native_probe
+probe.final_claimed_at=null
+probe.final_completed_at=null
+probe.ack_rows=[]
+probe.native_pass=false
+log_match_counts.TriggerPoller=0
+log_match_counts.handleAgentTrigger=0
+log_match_counts.triggerAgentResponse=0
+log_match_counts.claim_agent_trigger=0
+log_match_counts.hash=0
+verdict=native_app_poller_still_blocked
+
+## Bridge State After Diagnostic
+
+Command:
+
+launchctl print gui/$(id -u)/run.pentagon.trigger-bridge
+
+Result:
+
+state=running
+pid=19059
+--interval-ms 1000
+--max-age-seconds 180
+
+## Verdict
+
+Reliability improved:
+
+- Native app polling can now be tested with one committed command.
+- The diagnostic proves Pentagon.app is running and contains the native trigger hook surface.
+- The diagnostic proves the native app did not claim or complete the probe while the bridge was stopped.
+- The diagnostic avoids false positive log counts from its own log predicate.
+
+Still not complete:
+
+Native Pentagon handoff activation remains red. This is stronger diagnosis, not full goal completion.
