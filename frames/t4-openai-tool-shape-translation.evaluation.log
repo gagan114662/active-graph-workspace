@@ -1749,3 +1749,169 @@ docs/concepts/provider-tool-parity.md
 docs/reference/llm-providers.md
 tests/test_provider_tool_parity.py
 ~~~
+## Goal Reaper heartbeat 2026-05-23T19:17:46Z
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Current evidence updates the stale status from inner `bdc8919` to inner
+`5deedfd`. T4 gates are green at the current working tree, but closure remains
+blocked by push/scope state.
+
+Predicate actuals vs expected:
+
+- `focused_t4_shard_passes`: expected pass; actual `35 passed`.
+- `pytest_full_suite_passes`: expected pass; actual `699 passed, 15 skipped`.
+- `mypy_strict_passes_full_allowlist`: expected success; actual `Success: no issues found in 23 source files`.
+- `ring0_not_missing_pct_equals_100`: expected 100%; actual `102/102 documented (100.0%)`.
+- `ring1_not_missing_pct_ge_80`: expected >=80%; actual `103/120 not-missing (85.8%)`.
+- `wheel_completeness_passes`: expected pass; actual `1 passed`.
+- `doc_links_pass`: expected pass; actual `3 passed`.
+- `cli_flag_drift_passes`: expected pass; actual OK.
+- `pushed_head_closure`: expected `origin/main...HEAD = 0 0`; actual `0 2`, with `HEAD=5deedfd` and `origin/main=62015ed`.
+- `no_changes_outside_permissions`: expected no changed files outside `:rw`; actual RED because `activegraph/behaviors/base.py`, `activegraph/llm/cache.py`, and `activegraph/llm/recorded.py` are changed while only covered by `activegraph/activegraph/**/*.py:ro`.
+
+Literal command output:
+
+~~~text
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && pwd && git status --short --branch && git rev-parse --short HEAD && git rev-parse --short origin/main && git log -3 --oneline
+/Users/gaganarora/Desktop/my projects/active_graph
+## main...origin/main
+?? .review-worktrees/
+?? frames/t13-and-beyond-factory-survivability-2026-05-23.md
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+?? frames/t6-native-easy-activation-bottleneck-20260523.log
+?? frames/t6-native-easy-run-20260523.log
+?? frames/t6-real-autonomy-gauntlet-2026-05-23.md
+?? frames/t7-t12-scale-reliability-gauntlet-2026-05-23.md
+d7c270d
+d7c270d
+d7c270d T6 preamble: snapshot pytest + ruff baselines for 2026-05-23
+186eaff T6 preamble: tighten --t6 --tier=easy verifier (exit code, agent commit, ruff scope, pytest non-regression)
+c4edfdc T6 preamble: --t6 --tier=easy verifier mode
+
+$ cd activegraph && git status --short --branch && git rev-parse --short HEAD && git rev-parse --short origin/main && git log -8 --oneline
+## main...origin/main [ahead 2]
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M activegraph/llm/cache.py
+ M activegraph/llm/recorded.py
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? frames/t6-native-gauntlet-easy-20260523.proof
+?? uv.lock
+5deedfd
+62015ed
+5deedfd Frame t6: document behavior run
+bdc8919 Preserve invalid tool arg replay metadata
+62015ed Bypass durable cache for invalid tool input
+7886d71 Keep invalid arg marker internal
+d691afc Move invalid marker replay test to permitted surface
+56e5498 Test invalid arg marker fork replay
+c28c3c0 Test invalid tool argument marker hydration
+605c438 Preserve invalid tool argument marker
+
+$ cd activegraph && git diff --name-only 62015ed..HEAD && echo '---dirty---' && git diff --name-only && echo '---ahead---' && git rev-list --left-right --count origin/main...HEAD
+activegraph/behaviors/base.py
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+---dirty---
+CHANGELOG.md
+CONTRACT.md
+README.md
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+---ahead---
+0	2
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py
+...................................                                      [100%]
+35 passed in 0.46s
+
+$ cd activegraph && ../venv/bin/mypy
+Success: no issues found in 23 source files
+
+$ cd activegraph && ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+$ cd activegraph && ../venv/bin/python scripts/gate_cli_flag_drift.py
+OK — cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_doc_links.py
+...                                                                      [100%]
+3 passed in 0.05s
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_wheel_completeness.py
+.                                                                        [100%]
+1 passed in 5.87s
+
+$ cd activegraph && ../venv/bin/pytest -q
+...................................................................... [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 30%]
+........................................................................ [ 40%]
+........................................................................ [ 50%]
+................ssssss................................................. [ 60%]
+........................................................................ [ 70%]
+...............................sssssssss................................ [ 80%]
+........................................................................ [ 90%]
+..................................................................       [100%]
+699 passed, 15 skipped in 17.05s
+
+$ python3 - <<'PY'
+import fnmatch, subprocess, yaml
+from pathlib import Path
+outer=Path('/Users/gaganarora/Desktop/my projects/active_graph')
+frame=yaml.safe_load((outer/'frames/t4-openai-tool-shape-translation.yaml').read_text())
+rw=[]; ro=[]
+for item in frame['permissions']:
+    path, mode = item.rsplit(':',1)
+    (rw if mode=='rw' else ro).append(path)
+def matches(pattern, path):
+    return fnmatch.fnmatchcase(path, pattern)
+def classify(inner_path):
+    full='activegraph/'+inner_path
+    rwm=[p for p in rw if matches(p, full)]
+    rom=[p for p in ro if matches(p, full)]
+    if rwm: return 'IN_SCOPE_RW', rwm[0]
+    if rom: return 'OUT_OF_SCOPE_RO_CHANGED', rom[0]
+    return 'OUT_OF_SCOPE_NO_MATCH', '-'
+for label, cmd in [('committed_range_62015ed..HEAD',['git','-C',str(outer/'activegraph'),'diff','--name-only','62015ed..HEAD']), ('dirty_tree',['git','-C',str(outer/'activegraph'),'diff','--name-only'])]:
+    print(label)
+    out=subprocess.check_output(cmd, text=True).splitlines()
+    for p in out:
+        status, pat=classify(p)
+        print(f'{p}\t{status}\t{pat}')
+    print()
+PY
+committed_range_62015ed..HEAD
+activegraph/behaviors/base.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/types.py	IN_SCOPE_RW	activegraph/activegraph/llm/types.py
+activegraph/runtime/runtime.py	IN_SCOPE_RW	activegraph/activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py	IN_SCOPE_RW	activegraph/tests/test_provider_tool_parity.py
+
+dirty_tree
+CHANGELOG.md	IN_SCOPE_RW	activegraph/CHANGELOG.md
+CONTRACT.md	IN_SCOPE_RW	activegraph/CONTRACT.md
+README.md	IN_SCOPE_RW	activegraph/README.md
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+docs/concepts/provider-tool-parity.md	IN_SCOPE_RW	activegraph/docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md	IN_SCOPE_RW	activegraph/docs/reference/llm-providers.md
+~~~
