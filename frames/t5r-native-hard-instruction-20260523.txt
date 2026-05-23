@@ -1,0 +1,18 @@
+NATIVE_GAUNTLET HARD T5R_NATIVE_HARD_20260523
+
+Maya, this is a native Pentagon repo-specific hard task for /Users/gaganarora/Desktop/my projects/active_graph.
+
+Do the following in the repo:
+1. Confirm pwd and git rev-parse --short HEAD.
+2. Run the bridge-backed verifier without live DB:
+   node scripts/verify-pentagon-autonomy-from-logs.mjs --no-db
+3. Capture the summary line and verdict line.
+4. Create frames/t5r-native-gauntlet-hard-20260523.proof with:
+   hash=T5R_NATIVE_HARD_20260523
+   pwd=<pwd>
+   head=<git short head>
+   verifier_no_db_summary=<summary line>
+   verifier_no_db_verdict=<verdict line>
+   verdict=native_hard_done
+5. Reply exactly:
+MAYA_NATIVE_GAUNTLET_ACK T5R_NATIVE_HARD_20260523 HARD frames/t5r-native-gauntlet-hard-20260523.proof

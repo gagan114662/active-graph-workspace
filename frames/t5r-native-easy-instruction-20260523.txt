@@ -1,0 +1,15 @@
+NATIVE_GAUNTLET EASY T5R_NATIVE_EASY_20260523
+
+Maya, this is a native Pentagon repo-specific easy task for /Users/gaganarora/Desktop/my projects/active_graph.
+
+Do the following in the repo:
+1. Confirm the current working tree context with pwd and git rev-parse --short HEAD.
+2. Run: node --check scripts/probe-native-poller.mjs
+3. Create the file frames/t5r-native-gauntlet-easy-20260523.proof with these lines:
+   hash=T5R_NATIVE_EASY_20260523
+   pwd=<the pwd output>
+   head=<git short head output>
+   node_check_exit=<exit code from node --check scripts/probe-native-poller.mjs>
+   verdict=native_easy_done
+4. Reply in this conversation exactly:
+MAYA_NATIVE_GAUNTLET_ACK T5R_NATIVE_EASY_20260523 EASY frames/t5r-native-gauntlet-easy-20260523.proof

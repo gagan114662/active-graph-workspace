@@ -25,6 +25,7 @@ const CODEX_HARNESS_NATIVE_RECHECK_LOG = "frames/t5n-codex-harness-native-rechec
 const CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG = "frames/t5o-cleared-queue-native-attribution-2026-05-23.log";
 const NATIVE_POLLER_SURFACE_AUDIT_LOG = "frames/t5p-native-poller-surface-audit-2026-05-23.log";
 const RESTARTED_APP_NATIVE_ACTIVATION_LOG = "frames/t5q-restarted-app-native-activation-2026-05-23.log";
+const NATIVE_REPO_GAUNTLET_LOG = "frames/t5r-native-repo-gauntlet-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -49,11 +50,21 @@ const CRITICAL_PROOF_FILES = [
   CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG,
   NATIVE_POLLER_SURFACE_AUDIT_LOG,
   RESTARTED_APP_NATIVE_ACTIVATION_LOG,
+  NATIVE_REPO_GAUNTLET_LOG,
+  "frames/t5r-native-easy-instruction-20260523.txt",
+  "frames/t5r-native-medium-instruction-20260523.txt",
+  "frames/t5r-native-hard-instruction-20260523.txt",
+  "frames/t5r-native-extra-hard-instruction-20260523.txt",
+  "frames/t5r-native-gauntlet-easy-20260523.proof",
+  "frames/t5r-native-gauntlet-medium-20260523.proof",
+  "frames/t5r-native-gauntlet-hard-20260523.proof",
+  "frames/t5r-native-gauntlet-extra-hard-20260523.proof",
   "scripts/pentagon-trigger-bridge.mjs",
   "scripts/probe-native-poller.mjs",
   "scripts/probe-native-app-poller.mjs",
   "scripts/audit-pentagon-trigger-attribution.mjs",
   "scripts/audit-pentagon-native-poller-surface.mjs",
+  "scripts/run-native-pentagon-task.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
 ];
 
@@ -89,6 +100,45 @@ const LEVELS = {
     trigger: "888c02e5-be31-4288-b5e6-519dbce20eac",
     ack: "4f13e3c0-87f7-4720-b642-d8e66364ab86",
     reverse: "e05b0123-da60-476f-b945-bdf0a7f590b8",
+  },
+};
+
+const NATIVE_LEVELS = {
+  easy: {
+    hash: "T5R_NATIVE_EASY_20260523",
+    proof: "frames/t5r-native-gauntlet-easy-20260523.proof",
+    message: "bf81ca6c-76c4-4d10-a823-046e0cb2cbc7",
+    trigger: "249b5272-a61f-4ffc-af0b-9b6eb9b8de1e",
+    ack: "a9d931ee-526e-44bd-a29d-4046ebad72b8",
+    activationPath: "agent_trigger",
+    verdict: "native_easy_done",
+  },
+  medium: {
+    hash: "T5R_NATIVE_MEDIUM_20260523",
+    proof: "frames/t5r-native-gauntlet-medium-20260523.proof",
+    message: "551f5ded-1f8c-43eb-b41a-8f26597b7379",
+    trigger: null,
+    ack: "7e6be062-9f4e-4578-9ad1-85493205e812",
+    activationPath: "message_poller_no_trigger_row",
+    verdict: "native_medium_done",
+  },
+  hard: {
+    hash: "T5R_NATIVE_HARD_20260523",
+    proof: "frames/t5r-native-gauntlet-hard-20260523.proof",
+    message: "eb28df09-5ca2-4b26-83f0-0b051a7496ad",
+    trigger: "d457fb7c-2321-4155-b645-532095596272",
+    ack: "f505785f-75a2-4bd2-8930-36b5342032dd",
+    activationPath: "agent_trigger",
+    verdict: "native_hard_done",
+  },
+  extra_hard: {
+    hash: "T5R_NATIVE_EXTRA_HARD_20260523",
+    proof: "frames/t5r-native-gauntlet-extra-hard-20260523.proof",
+    message: "88200f91-bd71-4ef5-986d-afe8729eee52",
+    trigger: "77e9971c-7eed-444a-8277-fec696ac507a",
+    ack: "09363da6-9422-4f59-aafd-58090f157639",
+    activationPath: "agent_trigger",
+    verdict: "native_extra_hard_done",
   },
 };
 
@@ -199,6 +249,37 @@ async function verifyLiveRows() {
     const row = acks.get(level.ack);
     must("live DB " + levelName + " ACK row exists", row, level.ack);
     must("live DB " + levelName + " ACK contains hash", row && row.content.includes(level.hash), row ? row.content : level.ack);
+  }
+
+  const nativeTriggerIds = Object.values(NATIVE_LEVELS).map((level) => level.trigger).filter(Boolean);
+  const nativeTriggerRows = await supabase(
+    state,
+    "/rest/v1/agent_triggers?id=in.(" + nativeTriggerIds.join(",") + ")&select=id,claimed_at,completed_at,message_id&limit=10"
+  );
+  const nativeTriggers = new Map(nativeTriggerRows.map((row) => [row.id, row]));
+  for (const [levelName, level] of Object.entries(NATIVE_LEVELS)) {
+    if (!level.trigger) {
+      record(true, "live DB native " + levelName + " trigger row", "message_poller_no_trigger_row");
+      continue;
+    }
+    const row = nativeTriggers.get(level.trigger);
+    must("live DB native " + levelName + " trigger row exists", row, level.trigger);
+    must("live DB native " + levelName + " trigger completed_at present", row && row.completed_at, row ? JSON.stringify(row) : level.trigger);
+  }
+
+  const nativeMessageIds = Object.values(NATIVE_LEVELS).flatMap((level) => [level.message, level.ack]);
+  const nativeMessageRows = await supabase(
+    state,
+    "/rest/v1/messages?id=in.(" + nativeMessageIds.join(",") + ")&select=id,content,created_at&limit=20"
+  );
+  const nativeMessages = new Map(nativeMessageRows.map((row) => [row.id, row]));
+  for (const [levelName, level] of Object.entries(NATIVE_LEVELS)) {
+    const instruction = nativeMessages.get(level.message);
+    const ack = nativeMessages.get(level.ack);
+    must("live DB native " + levelName + " instruction row exists", instruction, level.message);
+    must("live DB native " + levelName + " instruction contains hash", instruction && instruction.content.includes(level.hash), instruction ? instruction.content : level.message);
+    must("live DB native " + levelName + " ACK row exists", ack, level.ack);
+    must("live DB native " + levelName + " ACK contains hash", ack && ack.content.includes(level.hash), ack ? ack.content : level.ack);
   }
 
   const agents = await supabase(
@@ -545,10 +626,45 @@ async function main() {
     requireText("restarted app native activation log", restartedAppNativeActivationLog, "full native easy/medium/hard/extra-hard repo gauntlet is complete | not run natively yet | red");
   }
 
+  const nativeRepoGauntletLog = repoFile(NATIVE_REPO_GAUNTLET_LOG);
+  must("native repo gauntlet log exists", nativeRepoGauntletLog, NATIVE_REPO_GAUNTLET_LOG);
+  if (nativeRepoGauntletLog) {
+    requireText("native repo gauntlet log", nativeRepoGauntletLog, "INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph");
+    requireText("native repo gauntlet log", nativeRepoGauntletLog, "Result: green for native Pentagon repo gauntlet");
+    requireText("native repo gauntlet log", nativeRepoGauntletLog, "bridge_after_stop.ok=false");
+    requireText("native repo gauntlet log", nativeRepoGauntletLog, "activation_path=agent_trigger");
+    requireText("native repo gauntlet log", nativeRepoGauntletLog, "activation_path=message_poller_no_trigger_row");
+    requireText("native repo gauntlet log", nativeRepoGauntletLog, "native_pass=true");
+  }
+
+  const nativeRunner = repoFile("scripts/run-native-pentagon-task.mjs");
+  must("native task runner exists", nativeRunner, "scripts/run-native-pentagon-task.mjs");
+  if (nativeRunner) {
+    requireText("native task runner", nativeRunner, "bridge_after_stop");
+    requireText("native task runner", nativeRunner, "message_poller_no_trigger_row");
+    requireText("native task runner", nativeRunner, "native_task_passed");
+  }
+
+  for (const [levelName, level] of Object.entries(NATIVE_LEVELS)) {
+    const proof = repoFile(level.proof);
+    must("native " + levelName + " proof file exists", proof, level.proof);
+    if (proof) {
+      requireText("native " + levelName + " proof", proof, "hash=" + level.hash);
+      requireText("native " + levelName + " proof", proof, "pwd=" + ROOT);
+      requireText("native " + levelName + " proof", proof, "verdict=" + level.verdict);
+    }
+    if (nativeRepoGauntletLog) {
+      for (const id of [level.hash, level.proof, level.message, level.ack, level.activationPath]) {
+        requireText("native repo gauntlet log", nativeRepoGauntletLog, id);
+      }
+      if (level.trigger) requireText("native repo gauntlet log", nativeRepoGauntletLog, level.trigger);
+    }
+  }
+
   if (requireNative) {
-    record(false, "native Pentagon autonomy completion", "native activation smoke passed after app restart, but native easy/medium/hard/extra-hard repo gauntlet is not yet complete");
+    record(true, "native Pentagon autonomy completion", "native activation smoke and native easy/medium/hard/extra-hard repo gauntlet passed with auditable proof");
   } else {
-    record(true, "native Pentagon autonomy boundary", "native activation smoke passed after app restart; this run verifies bridge-backed autonomy, audit integrity, and remaining native gauntlet gap");
+    record(true, "native Pentagon autonomy boundary", "native activation smoke and native easy/medium/hard/extra-hard repo gauntlet passed; bridge-backed evidence remains retained for regression coverage");
   }
 
   if (!noDb) {
@@ -567,7 +683,8 @@ async function main() {
   }
   console.log("");
   console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
-  console.log("verdict: " + (failed.length ? "failed" : "bridge_autonomy_verified_native_blocked"));
+  const verdict = requireNative ? "native_autonomy_verified" : "bridge_and_native_autonomy_verified";
+  console.log("verdict: " + (failed.length ? "failed" : verdict));
   if (failed.length) process.exitCode = 1;
 }
 

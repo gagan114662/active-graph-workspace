@@ -1,0 +1,20 @@
+NATIVE_GAUNTLET EXTRA_HARD T5R_NATIVE_EXTRA_HARD_20260523
+
+Maya, this is a native Pentagon repo-specific extra-hard task for /Users/gaganarora/Desktop/my projects/active_graph.
+
+Do the following in the repo:
+1. Confirm pwd and git rev-parse --short HEAD.
+2. Inspect these files:
+   - agent-os/RELIABILITY_OPERATING_CONTRACT.md
+   - frames/t5q-restarted-app-native-activation-2026-05-23.log
+   - scripts/verify-pentagon-autonomy-from-logs.mjs
+3. Create frames/t5r-native-gauntlet-extra-hard-20260523.proof with:
+   hash=T5R_NATIVE_EXTRA_HARD_20260523
+   pwd=<pwd>
+   head=<git short head>
+   objective=native repo-specific easy medium hard extra-hard tasks with auditability and reliability
+   covered=evidence contract; restarted native activation; verifier enforcement
+   remaining_gap=full native gauntlet evidence must be committed and verifier-required before goal closure
+   verdict=native_extra_hard_done
+4. Reply exactly:
+MAYA_NATIVE_GAUNTLET_ACK T5R_NATIVE_EXTRA_HARD_20260523 EXTRA_HARD frames/t5r-native-gauntlet-extra-hard-20260523.proof

@@ -1,0 +1,7 @@
+hash=T5R_NATIVE_EXTRA_HARD_20260523
+pwd=/Users/gaganarora/Desktop/my projects/active_graph
+head=53fcebb
+objective=native repo-specific easy medium hard extra-hard tasks with auditability and reliability
+covered=evidence contract; restarted native activation; verifier enforcement
+remaining_gap=full native gauntlet evidence must be committed and verifier-required before goal closure
+verdict=native_extra_hard_done

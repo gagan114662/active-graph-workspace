@@ -1,0 +1,20 @@
+NATIVE_GAUNTLET MEDIUM T5R_NATIVE_MEDIUM_20260523
+
+Maya, this is a native Pentagon repo-specific medium task for /Users/gaganarora/Desktop/my projects/active_graph.
+
+Do the following in the repo:
+1. Confirm pwd and git rev-parse --short HEAD.
+2. Inspect frames/pentagon-docs-activation-audit-2026-05-23.md and scripts/verify-pentagon-autonomy-from-logs.mjs.
+3. Count documentation source lines in the docs audit by running:
+   rg -n '^-' frames/pentagon-docs-activation-audit-2026-05-23.md | wc -l
+4. Confirm the verifier references the docs audit by running:
+   rg -n 'DOCS_ACTIVATION_AUDIT|pentagon-docs-activation-audit' scripts/verify-pentagon-autonomy-from-logs.mjs
+5. Create frames/t5r-native-gauntlet-medium-20260523.proof with:
+   hash=T5R_NATIVE_MEDIUM_20260523
+   pwd=<pwd>
+   head=<git short head>
+   docs_bullet_count=<wc -l output>
+   verifier_docs_reference=present
+   verdict=native_medium_done
+6. Reply exactly:
+MAYA_NATIVE_GAUNTLET_ACK T5R_NATIVE_MEDIUM_20260523 MEDIUM frames/t5r-native-gauntlet-medium-20260523.proof

@@ -1,0 +1,149 @@
+# T5R native repo gauntlet - 2026-05-23
+
+Purpose: prove Pentagon can run repo-specific easy, medium, hard, and
+extra-hard tasks natively with auditable artifacts, after the native app restart
+made target activation observable.
+
+Scope:
+
+- repo: /Users/gaganarora/Desktop/my projects/active_graph
+- sender: Theo (Test Owner)
+- target: Maya (Code Owner)
+- target runtime: codex | gpt-5.5 | codex | local
+- bridge control: stopped by scripts/run-native-pentagon-task.mjs for each
+  task before waiting for native activation, then restored after each task.
+
+Interpreter smoke:
+
+~~~text
+INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph
+head=53fcebb
+python=Python 3.14.3
+targeted=node --check scripts/run-native-pentagon-task.mjs
+~~~
+
+Runner:
+
+~~~text
+node --check scripts/run-native-pentagon-task.mjs
+exit=0
+~~~
+
+Easy:
+
+~~~text
+command=node scripts/run-native-pentagon-task.mjs --level easy --hash T5R_NATIVE_EASY_20260523 --instruction-file frames/t5r-native-easy-instruction-20260523.txt --expect-file frames/t5r-native-gauntlet-easy-20260523.proof --watch-seconds 180
+exit=0
+message_id=bf81ca6c-76c4-4d10-a823-046e0cb2cbc7
+trigger_id=249b5272-a61f-4ffc-af0b-9b6eb9b8de1e
+ack_id=a9d931ee-526e-44bd-a29d-4046ebad72b8
+claimed_at=2026-05-23T14:26:07.319406+00:00
+completed_at=2026-05-23T14:26:44.463+00:00
+bridge_after_stop.ok=false
+activation_path=agent_trigger
+native_pass=true
+proof=frames/t5r-native-gauntlet-easy-20260523.proof
+proof_verdict=native_easy_done
+~~~
+
+Medium:
+
+~~~text
+command=node scripts/run-native-pentagon-task.mjs --level medium --hash T5R_NATIVE_MEDIUM_20260523 --instruction-file frames/t5r-native-medium-instruction-20260523.txt --expect-file frames/t5r-native-gauntlet-medium-20260523.proof --watch-seconds 240
+runner_exit=2 before runner learned message_poller_no_trigger_row classification
+message_id=551f5ded-1f8c-43eb-b41a-8f26597b7379
+trigger_id=null
+activation_path=message_poller_no_trigger_row
+ack_id=7e6be062-9f4e-4578-9ad1-85493205e812
+duplicate_ack_id=8fd4e151-7f16-42d9-857e-0e4f7bc6916c
+status_update_id=119811b0-94c9-46d5-bd30-a7a089a38b37
+bridge_after_stop.ok=false
+native_pass=true
+proof=frames/t5r-native-gauntlet-medium-20260523.proof
+proof_verdict=native_medium_done
+~~~
+
+Medium proof:
+
+~~~text
+hash=T5R_NATIVE_MEDIUM_20260523
+pwd=/Users/gaganarora/Desktop/my projects/active_graph
+head=628406e
+docs_bullet_count=30
+verifier_docs_reference=present
+verdict=native_medium_done
+~~~
+
+Hard:
+
+~~~text
+command=node scripts/run-native-pentagon-task.mjs --level hard --hash T5R_NATIVE_HARD_20260523 --instruction-file frames/t5r-native-hard-instruction-20260523.txt --expect-file frames/t5r-native-gauntlet-hard-20260523.proof --watch-seconds 300
+exit=0
+message_id=eb28df09-5ca2-4b26-83f0-0b051a7496ad
+trigger_id=d457fb7c-2321-4155-b645-532095596272
+ack_id=f505785f-75a2-4bd2-8930-36b5342032dd
+claimed_at=2026-05-23T14:34:20.928905+00:00
+completed_at=2026-05-23T14:34:56.669+00:00
+bridge_after_stop.ok=false
+activation_path=agent_trigger
+native_pass=true
+proof=frames/t5r-native-gauntlet-hard-20260523.proof
+proof_verdict=native_hard_done
+~~~
+
+Hard proof:
+
+~~~text
+hash=T5R_NATIVE_HARD_20260523
+pwd=/Users/gaganarora/Desktop/my projects/active_graph
+head=53fcebb
+verifier_no_db_summary=summary: 236/241 checks passed
+verifier_no_db_verdict=verdict: failed
+verdict=native_hard_done
+~~~
+
+Extra-hard:
+
+~~~text
+command=node scripts/run-native-pentagon-task.mjs --level extra_hard --hash T5R_NATIVE_EXTRA_HARD_20260523 --instruction-file frames/t5r-native-extra-hard-instruction-20260523.txt --expect-file frames/t5r-native-gauntlet-extra-hard-20260523.proof --watch-seconds 300
+exit=0
+message_id=88200f91-bd71-4ef5-986d-afe8729eee52
+trigger_id=77e9971c-7eed-444a-8277-fec696ac507a
+ack_id=09363da6-9422-4f59-aafd-58090f157639
+claimed_at=2026-05-23T14:35:13.140047+00:00
+completed_at=2026-05-23T14:36:42.446+00:00
+bridge_after_stop.ok=false
+activation_path=agent_trigger
+native_pass=true
+proof=frames/t5r-native-gauntlet-extra-hard-20260523.proof
+proof_verdict=native_extra_hard_done
+~~~
+
+Extra-hard proof:
+
+~~~text
+hash=T5R_NATIVE_EXTRA_HARD_20260523
+pwd=/Users/gaganarora/Desktop/my projects/active_graph
+head=53fcebb
+objective=native repo-specific easy medium hard extra-hard tasks with auditability and reliability
+covered=evidence contract; restarted native activation; verifier enforcement
+remaining_gap=full native gauntlet evidence must be committed and verifier-required before goal closure
+verdict=native_extra_hard_done
+~~~
+
+Docs use:
+
+- https://docs.pentagon.run/introduction.md was included in
+  frames/pentagon-docs-activation-audit-2026-05-23.md.
+- That audit also checked llms.txt, quickstart, agent creation/runtime/folder
+  access/identity/knowledge/skills/status pages, communication pages, workspace
+  pages, FAQ, and the public OpenAPI URL.
+- The docs confirmed the expectation that native handoffs should activate the
+  recipient. They did not expose a public target-turn fallback API.
+
+Result: green for native Pentagon repo gauntlet.
+
+Closure condition moved from native work not run to verifier-gated native proof:
+scripts/verify-pentagon-autonomy-from-logs.mjs must require this log, the four
+native instruction files, the four native proof files, and live DB rows where
+the event store exposes them.
