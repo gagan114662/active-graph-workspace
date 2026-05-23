@@ -594,7 +594,8 @@ async function runT6EasyVerifier() {
   console.log("");
   console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
   console.log("verdict: " + (failed.length ? "failed" : "t6_easy_verified"));
-  process.exit(failed.length ? 1 : 0);
+  const exitCode = failed.length > 0 ? 1 : 0;
+  process.exit(exitCode);
 }
 
 function rowAgentName(row, agentsById) {
