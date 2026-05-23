@@ -15,6 +15,7 @@ const RELIABILITY_CONTRACT = "agent-os/RELIABILITY_OPERATING_CONTRACT.md";
 const BRIDGE_RESILIENCE_LOG = "frames/t5f-bridge-loop-resilience-2026-05-23.log";
 const CURRENT_BRIDGE_HEALTH_LOG = "frames/t5g-current-bridge-health-2026-05-23.log";
 const REPO_ISOLATION_AUDIT = "frames/t5h-repo-isolation-audit-2026-05-23.md";
+const REPEATABLE_NATIVE_PROBE_LOG = "frames/t5i-repeatable-native-poller-probe-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -29,7 +30,9 @@ const CRITICAL_PROOF_FILES = [
   BRIDGE_RESILIENCE_LOG,
   CURRENT_BRIDGE_HEALTH_LOG,
   REPO_ISOLATION_AUDIT,
+  REPEATABLE_NATIVE_PROBE_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
+  "scripts/probe-native-poller.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
 ];
 
@@ -97,9 +100,11 @@ function requireText(sourceName, text, needle) {
 function dirtyTrackedFiles() {
   const diff = command("git", ["diff", "--name-only"]);
   const staged = command("git", ["diff", "--cached", "--name-only"]);
+  const untracked = command("git", ["ls-files", "--others", "--exclude-standard"]);
   const files = [
     ...String(diff.stdout ?? "").split(/\r?\n/),
     ...String(staged.stdout ?? "").split(/\r?\n/),
+    ...String(untracked.stdout ?? "").split(/\r?\n/),
   ].filter(Boolean);
   return [...new Set(files)].sort();
 }
@@ -205,6 +210,8 @@ async function main() {
 
   const bridgeCheck = command("node", ["--check", "scripts/pentagon-trigger-bridge.mjs"]);
   must("bridge script parses", bridgeCheck.status === 0, bridgeCheck.stderr);
+  const nativeProbeCheck = command("node", ["--check", "scripts/probe-native-poller.mjs"]);
+  must("native poller probe script parses", nativeProbeCheck.status === 0, nativeProbeCheck.stderr);
   const bridgeScript = repoFile("scripts/pentagon-trigger-bridge.mjs");
   must("bridge script exists", bridgeScript);
   if (bridgeScript) {
@@ -332,6 +339,16 @@ async function main() {
     requireText("repo isolation audit", repoIsolationAudit, "Own clone/branch proof is not green.");
     requireText("repo isolation audit", repoIsolationAudit, "base_branch: null");
     requireText("repo isolation audit", repoIsolationAudit, "does not change the native autonomy boundary");
+  }
+
+  const repeatableNativeProbeLog = repoFile(REPEATABLE_NATIVE_PROBE_LOG);
+  must("repeatable native poller probe log exists", repeatableNativeProbeLog, REPEATABLE_NATIVE_PROBE_LOG);
+  if (repeatableNativeProbeLog) {
+    requireText("repeatable native poller probe log", repeatableNativeProbeLog, "scripts/probe-native-poller.mjs");
+    requireText("repeatable native poller probe log", repeatableNativeProbeLog, "T5I_NATIVE_POLLER_PROBE_20260523T132150Z");
+    requireText("repeatable native poller probe log", repeatableNativeProbeLog, "final_claimed_at: null");
+    requireText("repeatable native poller probe log", repeatableNativeProbeLog, "ack_count: 0");
+    requireText("repeatable native poller probe log", repeatableNativeProbeLog, "Native Pentagon handoff activation remains red.");
   }
 
   if (requireNative) {

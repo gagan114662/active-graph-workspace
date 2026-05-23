@@ -1,0 +1,94 @@
+# T5i repeatable native poller probe - 2026-05-23
+
+Purpose: turn the native Pentagon poller blocker into a repeatable probe instead
+of a one-off manual procedure.
+
+## Script
+
+Added scripts/probe-native-poller.mjs.
+
+The script:
+
+- reads the authenticated Pentagon session locally.
+- discovers Theo and Maya from active_graph agent rows.
+- discovers their shared conversation through conversation_participants.
+- stops the external bridge unless --keep-bridge-running is passed.
+- inserts a fresh Theo-to-Maya probe message.
+- waits for the corresponding agent_triggers row.
+- watches for native claim/completion and Maya ACK.
+- restores the bridge in a finally path unless --no-restore is passed.
+- exits non-zero when native polling does not complete the handoff.
+
+## Discovery check
+
+Command:
+
+~~~text
+node --check scripts/probe-native-poller.mjs
+node scripts/probe-native-poller.mjs --keep-bridge-running --watch-seconds 1
+~~~
+
+Result:
+
+~~~text
+hash: T5I_NATIVE_POLLER_PROBE_20260523T132044Z
+conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+message_id: d4d96783-187f-4f83-a28c-0e8557dede2d
+trigger_id: bc67946d-1597-48be-9088-40805d2da3a0
+verdict: native_poller_still_blocked
+bridge_before: running
+~~~
+
+This confirmed the script could discover the correct agents/conversation and
+create/read the trigger path.
+
+## Native-only bounded probe
+
+Command:
+
+~~~text
+node scripts/probe-native-poller.mjs --watch-seconds 30
+~~~
+
+Result:
+
+~~~text
+hash: T5I_NATIVE_POLLER_PROBE_20260523T132150Z
+conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+message_id: 995505d3-f9e0-4fd1-b69c-30c641eb457d
+trigger_id: 79e2cf07-0c2e-454e-a1ec-42ddb869faee
+initial_claimed_at: null
+final_claimed_at: null
+final_completed_at: null
+ack_count: 0
+verdict: native_poller_still_blocked
+bridge_restore_ok: true
+~~~
+
+Interpretation: message-to-trigger creation worked, but native Pentagon polling
+did not claim or complete the target trigger and Maya produced no ACK inside the
+bounded native-only window.
+
+## Cleanup
+
+The restored daemon did not claim the fresh pending trigger during the immediate
+follow-up wait, so the exact trigger was processed explicitly through the bridge
+to avoid leaving stale work queued:
+
+~~~text
+node scripts/pentagon-trigger-bridge.mjs \
+  --trigger-id 79e2cf07-0c2e-454e-a1ec-42ddb869faee \
+  --codex-timeout-ms 180000
+
+cleanup_exit: 0
+status: completed
+persisted_message_id: d8f03355-8584-4771-be25-ef97639695d0
+completed_at: 2026-05-23T13:23:22.002463+00:00
+stderr_tail: empty
+~~~
+
+## Verdict
+
+Native Pentagon handoff activation remains red. The failure is now repeatably
+testable from a repo script, and the bridge cleanup path remains available and
+auditable.
