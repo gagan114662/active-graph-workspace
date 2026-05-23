@@ -75,7 +75,9 @@ permissions:
   - "activegraph/tests/test_llm_anthropic.py:rw"
   - "activegraph/tests/test_tool_replay.py:rw"
   - "activegraph/tests/fixtures/**:rw"
+  - "activegraph/README.md:rw"
   - "activegraph/docs/concepts/provider-tool-parity.md:rw"
+  - "activegraph/docs/reference/llm-providers.md:rw"
   - "activegraph/CHANGELOG.md:rw"
   - "activegraph/CONTRACT.md:rw"
   - "activegraph/activegraph/**/*.py:ro"
@@ -164,4 +166,3 @@ budget:
   max_llm_tokens: 350000
   max_dollars: 12.00
   max_wall_clock_seconds: 7200
-
