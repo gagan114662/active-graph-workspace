@@ -22,6 +22,7 @@ const NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG = "frames/t5k-native-probe-and-bri
 const NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG = "frames/t5l-native-app-poller-and-probe-output-audit-2026-05-23.log";
 const REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG = "frames/t5m-repeatable-native-app-poller-diagnostic-2026-05-23.log";
 const CODEX_HARNESS_NATIVE_RECHECK_LOG = "frames/t5n-codex-harness-native-recheck-2026-05-23.log";
+const CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG = "frames/t5o-cleared-queue-native-attribution-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -43,9 +44,11 @@ const CRITICAL_PROOF_FILES = [
   NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG,
   REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG,
   CODEX_HARNESS_NATIVE_RECHECK_LOG,
+  CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
   "scripts/probe-native-poller.mjs",
   "scripts/probe-native-app-poller.mjs",
+  "scripts/audit-pentagon-trigger-attribution.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
 ];
 
@@ -259,6 +262,13 @@ async function main() {
     requireText("native app poller diagnostic script", nativeAppPollerScript, "log_match_counts");
     requireText("native app poller diagnostic script", nativeAppPollerScript, "native_app_poller_still_blocked");
   }
+  const triggerAttributionScript = repoFile("scripts/audit-pentagon-trigger-attribution.mjs");
+  must("trigger attribution diagnostic script exists", triggerAttributionScript);
+  if (triggerAttributionScript) {
+    requireText("trigger attribution diagnostic script", triggerAttributionScript, "bridge_catchup_after_native_window");
+    requireText("trigger attribution diagnostic script", triggerAttributionScript, "native_window_claim_possible");
+    requireText("trigger attribution diagnostic script", triggerAttributionScript, "pending_unclaimed_triggers_in_conversation");
+  }
 
   const plistCheck = command("plutil", ["-lint", "launchagents/run.pentagon.trigger-bridge.plist"]);
   must("LaunchAgent plist parses", plistCheck.status === 0, plistCheck.stdout + plistCheck.stderr);
@@ -470,6 +480,21 @@ async function main() {
     requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "native_pass: false");
     requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "log_match_counts.TriggerPoller: 0");
     requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "Native Pentagon handoff activation remains red.");
+  }
+
+  const clearedQueueNativeAttributionLog = repoFile(CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG);
+  must("cleared queue native attribution log exists", clearedQueueNativeAttributionLog, CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG);
+  if (clearedQueueNativeAttributionLog) {
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "scripts/audit-pentagon-trigger-attribution.mjs");
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "T5N_CODEX_HARNESS_NATIVE_APP_PROBE_REFRESH_20260523");
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "classification: bridge_catchup_after_native_window");
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "pending_count: 0");
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "T5O_CLEARED_QUEUE_NATIVE_APP_PROBE_20260523");
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "trigger_id: 03a279ad-d30d-41dd-8805-ea0059112ef2");
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "final_claimed_at: null");
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "log_match_counts.TriggerPoller: 0");
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "ack_id: 90d3853d-b3b5-454c-9a8b-7e43515cd2b6");
+    requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "Native Pentagon handoff activation remains red.");
   }
 
   if (requireNative) {

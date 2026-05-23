@@ -1,0 +1,173 @@
+# T5O cleared-queue native attribution - 2026-05-23
+
+Purpose: test whether stale unclaimed Theo/Maya triggers were masking native
+Pentagon app activation, and make late ACK attribution explicit.
+
+## Interpreter smoke
+
+```
+INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph ce5ce98
+git status --short --branch
+## main...origin/main
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+?? .review-worktrees/
+
+python3 --version
+Python 3.14.3
+
+node --version
+v25.8.2
+```
+
+The dirty T4 evaluation log and untracked .review-worktrees/ are unrelated
+pre-existing work and were not edited for this frame.
+
+## Attribution diagnostic added
+
+Added scripts/audit-pentagon-trigger-attribution.mjs.
+
+The script reads a trigger, matching ACK messages, and the bridge log, then
+classifies the result as native-window success, bridge catch-up after native
+window, late bridge/manual catch-up, or still pending. This prevents a late ACK
+from being counted as native evidence when the trigger was unclaimed during the
+native-only probe window.
+
+Syntax check:
+
+```
+node --check scripts/audit-pentagon-trigger-attribution.mjs
+exit: 0
+```
+
+## T5N late ACK attribution
+
+Command:
+
+```
+node scripts/audit-pentagon-trigger-attribution.mjs --trigger-id 6fab7bd2-1b19-4cb6-8ecf-f9e65670a5a8 --hash T5N_CODEX_HARNESS_NATIVE_APP_PROBE_REFRESH_20260523 --native-window-seconds 30
+```
+
+Relevant output:
+
+```
+trigger_id: 6fab7bd2-1b19-4cb6-8ecf-f9e65670a5a8
+hash: T5N_CODEX_HARNESS_NATIVE_APP_PROBE_REFRESH_20260523
+created_at: 2026-05-23T14:01:55.770845+00:00
+native_window_ended_at: 2026-05-23T14:02:25.770Z
+claimed_at: 2026-05-23T14:02:38.193995+00:00
+completed_at: 2026-05-23T14:02:55.261937+00:00
+ack_id: e8516b5d-ebb1-4b58-b963-3b70d975da7b
+bridge_log.trigger_id_matches: 1
+bridge_log.hash_matches: 6
+bridge_log.ack_message_id_matches: 2
+classification: bridge_catchup_after_native_window
+```
+
+This means the T5N ACK exists, but it is explicitly not native activation
+evidence.
+
+## Stale queue cleanup before fresh native probe
+
+The attribution diagnostic found five stale unclaimed triggers in the
+Theo/Maya conversation. These could mask native app behavior if the app scans
+oldest pending triggers without a bridge-style max-age filter.
+
+Drained with explicit bridge trigger processing:
+
+```
+32a9e970-7f94-4aec-96ad-9ca503a1afd5 completed at 2026-05-23T14:07:17.287451+00:00
+9ee1bfbe-8364-4792-bd58-a07a144b52dd completed at 2026-05-23T14:07:22.804207+00:00
+9ec6aca2-1f4a-4f7a-917f-235be9ff82eb completed_terminal at 2026-05-23T14:07:23.313706+00:00
+eeb008af-d598-4abf-9ab0-4fe6ed9268ab completed_terminal at 2026-05-23T14:07:23.828186+00:00
+ed31e13d-3aa0-4205-9b93-26425355f06a completed at 2026-05-23T14:07:31.78838+00:00
+5185bbbc-909c-451d-b513-7c821d2af785 completed_terminal; follow-up query showed pending_count: 0
+```
+
+After cleanup:
+
+```
+pending_count: 0
+```
+
+## Fresh native app probe with cleared queue
+
+Command:
+
+```
+node scripts/probe-native-app-poller.mjs --watch-seconds 45 --hash T5O_CLEARED_QUEUE_NATIVE_APP_PROBE_20260523
+```
+
+Exit code: 2
+
+Relevant output:
+
+```
+hash: T5O_CLEARED_QUEUE_NATIVE_APP_PROBE_20260523
+watch_seconds: 45
+app_version.short_version: 1.7.3
+binary_hooks.TriggerPoller: true
+binary_hooks.claim_agent_trigger: true
+binary_hooks.complete_agent_trigger: true
+binary_hooks.triggerAgentResponse: true
+bridge_mode: stopped_for_native_probe
+conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+message_id: d5d7024a-68c9-4067-81ee-7f2e65a6f8d1
+trigger_id: 03a279ad-d30d-41dd-8805-ea0059112ef2
+final_claimed_at: null
+final_completed_at: null
+ack_rows: []
+bridge_assisted_pass: false
+native_pass: false
+verdict: native_poller_still_blocked
+log_match_counts.TriggerPoller: 0
+log_match_counts.handleAgentTrigger: 0
+log_match_counts.triggerAgentResponse: 0
+log_match_counts.claim_agent_trigger: 0
+log_match_counts.hash: 0
+```
+
+The macOS log stream captured Pentagon CFNetwork activity during the probe, but
+again captured no app-level TriggerPoller, handleAgentTrigger,
+triggerAgentResponse, claim_agent_trigger, or probe-hash log lines.
+
+## Fresh probe attribution after bridge restore
+
+Command:
+
+```
+node scripts/audit-pentagon-trigger-attribution.mjs --trigger-id 03a279ad-d30d-41dd-8805-ea0059112ef2 --hash T5O_CLEARED_QUEUE_NATIVE_APP_PROBE_20260523 --native-window-seconds 45
+```
+
+Relevant output:
+
+```
+trigger_id: 03a279ad-d30d-41dd-8805-ea0059112ef2
+hash: T5O_CLEARED_QUEUE_NATIVE_APP_PROBE_20260523
+created_at: 2026-05-23T14:08:08.432393+00:00
+native_window_ended_at: 2026-05-23T14:08:53.432Z
+claimed_at: 2026-05-23T14:09:06.486805+00:00
+completed_at: 2026-05-23T14:09:12.160374+00:00
+ack_id: 90d3853d-b3b5-454c-9a8b-7e43515cd2b6
+bridge_log.trigger_id_matches: 1
+bridge_log.hash_matches: 4
+bridge_log.ack_message_id_matches: 2
+classification: bridge_catchup_after_native_window
+pending_unclaimed_triggers_in_conversation: []
+```
+
+## Evidence audit
+
+| Predicate | Evidence | Status |
+| --- | --- | --- |
+| late T5N ACK is not native proof | attribution classification bridge_catchup_after_native_window | green |
+| stale Theo/Maya queue was cleared before retest | pending_count: 0 before T5O probe | green |
+| native app probe after queue cleanup claimed trigger in window | T5O final_claimed_at null during 45s window | red |
+| native app logs show trigger poller activity | T5O log_match_counts all 0 | red |
+| bridge catches up after native window | T5O attribution classification bridge_catchup_after_native_window | green as mitigation, not native completion |
+
+## Verdict
+
+Clearing stale pending Theo/Maya triggers did not repair native Pentagon app
+handoff activation. The fresh T5O trigger remained unclaimed during a clean
+45-second native-only window, then the restored bridge claimed/completed it and
+sent the ACK. Native Pentagon handoff activation remains red.
