@@ -168,6 +168,125 @@ function requireText(sourceName, text, needle) {
   must(sourceName + " contains " + needle, text.includes(needle));
 }
 
+function arg(name, fallback = null) {
+  const idx = process.argv.indexOf(name);
+  if (idx !== -1) return process.argv[idx + 1] ?? fallback;
+  const prefix = name + "=";
+  const inline = process.argv.find((value) => value.startsWith(prefix));
+  return inline ? inline.slice(prefix.length) : fallback;
+}
+
+function parseKeyValueProof(text) {
+  const proof = {};
+  const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
+  for (const line of lines) {
+    const idx = line.indexOf("=");
+    if (idx <= 0) return { ok: false, error: "invalid key=value line: " + line, proof: {} };
+    const key = line.slice(0, idx);
+    const value = line.slice(idx + 1);
+    if (!key || /\s/.test(key)) return { ok: false, error: "invalid key: " + key, proof: {} };
+    proof[key] = value;
+  }
+  return { ok: true, proof };
+}
+
+function parseInteger(value) {
+  if (!/^\d+$/.test(String(value ?? ""))) return null;
+  return Number(value);
+}
+
+function resolveTargetFile(targetFile) {
+  const [relativePath, lineText] = String(targetFile ?? "").split(":");
+  const line = parseInteger(lineText);
+  if (!relativePath || !line) return { relativePath, line: null, fullPath: null };
+  return { relativePath, line, fullPath: ROOT + "/" + relativePath };
+}
+
+function pathExistsAtHead(relativePath) {
+  if (!relativePath) return false;
+  if (command("git", ["cat-file", "-e", "HEAD:" + relativePath]).status === 0) return true;
+  if (relativePath.startsWith("activegraph/")) {
+    const innerPath = relativePath.slice("activegraph/".length);
+    const res = spawnSync("git", ["cat-file", "-e", "HEAD:" + innerPath], {
+      cwd: ROOT + "/activegraph",
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+    });
+    return res.status === 0;
+  }
+  return false;
+}
+
+function pythonAstInspect(relativePath, symbol) {
+  const code = [
+    "import ast",
+    "import json",
+    "import pathlib",
+    "import sys",
+    "",
+    "path = pathlib.Path(sys.argv[1])",
+    "symbol = sys.argv[2]",
+    "relative_path = pathlib.Path(sys.argv[3])",
+    "module = \".\".join(relative_path.with_suffix(\"\").parts[1:])",
+    "tree = ast.parse(path.read_text(), filename=str(path))",
+    "",
+    "class StackVisitor(ast.NodeVisitor):",
+    "    def __init__(self):",
+    "        self.stack = []",
+    "        self.match = None",
+    "",
+    "    def visit_ClassDef(self, node):",
+    "        self.stack.append(node.name)",
+    "        self.generic_visit(node)",
+    "        self.stack.pop()",
+    "",
+    "    def visit_FunctionDef(self, node):",
+    "        self._visit_function(node)",
+    "",
+    "    def visit_AsyncFunctionDef(self, node):",
+    "        self._visit_function(node)",
+    "",
+    "    def _visit_function(self, node):",
+    "        qualified = module + \".\" + \".\".join([*self.stack, node.name])",
+    "        args = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]",
+    "        annotated_args = [",
+    "            arg.arg for arg in args",
+    "            if arg.arg not in {\"self\", \"cls\"} and arg.annotation is not None",
+    "        ]",
+    "        missing_args = [",
+    "            arg.arg for arg in args",
+    "            if arg.arg not in {\"self\", \"cls\"} and arg.annotation is None",
+    "        ]",
+    "        if qualified == symbol:",
+    "            self.match = {",
+    "                \"qualified\": qualified,",
+    "                \"lineno\": node.lineno,",
+    "                \"has_docstring\": ast.get_docstring(node) is not None,",
+    "                \"missing_args\": missing_args,",
+    "                \"annotated_args\": annotated_args,",
+    "                \"has_return_annotation\": node.returns is not None,",
+    "            }",
+    "        self.stack.append(node.name)",
+    "        self.generic_visit(node)",
+    "        self.stack.pop()",
+    "",
+    "visitor = StackVisitor()",
+    "visitor.visit(tree)",
+    "print(json.dumps(visitor.match or {\"missing\": True, \"module\": module}))",
+  ].join("\n");
+  const res = spawnSync("python3", ["-c", code, ROOT + "/" + relativePath, symbol, relativePath], {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+  });
+  if (res.status !== 0) return { ok: false, error: res.stderr || res.stdout };
+  try {
+    return { ok: true, result: JSON.parse(res.stdout) };
+  } catch (error) {
+    return { ok: false, error: error.message + ": " + res.stdout };
+  }
+}
+
 function dirtyTrackedFiles() {
   const diff = command("git", ["diff", "--name-only"]);
   const staged = command("git", ["diff", "--cached", "--name-only"]);
@@ -301,9 +420,114 @@ async function verifyLiveRows() {
   record(true, "live DB active_graph clone branch metadata rows", branchMetadataRows.length ? JSON.stringify(branchMetadataRows) : "none exposed");
 }
 
+async function verifyT6EasyEventStore(proof) {
+  const state = readPentagonSession();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const mayaRows = await supabase(
+    state,
+    "/rest/v1/agents?directory=eq." + encodeURIComponent(ROOT) + "&name=eq." + encodeURIComponent("Maya (Code Owner)") + "&deleted_at=is.null&select=id,name&limit=1"
+  );
+  const maya = mayaRows[0];
+  if (!maya) return { ok: false, detail: "Maya agent row not found" };
+
+  const rows = await supabase(
+    state,
+    "/rest/v1/agent_runtime_events?select=*&created_at=gte." + encodeURIComponent(since) + "&limit=500"
+  );
+  const targetPath = String(proof.target_file ?? "").split(":")[0];
+  const matching = rows.filter((row) => {
+    const text = JSON.stringify(row);
+    const actorMatches = [row.agent_id, row.actor_id, row.author_id, row.user_id, row.sender_id].includes(maya.id) ||
+      String(row.agent_name ?? row.actor_name ?? row.author_name ?? "").includes("Maya");
+    const kindMatches = row.kind === "agent_edit" || row.type === "agent_edit" || text.includes("agent_edit");
+    return actorMatches && kindMatches && text.includes(targetPath);
+  });
+  return {
+    ok: matching.length > 0,
+    detail: matching.length ? "agent_edit rows=" + matching.length : "no Maya agent_edit row referencing " + targetPath,
+  };
+}
+
+async function runT6EasyVerifier() {
+  const noDb = process.argv.includes("--no-db");
+  const proofFile = arg("--proof-file", "frames/t6-native-gauntlet-easy-20260523.proof");
+  const proofText = repoFile(proofFile);
+  const parsed = proofText ? parseKeyValueProof(proofText) : { ok: false, error: "missing proof", proof: {} };
+  const proof = parsed.proof;
+
+  must("T6 easy proof file exists and parses as key=value lines", Boolean(proofText) && parsed.ok, parsed.error || proofFile);
+  must("T6 easy hash field matches", proof.hash === "T6_NATIVE_EASY_20260523", proof.hash ?? "<missing>");
+  must("T6 easy verdict field matches", proof.verdict === "native_easy_done", proof.verdict ?? "<missing>");
+
+  const target = resolveTargetFile(proof.target_file);
+  const targetExistsAtHead = Boolean(
+    target.relativePath &&
+    pathExistsAtHead(target.relativePath) &&
+    target.fullPath &&
+    existsSync(target.fullPath)
+  );
+  const astResult = targetExistsAtHead ? pythonAstInspect(target.relativePath, proof.target_symbol) : { ok: false, result: { missing: true } };
+  const symbol = astResult.result ?? {};
+  must(
+    "T6 easy target_file exists at HEAD and target_symbol resolves",
+    targetExistsAtHead && astResult.ok && !symbol.missing,
+    astResult.error || JSON.stringify({ target_file: proof.target_file, target_symbol: proof.target_symbol, ast: symbol })
+  );
+  must("T6 easy target_symbol has docstring", Boolean(!symbol.missing && symbol.has_docstring), JSON.stringify(symbol));
+  must(
+    "T6 easy target_symbol has complete type annotations",
+    Boolean(!symbol.missing && symbol.has_return_annotation && Array.isArray(symbol.missing_args) && symbol.missing_args.length === 0),
+    JSON.stringify(symbol)
+  );
+
+  const pytestBefore = parseInteger(proof.pytest_before);
+  const pytestAfter = parseInteger(proof.pytest_after);
+  must(
+    "T6 easy pytest_before equals pytest_after",
+    pytestBefore !== null && pytestAfter !== null && pytestBefore === pytestAfter,
+    "before=" + String(proof.pytest_before) + " after=" + String(proof.pytest_after)
+  );
+  must("T6 easy ruff_exit is 0", proof.ruff_exit === "0", proof.ruff_exit ?? "<missing>");
+
+  if (noDb) {
+    record(true, "T6 easy event store has Maya agent_edit event", "skipped by --no-db");
+  } else {
+    try {
+      const eventCheck = await verifyT6EasyEventStore(proof);
+      must("T6 easy event store has Maya agent_edit event", eventCheck.ok, eventCheck.detail);
+    } catch (error) {
+      must("T6 easy event store has Maya agent_edit event", false, error.message);
+    }
+  }
+
+  const failed = checks.filter((check) => !check.ok);
+  for (const check of checks) {
+    console.log((check.ok ? "PASS " : "FAIL ") + check.name + (check.detail ? " :: " + check.detail : ""));
+  }
+  console.log("");
+  console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
+  console.log("verdict: " + (failed.length ? "failed" : "t6_easy_verified"));
+  if (failed.length) process.exitCode = 1;
+}
+
 async function main() {
   const noDb = process.argv.includes("--no-db");
   const requireNative = process.argv.includes("--require-native");
+  if (process.argv.includes("--t6")) {
+    const tier = arg("--tier");
+    if (tier !== "easy") {
+      record(false, "T6 tier is supported", "--tier must be easy");
+      const failed = checks.filter((check) => !check.ok);
+      for (const check of checks) console.log((check.ok ? "PASS " : "FAIL ") + check.name + (check.detail ? " :: " + check.detail : ""));
+      console.log("");
+      console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
+      console.log("verdict: failed");
+      process.exitCode = 1;
+      return;
+    }
+    await runT6EasyVerifier();
+    return;
+  }
 
   const gitStatus = command("git", ["status", "--short", "--branch"]);
   must("git status exits 0", gitStatus.status === 0, gitStatus.stderr);
