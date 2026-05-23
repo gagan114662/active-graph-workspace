@@ -83,6 +83,116 @@ $ ../venv/bin/pytest -q
 690 passed, 15 skipped in 17.96s
 ~~~
 
+## Heartbeat 2026-05-23 scope/closure disposition against outer:b2ffbb1
+
+Using activegraph-evidence-audit and activegraph-closure-discipline.
+
+Predicate under re-evaluation: `no_changes_outside_permissions`
+
+Command:
+
+~~~text
+$ python3 - <<'PY'
+import fnmatch, subprocess, yaml
+from pathlib import Path
+outer=Path('/Users/gaganarora/Desktop/my projects/active_graph')
+frame=yaml.safe_load((outer/'frames/t4-openai-tool-shape-translation.yaml').read_text())
+perms=[]
+for item in frame['permissions']:
+    path, mode = item.rsplit(':',1)
+    perms.append((path,mode,item))
+def matches(pattern, path):
+    return fnmatch.fnmatchcase(path, pattern)
+def classify(inner_path):
+    full='activegraph/'+inner_path
+    rwm=[raw for p,m,raw in perms if m=='rw' and matches(p, full)]
+    rom=[raw for p,m,raw in perms if m=='ro' and matches(p, full)]
+    if rwm: return 'IN_SCOPE_RW', ';'.join(rwm)
+    if rom: return 'OUT_OF_SCOPE_RO_CHANGED', ';'.join(rom)
+    return 'OUT_OF_SCOPE_NO_MATCH', '-'
+print('outer')
+print(subprocess.check_output(['git','-C',str(outer),'log','-1','--oneline'], text=True).strip())
+print(subprocess.check_output(['git','-C',str(outer),'status','-sb'], text=True).rstrip())
+print('inner')
+for cmd in [
+    ['git','-C',str(outer/'activegraph'),'rev-parse','--short','HEAD'],
+    ['git','-C',str(outer/'activegraph'),'rev-parse','--short','origin/main'],
+    ['git','-C',str(outer/'activegraph'),'status','-sb'],
+]:
+    print('$ '+' '.join(cmd))
+    print(subprocess.check_output(cmd, text=True).rstrip())
+print('ahead_diff_permission_classifier')
+out=subprocess.check_output(['git','-C',str(outer/'activegraph'),'diff','--name-only','origin/main...HEAD'], text=True).splitlines()
+for p in out:
+    status, pats=classify(p)
+    print(f'{p}\t{status}\t{pats}')
+print('dirty_permission_classifier')
+out=subprocess.check_output(['git','-C',str(outer/'activegraph'),'diff','--name-only'], text=True).splitlines()
+for p in out:
+    status, pats=classify(p)
+    print(f'{p}\t{status}\t{pats}')
+PY
+outer
+b2ffbb1 Update T4 heartbeat for current inner head
+## main...origin/main
+?? .review-worktrees/
+?? frames/t13-and-beyond-factory-survivability-2026-05-23.md
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+?? frames/t6-native-easy-activation-bottleneck-20260523.log
+?? frames/t6-native-easy-run-20260523.log
+?? frames/t6-real-autonomy-gauntlet-2026-05-23.md
+?? frames/t7-t12-scale-reliability-gauntlet-2026-05-23.md
+inner
+$ git -C /Users/gaganarora/Desktop/my projects/active_graph/activegraph rev-parse --short HEAD
+5deedfd
+$ git -C /Users/gaganarora/Desktop/my projects/active_graph/activegraph rev-parse --short origin/main
+62015ed
+$ git -C /Users/gaganarora/Desktop/my projects/active_graph/activegraph status -sb
+## main...origin/main [ahead 2]
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M activegraph/llm/cache.py
+ M activegraph/llm/recorded.py
+ M activegraph/llm/types.py
+ M activegraph/runtime/runtime.py
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+ M tests/test_provider_tool_parity.py
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? frames/t6-native-gauntlet-easy-20260523.proof
+?? uv.lock
+ahead_diff_permission_classifier
+activegraph/behaviors/base.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py:ro
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py:ro
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py:ro
+activegraph/llm/types.py	IN_SCOPE_RW	activegraph/activegraph/llm/types.py:rw
+activegraph/runtime/runtime.py	IN_SCOPE_RW	activegraph/activegraph/runtime/runtime.py:rw
+tests/test_provider_tool_parity.py	IN_SCOPE_RW	activegraph/tests/test_provider_tool_parity.py:rw
+dirty_permission_classifier
+CHANGELOG.md	IN_SCOPE_RW	activegraph/CHANGELOG.md:rw
+CONTRACT.md	IN_SCOPE_RW	activegraph/CONTRACT.md:rw
+README.md	IN_SCOPE_RW	activegraph/README.md:rw
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py:ro
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py:ro
+activegraph/llm/types.py	IN_SCOPE_RW	activegraph/activegraph/llm/types.py:rw
+activegraph/runtime/runtime.py	IN_SCOPE_RW	activegraph/activegraph/runtime/runtime.py:rw
+docs/concepts/provider-tool-parity.md	IN_SCOPE_RW	activegraph/docs/concepts/provider-tool-parity.md:rw
+docs/reference/llm-providers.md	IN_SCOPE_RW	activegraph/docs/reference/llm-providers.md:rw
+tests/test_provider_tool_parity.py	IN_SCOPE_RW	activegraph/tests/test_provider_tool_parity.py:rw
+~~~
+
+Actual vs expected:
+
+- Expected: no committed or dirty T4 evaluation-set changes outside `:rw` permissions.
+- Actual: committed ahead diff includes `activegraph/behaviors/base.py`, `activegraph/llm/cache.py`, and `activegraph/llm/recorded.py` as `OUT_OF_SCOPE_RO_CHANGED` via `activegraph/activegraph/**/*.py:ro`; dirty tree includes `activegraph/llm/cache.py` and `activegraph/llm/recorded.py` as `OUT_OF_SCOPE_RO_CHANGED` via `activegraph/activegraph/**/*.py:ro`.
+
+Verdict: `goal.incomplete`. Do not close T4. Inner `5deedfd` is also unshipped relative to `origin/main` `62015ed` (`## main...origin/main [ahead 2]`), blocking any shipped claim.
+
 ~~~
 Heartbeat Goal Reaper audit 2026-05-23: Rowan corrected outer-head state
 

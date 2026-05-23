@@ -1,6 +1,6 @@
 status: incomplete_dirty_unpushed
 inner_head: 5deedfd
-outer_head: d7c270d
+outer_head: b2ffbb1
 evaluated: 2026-05-23
 review: clean_for_inner_bdc8919_commit_scoped_only
 focused_tests: "focused T4 shard 35 passed"
@@ -24,6 +24,7 @@ bottlenecks_open:
   - pushed-head closure is false: inner HEAD 5deedfd is two commits ahead of origin/main 62015ed
   - dirty inner tree remains: CHANGELOG.md, CONTRACT.md, README.md, activegraph/llm/cache.py, activegraph/llm/recorded.py, docs/concepts/provider-tool-parity.md, docs/reference/llm-providers.md plus untracked artifacts
   - no_changes_outside_permissions remains false: activegraph/behaviors/base.py, activegraph/llm/cache.py, and activegraph/llm/recorded.py are changed while only covered by activegraph/activegraph/**/*.py:ro
+  - frame architect explicitly declined :rw scope amendment for activegraph/behaviors/base.py, activegraph/llm/cache.py, and activegraph/llm/recorded.py
   - Pentagon handoff message does not auto-activate Code Owner
 untracked_not_claimed:
   inner:
