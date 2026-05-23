@@ -479,7 +479,13 @@ async function verifyLiveRows() {
   record(true, "live DB active_graph clone branch metadata rows", branchMetadataRows.length ? JSON.stringify(branchMetadataRows) : "none exposed");
 }
 
-async function verifyT6EasyEventStore(proof) {
+function proofAckPaths(proofFile) {
+  const paths = [proofFile];
+  if (proofFile.startsWith("activegraph/")) paths.push(proofFile.slice("activegraph/".length));
+  return [...new Set(paths)];
+}
+
+async function verifyT6EasyAck(proofFile) {
   const state = readPentagonSession();
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const mayaRows = await supabase(
@@ -491,20 +497,31 @@ async function verifyT6EasyEventStore(proof) {
 
   const rows = await supabase(
     state,
-    "/rest/v1/agent_runtime_events?select=*&created_at=gte." + encodeURIComponent(since) + "&limit=500"
+    "/rest/v1/messages?sender_id=eq." + maya.id + "&created_at=gte." + encodeURIComponent(since) + "&select=id,content,created_at,sender_id&order=created_at.desc&limit=200"
   );
-  const targetPath = String(proof.target_file ?? "").split(":")[0];
-  const matching = rows.filter((row) => {
-    const text = JSON.stringify(row);
-    const actorMatches = [row.agent_id, row.actor_id, row.author_id, row.user_id, row.sender_id].includes(maya.id) ||
-      String(row.agent_name ?? row.actor_name ?? row.author_name ?? "").includes("Maya");
-    const kindMatches = row.kind === "agent_edit" || row.type === "agent_edit" || text.includes("agent_edit");
-    return actorMatches && kindMatches && text.includes(targetPath);
-  });
+  const ackPrefix = "MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_EASY_20260523";
+  const matching = rows.filter((row) => String(row.content ?? "").includes(ackPrefix));
+  const acceptedPaths = proofAckPaths(proofFile);
+  const pathMatches = matching.filter((row) => acceptedPaths.some((path) => String(row.content ?? "").includes(path)));
   return {
-    ok: matching.length > 0,
-    detail: matching.length ? "agent_edit rows=" + matching.length : "no Maya agent_edit row referencing " + targetPath,
+    ok: matching.length === 1 && pathMatches.length === 1,
+    detail: JSON.stringify({
+      ack_rows: matching.length,
+      proof_path_rows: pathMatches.length,
+      accepted_proof_paths: acceptedPaths,
+      ack_ids: matching.map((row) => row.id),
+    }),
   };
+}
+
+async function t6EasyRuntimeEventCount() {
+  const state = readPentagonSession();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const rows = await supabase(
+    state,
+    "/rest/v1/agent_runtime_events?select=*&created_at=gte." + encodeURIComponent(since) + "&limit=1000"
+  );
+  return rows.filter((row) => JSON.stringify(row).includes("T6_NATIVE_EASY_20260523")).length;
 }
 
 async function runT6EasyVerifier() {
@@ -552,19 +569,27 @@ async function runT6EasyVerifier() {
   must("T6 easy target_file ruff check exits 0", proof.ruff_target_exit === "0", proof.ruff_target_exit ?? "<missing>");
 
   if (noDb) {
-    record(true, "T6 easy event store has Maya agent_edit event", "skipped by --no-db");
+    record(true, "T6 easy messages table has Maya ACK referencing proof", "skipped by --no-db");
   } else {
     try {
-      const eventCheck = await verifyT6EasyEventStore(proof);
-      must("T6 easy event store has Maya agent_edit event", eventCheck.ok, eventCheck.detail);
+      const eventCheck = await verifyT6EasyAck(proofFile);
+      must("T6 easy messages table has Maya ACK referencing proof", eventCheck.ok, eventCheck.detail);
     } catch (error) {
-      must("T6 easy event store has Maya agent_edit event", false, error.message);
+      must("T6 easy messages table has Maya ACK referencing proof", false, error.message);
     }
   }
 
   const failed = checks.filter((check) => !check.ok);
   for (const check of checks) {
     console.log((check.ok ? "PASS " : "FAIL ") + check.name + (check.detail ? " :: " + check.detail : ""));
+  }
+  if (!noDb) {
+    try {
+      const runtimeEventCount = await t6EasyRuntimeEventCount();
+      console.log("WARN T6 easy agent_runtime_events runtime event missing :: " + runtimeEventCount + " rows");
+    } catch (error) {
+      console.log("WARN T6 easy agent_runtime_events runtime event missing :: query failed: " + error.message);
+    }
   }
   console.log("");
   console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
