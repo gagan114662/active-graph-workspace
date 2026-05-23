@@ -1,0 +1,179 @@
+# T5L Native App Poller And Probe Output Audit
+
+Date: 2026-05-23
+Repo: /Users/gaganarora/Desktop/my projects/active_graph
+Head before change: 0e4ed8c
+
+## Interpreter Smoke
+
+INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph 0e4ed8c
+
+Commands:
+
+git status --short --branch
+## main...origin/main
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+?? .review-worktrees/
+
+git rev-parse --short HEAD
+0e4ed8c
+
+node --version
+v25.8.2
+
+python3 --version
+Python 3.14.3
+
+## Current Boundary Recheck
+
+Command:
+
+node scripts/verify-pentagon-autonomy-from-logs.mjs
+
+Result:
+
+summary: 180/180 checks passed
+verdict: bridge_autonomy_verified_native_blocked
+
+Command:
+
+node scripts/verify-pentagon-autonomy-from-logs.mjs --require-native
+
+Result:
+
+summary: 179/180 checks passed
+verdict: failed
+
+The native-required verifier is still red at native Pentagon autonomy completion.
+
+## Installed App Native Hook Inspection
+
+Pentagon.app is installed and running:
+
+pgrep -fl 'Pentagon|run.pentagon'
+468 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+
+App version:
+
+CFBundleShortVersionString = 1.7.3
+CFBundleVersion = 1.7.3
+
+Relevant binary strings found:
+
+- TriggerPoller
+- TriggerPoller started
+- TriggerPoller stopped
+- TriggerPoller: found %ld unclaimed trigger(s)
+- handleAgentTrigger START
+- claim_agent_trigger
+- complete_agent_trigger
+- triggerAgentResponse
+
+This proves the installed app contains native trigger polling/claiming code paths, even though the live probe below did not show them activating for the test handoff.
+
+## Probe Output Bug
+
+Problem found:
+
+scripts/probe-native-poller.mjs returned from the no-trigger-created branch before the final JSON print and process-exit classification. That could make a failed probe look like exit 0 with empty output.
+
+Change:
+
+The no-trigger-created branch now sets result fields and falls through to the common JSON print and exit-code logic.
+
+Verification command:
+
+node scripts/probe-native-poller.mjs --watch-seconds 10 --hash T5L_PROBE_NO_TRIGGER_PRINT_FIX_20260523T1408Z
+
+Result:
+
+exit=2
+hash=T5L_PROBE_NO_TRIGGER_PRINT_FIX_20260523T1408Z
+bridge_mode=stopped_for_native_probe
+message=04eff93f-973e-4ab2-be37-08c3e533e286
+trigger=9ee1bfbe-8364-4792-bd58-a07a144b52dd
+final_claimed_at=null
+final_completed_at=null
+ack_rows=[]
+bridge_assisted_pass=false
+native_pass=false
+verdict=native_poller_still_blocked
+
+The fixed probe prints JSON and exits nonzero when native activation fails.
+
+## Foreground App Native Probe
+
+Command:
+
+open -a Pentagon
+node scripts/probe-native-poller.mjs --watch-seconds 30 --hash T5L_NATIVE_APP_FOREGROUND_FIXED_20260523T1412Z
+
+Live log capture:
+
+/usr/bin/log stream --style compact --predicate 'process == "Pentagon" OR eventMessage CONTAINS "TriggerPoller" OR eventMessage CONTAINS "handleAgentTrigger" OR eventMessage CONTAINS "triggerAgentResponse" OR eventMessage CONTAINS "claim_agent_trigger"'
+
+Result:
+
+exit=2
+hash=T5L_NATIVE_APP_FOREGROUND_FIXED_20260523T1412Z
+bridge_mode=stopped_for_native_probe
+message=15770076-b0c7-4ea3-a73b-63d4b2214e7e
+trigger=3bc47916-1878-456d-af6b-a7b45e16dd77
+final_claimed_at=null
+final_completed_at=null
+ack_rows=[]
+bridge_assisted_pass=false
+native_pass=false
+verdict=native_poller_still_blocked
+
+Log result:
+
+The live log stream captured Pentagon AppKit layout messages during the probe window but no TriggerPoller, handleAgentTrigger, triggerAgentResponse, or claim_agent_trigger activity for the native probe hash.
+
+Interpretation:
+
+The native trigger code exists in the app binary, and Pentagon.app was running/foregrounded, but the native poller did not claim this repo-specific handoff while the bridge was stopped.
+
+## Bridge Queue Terminal Hardening
+
+Problem found:
+
+The bridge queue continued to accumulate response/status messages that are not fresh work:
+
+- ACK with punctuation such as "ACK,"
+- BLOCKED with punctuation such as "BLOCKED:"
+- Accepted...
+- Acknowledged...
+- Confirmed...
+- Report update:
+- status_report:
+- Posted the Pentagon response...
+
+Changes:
+
+- Normalize the first token by stripping trailing comma/colon/semicolon/period punctuation before ACK/BLOCKED classification.
+- Treat Accepted, Acknowledged, Confirmed, Report update, status_report, and Posted the Pentagon response as terminal status responses.
+- Leave actual review.concern messages processable.
+
+Dry-run evidence:
+
+node scripts/pentagon-trigger-bridge.mjs --dry-run --limit 8 --max-age-seconds 180
+
+Result after restart:
+
+- Accepted... classified as would_complete_terminal.
+- ACK with updated evidence... classified as would_complete_terminal.
+- status_report: identified as a terminal form after the final filter update.
+- review.concern remained would_process.
+
+## Verdict
+
+Reliability improved:
+
+- Failed native probes can no longer exit 0 with empty output in the no-trigger-created branch.
+- Native app foreground evidence is now explicitly recorded: app contains TriggerPoller code, but did not claim the handoff.
+- Bridge runner spends fewer cycles on status chatter and preserves capacity for actual repo-specific work.
+
+Still not complete:
+
+Native Pentagon handoff activation remains red. T5L does not close the full objective.

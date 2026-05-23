@@ -206,29 +206,28 @@ async function main() {
       result.bridge_assisted_pass = false;
       result.native_pass = false;
       result.verdict = "native_poller_no_trigger_created";
-      return;
-    }
-
-    const deadline = Date.now() + watchSeconds * 1000;
-    let finalTrigger = trigger;
-    let finalAcks = [];
-    while (Date.now() < deadline) {
-      finalTrigger = await triggerForMessage(message.id);
-      finalAcks = await ackRows(conversationId, maya, hash, message.created_at);
-      if (finalTrigger?.claimed_at || finalTrigger?.completed_at || finalAcks.length) break;
-      await sleep(5000);
-    }
-    result.final_trigger = finalTrigger;
-    result.ack_rows = finalAcks;
-    const completedWithAck = Boolean(finalTrigger?.claimed_at && finalTrigger?.completed_at && finalAcks.length);
-    result.bridge_assisted_pass = !stopForProbe && completedWithAck;
-    result.native_pass = stopForProbe && completedWithAck;
-    if (result.native_pass) {
-      result.verdict = "native_poller_passed";
-    } else if (result.bridge_assisted_pass) {
-      result.verdict = "bridge_assisted_poller_passed_native_unproven";
     } else {
-      result.verdict = "native_poller_still_blocked";
+      const deadline = Date.now() + watchSeconds * 1000;
+      let finalTrigger = trigger;
+      let finalAcks = [];
+      while (Date.now() < deadline) {
+        finalTrigger = await triggerForMessage(message.id);
+        finalAcks = await ackRows(conversationId, maya, hash, message.created_at);
+        if (finalTrigger?.claimed_at || finalTrigger?.completed_at || finalAcks.length) break;
+        await sleep(5000);
+      }
+      result.final_trigger = finalTrigger;
+      result.ack_rows = finalAcks;
+      const completedWithAck = Boolean(finalTrigger?.claimed_at && finalTrigger?.completed_at && finalAcks.length);
+      result.bridge_assisted_pass = !stopForProbe && completedWithAck;
+      result.native_pass = stopForProbe && completedWithAck;
+      if (result.native_pass) {
+        result.verdict = "native_poller_passed";
+      } else if (result.bridge_assisted_pass) {
+        result.verdict = "bridge_assisted_poller_passed_native_unproven";
+      } else {
+        result.verdict = "native_poller_still_blocked";
+      }
     }
   } finally {
     if (restore && stopForProbe) {

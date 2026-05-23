@@ -216,10 +216,14 @@ function finalAgentMessage(stdout) {
 function isTerminalMessage(content) {
   const firstLine = String(content ?? "").trim().split(/\r?\n/, 1)[0] ?? "";
   const firstToken = firstLine.split(/\s+/, 1)[0] ?? "";
+  const normalizedFirstToken = firstToken.replace(/[,:;.]+$/, "");
   return (
-    /_(ACK|BLOCKED)$/.test(firstToken) ||
-    /^(ACK|BLOCKED)$/i.test(firstToken) ||
-    /^Posted the Pentagon response\b/.test(firstLine)
+    /_(ACK|BLOCKED)$/.test(normalizedFirstToken) ||
+    /^(ACK|BLOCKED)$/i.test(normalizedFirstToken) ||
+    /^(Accepted|Acknowledged|Confirmed)\b/.test(firstLine) ||
+    /^Posted the Pentagon response\b/.test(firstLine) ||
+    /^Report update:/i.test(firstLine) ||
+    /^status_report:/i.test(firstLine)
   );
 }
 

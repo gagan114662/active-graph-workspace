@@ -19,6 +19,7 @@ const REPEATABLE_NATIVE_PROBE_LOG = "frames/t5i-repeatable-native-poller-probe-2
 const CURRENT_BRIDGE_FILE_TASK_LOG = "frames/t5j-current-bridge-file-task-2026-05-23.log";
 const CURRENT_BRIDGE_FILE_TASK_PROOF = "frames/t5j-current-bridge-easy-20260523T1330Z.proof";
 const NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG = "frames/t5k-native-probe-and-bridge-queue-hardening-2026-05-23.log";
+const NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG = "frames/t5l-native-app-poller-and-probe-output-audit-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -37,6 +38,7 @@ const CRITICAL_PROOF_FILES = [
   CURRENT_BRIDGE_FILE_TASK_LOG,
   CURRENT_BRIDGE_FILE_TASK_PROOF,
   NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG,
+  NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
   "scripts/probe-native-poller.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
@@ -226,6 +228,9 @@ async function main() {
     requireText("bridge script", bridgeScript, "session_refresh_failed_after_loop_error");
     requireText("bridge script", bridgeScript, "Posted the Pentagon response");
     requireText("bridge script", bridgeScript, "ACK|BLOCKED");
+    requireText("bridge script", bridgeScript, "Accepted|Acknowledged|Confirmed");
+    requireText("bridge script", bridgeScript, "status_report");
+    requireText("bridge script", bridgeScript, "normalizedFirstToken");
   }
   const nativeProbeScript = repoFile("scripts/probe-native-poller.mjs");
   must("native poller probe script exists", nativeProbeScript);
@@ -234,6 +239,7 @@ async function main() {
     requireText("native poller probe script", nativeProbeScript, "bridge_mode");
     requireText("native poller probe script", nativeProbeScript, "bridge_assisted_pass");
     requireText("native poller probe script", nativeProbeScript, "bridge_assisted_poller_passed_native_unproven");
+    requireText("native poller probe script", nativeProbeScript, "native_poller_no_trigger_created");
   }
 
   const plistCheck = command("plutil", ["-lint", "launchagents/run.pentagon.trigger-bridge.plist"]);
@@ -402,6 +408,20 @@ async function main() {
     requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "native_pass=false");
     requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "status=idle");
     requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "Native Pentagon handoff activation remains red.");
+  }
+
+  const nativeAppPollerProbeOutputAuditLog = repoFile(NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG);
+  must("native app poller probe output audit log exists", nativeAppPollerProbeOutputAuditLog, NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG);
+  if (nativeAppPollerProbeOutputAuditLog) {
+    requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "INTERPRETER_OK Codex");
+    requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "TriggerPoller");
+    requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "claim_agent_trigger");
+    requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "T5L_PROBE_NO_TRIGGER_PRINT_FIX_20260523T1408Z");
+    requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "T5L_NATIVE_APP_FOREGROUND_FIXED_20260523T1412Z");
+    requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "final_claimed_at=null");
+    requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "native_pass=false");
+    requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "review.concern remained would_process");
+    requireText("native app poller probe output audit log", nativeAppPollerProbeOutputAuditLog, "Native Pentagon handoff activation remains red.");
   }
 
   if (requireNative) {
