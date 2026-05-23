@@ -11,6 +11,7 @@ const STAMP = "20260522T230015Z";
 const NATIVE_BLOCKER_LOG = "frames/t5e-native-poller-blocker-2026-05-22.log";
 const COMPLETION_AUDIT = "frames/autonomy-completion-audit-2026-05-22.md";
 const DOCS_ACTIVATION_AUDIT = "frames/pentagon-docs-activation-audit-2026-05-23.md";
+const RELIABILITY_CONTRACT = "agent-os/RELIABILITY_OPERATING_CONTRACT.md";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -21,6 +22,7 @@ const CRITICAL_PROOF_FILES = [
   NATIVE_BLOCKER_LOG,
   COMPLETION_AUDIT,
   DOCS_ACTIVATION_AUDIT,
+  RELIABILITY_CONTRACT,
   "scripts/pentagon-trigger-bridge.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
 ];
@@ -264,6 +266,16 @@ async function main() {
     requireText("Pentagon docs activation audit", docsActivationAudit, "recipient receives the context and starts working");
     requireText("Pentagon docs activation audit", docsActivationAudit, "No documented public target-turn API was found.");
     requireText("Pentagon docs activation audit", docsActivationAudit, "docs_aligned_native_gap_confirmed");
+  }
+
+  const reliabilityContract = repoFile(RELIABILITY_CONTRACT);
+  must("reliability operating contract exists", reliabilityContract, RELIABILITY_CONTRACT);
+  if (reliabilityContract) {
+    requireText("reliability operating contract", reliabilityContract, "Prompt And Behavior Precision");
+    requireText("reliability operating contract", reliabilityContract, "Event-Sourced Audit Trail");
+    requireText("reliability operating contract", reliabilityContract, "Continuous Evaluation");
+    requireText("reliability operating contract", reliabilityContract, "llm.responded.tool_calls");
+    requireText("reliability operating contract", reliabilityContract, "bridge_autonomy_verified_native_blocked");
   }
 
   if (requireNative) {
