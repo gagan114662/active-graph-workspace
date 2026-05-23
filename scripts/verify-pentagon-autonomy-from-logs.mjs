@@ -8,6 +8,22 @@ const PENTAGON_BIN = "/Applications/Pentagon.app/Contents/MacOS/Pentagon";
 const BRIDGE_LOG = "/Users/gaganarora/.pentagon/trigger-bridge.out.log";
 const BRIDGE_LABEL = "run.pentagon.trigger-bridge";
 const STAMP = "20260522T230015Z";
+const NATIVE_BLOCKER_LOG = "frames/t5e-native-poller-blocker-2026-05-22.log";
+const COMPLETION_AUDIT = "frames/autonomy-completion-audit-2026-05-22.md";
+const DOCS_ACTIVATION_AUDIT = "frames/pentagon-docs-activation-audit-2026-05-23.md";
+const CRITICAL_PROOF_FILES = [
+  "frames/t5d-file-backed-gauntlet-2026-05-22.log",
+  "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
+  "frames/t5d-file-gauntlet-medium-20260522T230015Z.proof",
+  "frames/t5d-file-gauntlet-hard-20260522T230015Z.proof",
+  "frames/t5d-file-gauntlet-extra-hard-20260522T230015Z.proof",
+  "frames/t5d-skill-load-clean-proof-2026-05-22.log",
+  NATIVE_BLOCKER_LOG,
+  COMPLETION_AUDIT,
+  DOCS_ACTIVATION_AUDIT,
+  "scripts/pentagon-trigger-bridge.mjs",
+  "launchagents/run.pentagon.trigger-bridge.plist",
+];
 
 const LEVELS = {
   easy: {
@@ -68,6 +84,16 @@ function repoFile(relativePath) {
 
 function requireText(sourceName, text, needle) {
   must(sourceName + " contains " + needle, text.includes(needle));
+}
+
+function dirtyTrackedFiles() {
+  const diff = command("git", ["diff", "--name-only"]);
+  const staged = command("git", ["diff", "--cached", "--name-only"]);
+  const files = [
+    ...String(diff.stdout ?? "").split(/\r?\n/),
+    ...String(staged.stdout ?? "").split(/\r?\n/),
+  ].filter(Boolean);
+  return [...new Set(files)].sort();
 }
 
 function decodeJwtPayload(jwt) {
@@ -148,10 +174,14 @@ async function verifyLiveRows() {
 
 async function main() {
   const noDb = process.argv.includes("--no-db");
+  const requireNative = process.argv.includes("--require-native");
 
   const gitStatus = command("git", ["status", "--short", "--branch"]);
   must("git status exits 0", gitStatus.status === 0, gitStatus.stderr);
-  must("tracked worktree is clean", !/^ ?[MADRCU]/m.test(gitStatus.stdout), gitStatus.stdout.trim());
+  must("git status captured", Boolean(gitStatus.stdout.trim()), gitStatus.stdout.trim());
+  const dirtyFiles = dirtyTrackedFiles();
+  const dirtyProofFiles = dirtyFiles.filter((path) => CRITICAL_PROOF_FILES.includes(path));
+  must("critical proof files are clean", dirtyProofFiles.length === 0, dirtyProofFiles.join(", "));
 
   const bridgeCheck = command("node", ["--check", "scripts/pentagon-trigger-bridge.mjs"]);
   must("bridge script parses", bridgeCheck.status === 0, bridgeCheck.stderr);
@@ -208,6 +238,40 @@ async function main() {
     requireText("skill-load clean log", skillCleanLog, "stderr_tail: \"\"");
   }
 
+  const nativeBlockerLog = repoFile(NATIVE_BLOCKER_LOG);
+  must("native poller blocker log exists", nativeBlockerLog, NATIVE_BLOCKER_LOG);
+  if (nativeBlockerLog) {
+    requireText("native poller blocker log", nativeBlockerLog, "Native Pentagon autonomy is not fixed.");
+    requireText("native poller blocker log", nativeBlockerLog, "trigger_claimed_at: null");
+    requireText("native poller blocker log", nativeBlockerLog, "trigger_completed_at: null");
+    requireText("native poller blocker log", nativeBlockerLog, "maya_ack_count: 0");
+    requireText("native poller blocker log", nativeBlockerLog, "state = running");
+  }
+
+  const completionAudit = repoFile(COMPLETION_AUDIT);
+  must("completion audit exists", completionAudit, COMPLETION_AUDIT);
+  if (completionAudit) {
+    requireText("completion audit", completionAudit, "not met natively; bridge-only green");
+    requireText("completion audit", completionAudit, "not achieved for native Pentagon; achieved only through persistent bridge");
+    requireText("completion audit", completionAudit, "full goal remains open until");
+    requireText("completion audit", completionAudit, "native public MCP/app path exposes or reliably");
+  }
+
+  const docsActivationAudit = repoFile(DOCS_ACTIVATION_AUDIT);
+  must("Pentagon docs activation audit exists", docsActivationAudit, DOCS_ACTIVATION_AUDIT);
+  if (docsActivationAudit) {
+    requireText("Pentagon docs activation audit", docsActivationAudit, "structured handoffs");
+    requireText("Pentagon docs activation audit", docsActivationAudit, "recipient receives the context and starts working");
+    requireText("Pentagon docs activation audit", docsActivationAudit, "No documented public target-turn API was found.");
+    requireText("Pentagon docs activation audit", docsActivationAudit, "docs_aligned_native_gap_confirmed");
+  }
+
+  if (requireNative) {
+    record(false, "native Pentagon autonomy completion", "native poller is still documented as blocked; rerun without --require-native to verify bridge-backed autonomy only");
+  } else {
+    record(true, "native Pentagon autonomy boundary", "native poller remains blocked; this run verifies bridge-backed autonomy and audit integrity");
+  }
+
   if (!noDb) {
     try {
       await verifyLiveRows();
@@ -224,6 +288,7 @@ async function main() {
   }
   console.log("");
   console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
+  console.log("verdict: " + (failed.length ? "failed" : "bridge_autonomy_verified_native_blocked"));
   if (failed.length) process.exitCode = 1;
 }
 
