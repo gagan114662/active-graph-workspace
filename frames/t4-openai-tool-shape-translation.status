@@ -1,11 +1,11 @@
-status: incomplete_focused_test_red
-inner_head: 62015ed
-outer_head: 628406e
+status: incomplete_dirty_unpushed
+inner_head: bdc8919
+outer_head: 53fcebb
 evaluated: 2026-05-23
-review: clean_for_inner_7886d71_commit_scoped_stale_for_current_head
-focused_tests: "35 selected T4 tests: 1 failed, 34 passed"
+review: clean_for_inner_bdc8919_commit_scoped
+focused_tests: "provider parity 12 passed; focused replay regressions 3 passed"
 adjacent_runtime_tests: 48 passed
-full_tests: 698 passed, 15 skipped
+full_tests: 699 passed, 15 skipped
 mypy: success
 docstrings: Ring 0 102/102, Ring 1 103/120
 cli_flag_drift: OK
@@ -21,9 +21,9 @@ autonomy:
   implementation_completed_by_codex_fallback: true
   counts_as_pentagon_only_extra_hard_autonomy: false
 bottlenecks_open:
-  - current focused T4 command fails: tests/test_provider_tool_parity.py::test_invalid_tool_argument_marker_is_ignored_from_recorded_fixture
-  - strict no_changes_outside_permissions is false: current dirty inner tree includes README.md and docs/reference/llm-providers.md, which are not listed in frame permissions
-  - current dirty inner tree includes activegraph/llm/cache.py and activegraph/llm/recorded.py, which are not listed as rw in frame permissions
+  - pushed-head closure is false: inner HEAD bdc8919 is one commit ahead of origin/main 62015ed
+  - dirty inner tree remains: CHANGELOG.md, CONTRACT.md, README.md, docs/concepts/provider-tool-parity.md, docs/reference/llm-providers.md plus untracked artifacts
+  - current dirty inner tree includes README.md and docs/reference/llm-providers.md, which are not listed in frame permissions
   - Pentagon handoff message does not auto-activate Code Owner
 untracked_not_claimed:
   inner:

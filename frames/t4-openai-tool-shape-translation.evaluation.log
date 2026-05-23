@@ -83,6 +83,239 @@ $ ../venv/bin/pytest -q
 690 passed, 15 skipped in 17.96s
 ~~~
 
+## Goal Reaper heartbeat 2026-05-23T14:35:43Z
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Accepted signal: Rowan `review.clean` is valid for inner `bdc8919` at commit scope.
+Closure is still blocked by local state: inner HEAD is one commit ahead of
+`origin/main`, and the inner working tree has dirty/untracked files outside the
+committed T4 remediation surface.
+
+Predicate evidence:
+
+- `focused_provider_tool_parity_passes`: expected `12 passed`; actual `12 passed`.
+- `focused_replay_regressions_pass`: expected `3 passed`; actual `3 passed`.
+- `mypy_strict_passes_full_allowlist`: expected success; actual `Success: no issues found in 23 source files`.
+- `pytest_full_suite_passes`: expected full suite pass; actual `699 passed, 15 skipped`.
+- `ring0_not_missing_pct_equals_100`: expected `Ring 0: 102/102 documented (100.0%)`; actual same.
+- `ring1_not_missing_pct_ge_80`: expected >=80%; actual `103/120 not-missing (85.8%)`.
+- `wheel_completeness_passes`: expected pass; actual `1 passed`.
+- `doc_links_pass`: expected pass; actual `3 passed`.
+- `cli_flag_drift_passes`: expected pass; actual OK.
+- `no_changes_outside_permissions` for cumulative committed remediation range
+  `7886d71^..HEAD`: expected only frame-permitted files; actual
+  `activegraph/llm/types.py`, `activegraph/runtime/runtime.py`,
+  `tests/test_provider_tool_parity.py`.
+- `dirty_tree_clean_for_closure`: expected clean tree; actual dirty tree.
+- `pushed_head_closure`: expected `HEAD == origin/main`; actual `HEAD=bdc8919`,
+  `origin/main=62015ed`, `origin/main...HEAD = 0 1`.
+
+Literal command output:
+
+~~~text
+$ cd activegraph && git log -1 --oneline
+bdc8919 Preserve invalid tool arg replay metadata
+
+$ cd activegraph && git status --short
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+
+$ cd activegraph && ../venv/bin/python --version
+Python 3.14.3
+
+$ cd activegraph && ../venv/bin/pytest tests/test_provider_tool_parity.py -q
+............                                                             [100%]
+12 passed in 0.05s
+
+$ cd activegraph && ../venv/bin/pytest tests/test_llm_replay.py::test_fork_with_replay_llm_cache_serves_from_cache tests/test_provider_tool_parity.py::test_invalid_tool_argument_marker_stays_out_of_fork_replay_events tests/test_provider_tool_parity.py::test_invalid_tool_argument_durable_cache_replays_invalid_input -q
+...                                                                      [100%]
+3 passed in 0.03s
+
+$ cd activegraph && ../venv/bin/mypy
+Success: no issues found in 23 source files
+
+$ cd activegraph && ../venv/bin/pytest -q
+699 passed, 15 skipped in 22.60s
+
+$ cd activegraph && ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_wheel_completeness.py
+.                                                                        [100%]
+1 passed in 7.42s
+
+$ cd activegraph && ../venv/bin/python scripts/gate_cli_flag_drift.py
+OK — cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_doc_links.py
+...                                                                      [100%]
+3 passed in 0.06s
+
+$ cd activegraph && git diff --name-only 7886d71^..HEAD
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+
+$ cd activegraph && git diff --name-only HEAD^..HEAD
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+
+$ cd activegraph && git diff --check HEAD^ HEAD
+
+$ cd activegraph && git rev-parse --short HEAD && git rev-parse --short origin/main && git rev-list --left-right --count origin/main...HEAD
+bdc8919
+62015ed
+0	1
+~~~
+
+2026-05-23T14:33:56Z Goal Reaper acknowledgement recheck after Maya Code Owner acknowledged no action pending.
+
+Predicate: t4_code_gates_green
+Expected: focused T4 code gates green at current local head.
+Actual: GREEN based on prior bdc8919 focused shard verification already appended in this log; no new Code Owner action pending from test signal.
+
+Predicate: current_head_synced_to_origin
+Expected: local HEAD == origin/main.
+Actual: RED. Local HEAD is ahead of origin/main by one commit.
+
+$ cd activegraph && git rev-parse --short HEAD
+bdc8919
+
+$ cd activegraph && git rev-parse --short origin/main
+62015ed
+
+$ cd activegraph && git log --oneline origin/main..HEAD
+bdc8919 Preserve invalid tool arg replay metadata
+
+Predicate: no_changes_outside_permissions
+Expected: no dirty out-of-permission docs/README files.
+Actual: RED. Dirty tree includes README and docs files outside T4 permission scope.
+
+$ cd activegraph && git status --short
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+
+Verdict: goal.incomplete. T4 code-gate RED is cleared at local bdc8919; remaining blockers are audit/sync scope only: local HEAD ahead of origin/main and dirty out-of-permission docs/README.
+
+2026-05-23T14:31Z heartbeat current-head correction: inner bdc8919
+
+Verdict: goal.incomplete.
+
+Current clone moved past Maya's 62015ed to local HEAD bdc8919. Maya's correction is accepted in substance: the named recorded-fixture failure is stale/missing at current head, the durable-cache replay test passes, and the full focused T4 shard passes. Remaining blocker is audit/sync, not code-gate: local HEAD bdc8919 is ahead of origin/main 62015ed and dirty/out-of-permission docs remain.
+
+$ cd activegraph && git rev-parse --short HEAD
+bdc8919
+
+$ cd activegraph && git rev-parse --short origin/main
+62015ed
+
+$ cd activegraph && git status --short
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+
+$ cd activegraph && ../venv/bin/python --version
+Python 3.14.3
+
+$ cd activegraph && rg -n "test_invalid_tool_argument_marker_is_ignored_from_recorded_fixture|test_invalid_tool_argument_marker_round_trips_recorded_fixture_metadata|test_invalid_tool_argument_durable_cache_replays_invalid_input" tests/test_provider_tool_parity.py
+548:def test_invalid_tool_argument_marker_round_trips_recorded_fixture_metadata() -> None:
+704:def test_invalid_tool_argument_durable_cache_replays_invalid_input() -> None:
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_provider_tool_parity.py::test_invalid_tool_argument_durable_cache_replays_invalid_input
+.                                                                        [100%]
+1 passed in 0.02s
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_provider_tool_parity.py
+............                                                             [100%]
+12 passed in 0.06s
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py -x
+...................................                                      [100%]
+35 passed in 0.52s
+
+$ cd activegraph && git log --oneline -5
+bdc8919 Preserve invalid tool arg replay metadata
+62015ed Bypass durable cache for invalid tool input
+7886d71 Keep invalid arg marker internal
+d691afc Move invalid marker replay test to permitted surface
+56e5498 Test invalid arg marker fork replay
+
+$ cd activegraph && git show --stat --oneline -1 HEAD
+bdc8919 Preserve invalid tool arg replay metadata
+ activegraph/llm/cache.py           | 37 +--------------
+ activegraph/llm/recorded.py        |  1 +
+ activegraph/llm/types.py           | 12 ++++-
+ activegraph/runtime/runtime.py     | 40 +++++++++++++++-
+ tests/test_provider_tool_parity.py | 97 +++++++++++++++-----------------------
+ 5 files changed, 88 insertions(+), 99 deletions(-)
+
+INTERPRETER_OK GoalReaper /Users/gaganarora/Desktop/my projects/active_graph/activegraph bdc8919
+
+## 2026-05-23 heartbeat recheck after status-file audit
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Focused T4 code gates remain green at current inner `bdc8919`. Closure remains
+blocked by sync/audit state: inner `HEAD` is ahead of `origin/main`, and the
+inner working tree still has dirty docs/README files outside the T4 permission
+surface.
+
+Literal command output:
+
+~~~text
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py; printf '\n---exit=%s---\n' "$?"
+...................................                                      [100%]
+35 passed in 0.55s
+
+---exit=0---
+
+$ cd activegraph && ../venv/bin/mypy; printf '\n---exit=%s---\n' "$?"; ../venv/bin/python scripts/gate_docstrings.py; printf '\n---exit=%s---\n' "$?"
+Success: no issues found in 23 source files
+
+---exit=0---
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+---exit=0---
+~~~
+
 ## 2026-05-23 heartbeat: current inner 62015ed
 
 Verdict: `goal.incomplete`.
