@@ -1,0 +1,78 @@
+# T5f bridge loop resilience - 2026-05-23
+
+Purpose: reduce the operational fragility of the bridge-backed autonomy path
+while native Pentagon trigger polling remains blocked.
+
+## Problem
+
+The persistent LaunchAgent bridge was running, but launchctl showed a historical
+non-zero exit state. The stderr log showed the loop process had previously
+crashed on transient external conditions:
+
+~~~text
+TypeError: fetch failed
+cause: ConnectTimeoutError: Connect Timeout Error
+code: UND_ERR_CONNECT_TIMEOUT
+
+TypeError: fetch failed
+cause: Error: getaddrinfo ENOTFOUND ieetsizejvdpsvaiuukb.supabase.co
+code: ENOTFOUND
+
+Error: GET /rest/v1/agent_triggers?... failed 401:
+code=PGRST303 message=JWT expired
+~~~
+
+These failures do not mean a target trigger is invalid. They mean the bridge
+loop was treating network/auth drift as a process-fatal condition, relying on
+launchd restart instead of preserving a stable poller process.
+
+## Repair
+
+scripts/pentagon-trigger-bridge.mjs now wraps persistent loop iterations in a
+catch block that:
+
+- logs a structured loop_error JSON event to stderr.
+- preserves one-shot mode as fail-fast.
+- refreshes the Pentagon session after JWT-expired loop errors.
+- logs session_refreshed_after_loop_error or
+  session_refresh_failed_after_loop_error for auditability.
+- continues polling after the loop interval instead of exiting.
+
+This does not repair native Pentagon polling. It makes the current bridge
+mitigation more reliable while the native app remains the product blocker.
+
+## Validation
+
+~~~text
+$ node --check scripts/pentagon-trigger-bridge.mjs
+exit: 0
+
+$ node scripts/pentagon-trigger-bridge.mjs --dry-run --limit 1 --max-age-seconds 180
+status: ok
+processed: 1
+trigger_id: b416475a-9a79-46bb-8e14-96754b15ce56
+conversation_id: 1e05c006-7801-479c-941c-8460e6faa55a
+agent_id: 3401eaa3-6bde-4373-b418-a09e78f6bad4
+created_at: 2026-05-23T13:06:13.132426+00:00
+
+$ launchctl kickstart -k gui/501/run.pentagon.trigger-bridge
+exit: 0
+
+$ launchctl print gui/501/run.pentagon.trigger-bridge
+state = running
+program = /opt/homebrew/bin/node
+pid = 98524
+runs = 3102
+last terminating signal = Terminated: 15
+~~~
+
+The latest terminating signal was the intentional kickstart restart, not a new
+script crash. The current LaunchAgent process is running the patched script.
+
+## Current boundary
+
+Verified improvement: bridge loop resilience.
+
+Still not complete: native Pentagon autonomous handoff. The full goal still
+requires native trigger polling or a documented target-turn primitive to activate
+recipient agents within the declared window without the external bridge.

@@ -323,6 +323,16 @@ async function runOnce() {
   return { status: "ok", processed: results.length, results };
 }
 
+function serializeError(error) {
+  return {
+    name: error?.name ?? "Error",
+    message: String(error?.message ?? error),
+    code: error?.code ?? error?.cause?.code ?? null,
+    cause_message: error?.cause?.message ?? null,
+    stack_tail: String(error?.stack ?? "").split(/\r?\n/).slice(-6).join("\n"),
+  };
+}
+
 if (!loop) {
   console.log(JSON.stringify(await runOnce(), null, 2));
 } else {
@@ -333,9 +343,32 @@ if (!loop) {
     max_age_seconds: Number(arg("--max-age-seconds", "0")),
   }));
   while (true) {
-    const result = await runOnce();
-    if (result.processed) {
-      console.log(JSON.stringify({ checked_at: new Date().toISOString(), ...result }, null, 2));
+    try {
+      const result = await runOnce();
+      if (result.processed) {
+        console.log(JSON.stringify({ checked_at: new Date().toISOString(), ...result }, null, 2));
+      }
+    } catch (error) {
+      console.error(JSON.stringify({
+        checked_at: new Date().toISOString(),
+        status: "loop_error",
+        error: serializeError(error),
+      }));
+      if (/jwt expired/i.test(String(error?.message ?? ""))) {
+        try {
+          refreshSession();
+          console.error(JSON.stringify({
+            checked_at: new Date().toISOString(),
+            status: "session_refreshed_after_loop_error",
+          }));
+        } catch (refreshError) {
+          console.error(JSON.stringify({
+            checked_at: new Date().toISOString(),
+            status: "session_refresh_failed_after_loop_error",
+            error: serializeError(refreshError),
+          }));
+        }
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }

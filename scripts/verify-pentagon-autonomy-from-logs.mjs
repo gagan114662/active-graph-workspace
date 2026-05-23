@@ -12,6 +12,7 @@ const NATIVE_BLOCKER_LOG = "frames/t5e-native-poller-blocker-2026-05-22.log";
 const COMPLETION_AUDIT = "frames/autonomy-completion-audit-2026-05-22.md";
 const DOCS_ACTIVATION_AUDIT = "frames/pentagon-docs-activation-audit-2026-05-23.md";
 const RELIABILITY_CONTRACT = "agent-os/RELIABILITY_OPERATING_CONTRACT.md";
+const BRIDGE_RESILIENCE_LOG = "frames/t5f-bridge-loop-resilience-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -23,6 +24,7 @@ const CRITICAL_PROOF_FILES = [
   COMPLETION_AUDIT,
   DOCS_ACTIVATION_AUDIT,
   RELIABILITY_CONTRACT,
+  BRIDGE_RESILIENCE_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
 ];
@@ -187,6 +189,13 @@ async function main() {
 
   const bridgeCheck = command("node", ["--check", "scripts/pentagon-trigger-bridge.mjs"]);
   must("bridge script parses", bridgeCheck.status === 0, bridgeCheck.stderr);
+  const bridgeScript = repoFile("scripts/pentagon-trigger-bridge.mjs");
+  must("bridge script exists", bridgeScript);
+  if (bridgeScript) {
+    requireText("bridge script", bridgeScript, "loop_error");
+    requireText("bridge script", bridgeScript, "session_refreshed_after_loop_error");
+    requireText("bridge script", bridgeScript, "session_refresh_failed_after_loop_error");
+  }
 
   const plistCheck = command("plutil", ["-lint", "launchagents/run.pentagon.trigger-bridge.plist"]);
   must("LaunchAgent plist parses", plistCheck.status === 0, plistCheck.stdout + plistCheck.stderr);
@@ -276,6 +285,15 @@ async function main() {
     requireText("reliability operating contract", reliabilityContract, "Continuous Evaluation");
     requireText("reliability operating contract", reliabilityContract, "llm.responded.tool_calls");
     requireText("reliability operating contract", reliabilityContract, "bridge_autonomy_verified_native_blocked");
+  }
+
+  const bridgeResilienceLog = repoFile(BRIDGE_RESILIENCE_LOG);
+  must("bridge resilience log exists", bridgeResilienceLog, BRIDGE_RESILIENCE_LOG);
+  if (bridgeResilienceLog) {
+    requireText("bridge resilience log", bridgeResilienceLog, "loop_error");
+    requireText("bridge resilience log", bridgeResilienceLog, "JWT expired");
+    requireText("bridge resilience log", bridgeResilienceLog, "Verified improvement: bridge loop resilience.");
+    requireText("bridge resilience log", bridgeResilienceLog, "Still not complete: native Pentagon autonomous handoff.");
   }
 
   if (requireNative) {
