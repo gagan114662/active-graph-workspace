@@ -1,0 +1,41 @@
+# T5g current bridge health - 2026-05-23
+
+Purpose: make the autonomy verifier prove current bridge health, not only
+historical file-backed gauntlet evidence.
+
+## Added verifier checks
+
+scripts/verify-pentagon-autonomy-from-logs.mjs now requires:
+
+- LaunchAgent readback exits 0.
+- LaunchAgent state is running.
+- LaunchAgent has a live pid.
+- LaunchAgent is running with --max-age-seconds 180.
+- LaunchAgent is running with --interval-ms 1000.
+- LaunchAgent does not report last exit code = 1.
+
+These checks close a reliability gap: a service can be technically loaded while
+still advertising a stale crash exit or running with unbounded trigger age.
+
+## Current readback
+
+~~~text
+$ launchctl print gui/501/run.pentagon.trigger-bridge
+state = running
+program = /opt/homebrew/bin/node
+--interval-ms 1000
+--limit 8
+--max-age-seconds 180
+runs = 3102
+pid = 98524
+last terminating signal = Terminated: 15
+~~~
+
+The last terminating signal came from the intentional kickstart after the T5f
+resilience patch. There is no current last exit code = 1 line in the launchd
+readback.
+
+## Boundary
+
+This is a bridge-health gate. It improves reliability of the current mitigation
+but does not close the native Pentagon autonomy requirement.

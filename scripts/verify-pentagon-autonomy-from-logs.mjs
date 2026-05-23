@@ -13,6 +13,7 @@ const COMPLETION_AUDIT = "frames/autonomy-completion-audit-2026-05-22.md";
 const DOCS_ACTIVATION_AUDIT = "frames/pentagon-docs-activation-audit-2026-05-23.md";
 const RELIABILITY_CONTRACT = "agent-os/RELIABILITY_OPERATING_CONTRACT.md";
 const BRIDGE_RESILIENCE_LOG = "frames/t5f-bridge-loop-resilience-2026-05-23.log";
+const CURRENT_BRIDGE_HEALTH_LOG = "frames/t5g-current-bridge-health-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -25,6 +26,7 @@ const CRITICAL_PROOF_FILES = [
   DOCS_ACTIVATION_AUDIT,
   RELIABILITY_CONTRACT,
   BRIDGE_RESILIENCE_LOG,
+  CURRENT_BRIDGE_HEALTH_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
 ];
@@ -98,6 +100,11 @@ function dirtyTrackedFiles() {
     ...String(staged.stdout ?? "").split(/\r?\n/),
   ].filter(Boolean);
   return [...new Set(files)].sort();
+}
+
+function launchdValue(text, key) {
+  const match = String(text ?? "").match(new RegExp("\\n\\s*" + key + " = ([^\\n]+)"));
+  return match?.[1]?.trim() ?? null;
 }
 
 function decodeJwtPayload(jwt) {
@@ -203,6 +210,10 @@ async function main() {
   const launchd = command("launchctl", ["print", "gui/" + process.getuid() + "/" + BRIDGE_LABEL]);
   must("LaunchAgent readback exits 0", launchd.status === 0, launchd.stderr);
   must("LaunchAgent state is running", launchd.stdout.includes("state = running"), launchd.stdout);
+  must("LaunchAgent has live pid", Boolean(launchdValue(launchd.stdout, "pid")), launchd.stdout);
+  must("LaunchAgent uses bounded trigger age", launchd.stdout.includes("--max-age-seconds") && launchd.stdout.includes("180"), launchd.stdout);
+  must("LaunchAgent uses bounded polling interval", launchd.stdout.includes("--interval-ms") && launchd.stdout.includes("1000"), launchd.stdout);
+  must("LaunchAgent has no recorded crash exit", !launchd.stdout.includes("last exit code = 1"), launchd.stdout);
 
   const defaultModel = command("defaults", ["read", "run.pentagon.app", "pentagon.defaultModel"]);
   must("Pentagon default model is gpt-5.5", defaultModel.stdout.trim() === "gpt-5.5", defaultModel.stdout.trim());
@@ -294,6 +305,15 @@ async function main() {
     requireText("bridge resilience log", bridgeResilienceLog, "JWT expired");
     requireText("bridge resilience log", bridgeResilienceLog, "Verified improvement: bridge loop resilience.");
     requireText("bridge resilience log", bridgeResilienceLog, "Still not complete: native Pentagon autonomous handoff.");
+  }
+
+  const currentBridgeHealthLog = repoFile(CURRENT_BRIDGE_HEALTH_LOG);
+  must("current bridge health log exists", currentBridgeHealthLog, CURRENT_BRIDGE_HEALTH_LOG);
+  if (currentBridgeHealthLog) {
+    requireText("current bridge health log", currentBridgeHealthLog, "LaunchAgent has a live pid.");
+    requireText("current bridge health log", currentBridgeHealthLog, "--max-age-seconds 180");
+    requireText("current bridge health log", currentBridgeHealthLog, "--interval-ms 1000");
+    requireText("current bridge health log", currentBridgeHealthLog, "does not close the native Pentagon autonomy requirement");
   }
 
   if (requireNative) {
