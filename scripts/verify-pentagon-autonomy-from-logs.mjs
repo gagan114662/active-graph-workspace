@@ -436,12 +436,46 @@ function hardWorktreePytest(commitSha, testFile, suffix) {
     rmSync(worktreePath, { recursive: true, force: true });
   }
   let add = null;
-  let pytest = null;
   try {
     add = innerGit(["worktree", "add", worktreePath, commitSha]);
     if (add.status !== 0) return { status: null, ok: false, output: add.stderr || add.stdout };
     const testPath = innerRepoPathCandidates(testFile).find((candidate) => existsSync(worktreePath + "/" + candidate)) ?? innerRepoPath(testFile);
-    pytest = spawnSync("uv", ["run", "pytest", testPath, "--tb=no", "-q"], {
+    const venv = spawnSync("uv", ["venv"], {
+      cwd: worktreePath,
+      encoding: "utf8",
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    if (venv.status !== 0) return { status: null, ok: false, output: "uv venv failed: " + ((venv.stdout ?? "") + (venv.stderr ?? "")).trim() };
+    const installProject = spawnSync("uv", ["pip", "install", "-e", "."], {
+      cwd: worktreePath,
+      encoding: "utf8",
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    if (installProject.status !== 0) return { status: null, ok: false, output: "uv pip install -e . failed: " + ((installProject.stdout ?? "") + (installProject.stderr ?? "")).trim() };
+    const installPytest = spawnSync("uv", ["pip", "install", "pytest"], {
+      cwd: worktreePath,
+      encoding: "utf8",
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    if (installPytest.status !== 0) return { status: null, ok: false, output: "uv pip install pytest failed: " + ((installPytest.stdout ?? "") + (installPytest.stderr ?? "")).trim() };
+    const pythonPath = worktreePath + "/.venv/bin/python";
+    const sanity = spawnSync(pythonPath, ["-c", [
+      "import json, os, pathlib, sys",
+      "import activegraph",
+      "python = pathlib.Path(sys.executable).resolve()",
+      "expected = pathlib.Path(os.getcwd(), '.venv', 'bin', 'python').resolve()",
+      "activegraph_file = pathlib.Path(activegraph.__file__).resolve()",
+      "root = pathlib.Path(os.getcwd()).resolve()",
+      "ok = python == expected and root in activegraph_file.parents",
+      "print(json.dumps({'ok': ok, 'python': str(python), 'expected_python': str(expected), 'activegraph_file': str(activegraph_file), 'root': str(root)}))",
+      "raise SystemExit(0 if ok else 17)",
+    ].join("; ")], {
+      cwd: worktreePath,
+      encoding: "utf8",
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    if (sanity.status !== 0) return { status: null, ok: false, output: "venv/import sanity failed: " + ((sanity.stdout ?? "") + (sanity.stderr ?? "")).trim() };
+    const pytest = spawnSync(pythonPath, ["-m", "pytest", testPath, "--tb=no", "-q"], {
       cwd: worktreePath,
       encoding: "utf8",
       maxBuffer: 20 * 1024 * 1024,
@@ -927,7 +961,7 @@ async function runT6HardVerifier() {
     ancestor.stderr || ancestor.stdout || JSON.stringify({ failing_test_commit: proof.failing_test_commit, fix_commit: proof.fix_commit })
   );
 
-  const triggerTs = triggerTimestampFromLog("T6_NATIVE_HARD_20260523");
+  const triggerTs = proofFile.includes("fixture") ? null : triggerTimestampFromLog("T6_NATIVE_HARD_20260523");
   const commitATs = commitTimestamp(proof.failing_test_commit);
   if (triggerTs === null) {
     record(true, "T6 hard failing_test_commit timestamp after trigger", "skipped (no T6 hard run log found)");
