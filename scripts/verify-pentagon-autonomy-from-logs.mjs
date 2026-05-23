@@ -14,6 +14,7 @@ const DOCS_ACTIVATION_AUDIT = "frames/pentagon-docs-activation-audit-2026-05-23.
 const RELIABILITY_CONTRACT = "agent-os/RELIABILITY_OPERATING_CONTRACT.md";
 const BRIDGE_RESILIENCE_LOG = "frames/t5f-bridge-loop-resilience-2026-05-23.log";
 const CURRENT_BRIDGE_HEALTH_LOG = "frames/t5g-current-bridge-health-2026-05-23.log";
+const REPO_ISOLATION_AUDIT = "frames/t5h-repo-isolation-audit-2026-05-23.md";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -27,6 +28,7 @@ const CRITICAL_PROOF_FILES = [
   RELIABILITY_CONTRACT,
   BRIDGE_RESILIENCE_LOG,
   CURRENT_BRIDGE_HEALTH_LOG,
+  REPO_ISOLATION_AUDIT,
   "scripts/pentagon-trigger-bridge.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
 ];
@@ -175,12 +177,19 @@ async function verifyLiveRows() {
 
   const agents = await supabase(
     state,
-    "/rest/v1/agents?select=id,name,model,directory,deleted_at&deleted_at=is.null&limit=200"
+    "/rest/v1/agents?select=id,name,provider,model,directory,execution_mode,base_directory,base_branch,deleted_at&deleted_at=is.null&limit=200"
   );
   const activeGraphAgents = agents.filter((agent) => agent.directory === ROOT);
   const wrongModels = activeGraphAgents.filter((agent) => agent.model !== "gpt-5.5");
+  const wrongProviders = activeGraphAgents.filter((agent) => agent.provider !== "codex");
+  const wrongExecutionModes = activeGraphAgents.filter((agent) => agent.execution_mode !== "local");
+  const branchMetadataRows = activeGraphAgents.filter((agent) => agent.base_directory || agent.base_branch);
   must("live DB active_graph agent rows present", activeGraphAgents.length >= 20, "count=" + activeGraphAgents.length);
+  must("live DB active_graph agent rows have exact repo directory", activeGraphAgents.every((agent) => agent.directory === ROOT), JSON.stringify(activeGraphAgents.map((agent) => ({ name: agent.name, directory: agent.directory }))));
   must("live DB all active_graph agents are gpt-5.5", wrongModels.length === 0, JSON.stringify(wrongModels));
+  must("live DB all active_graph agents use codex provider", wrongProviders.length === 0, JSON.stringify(wrongProviders));
+  must("live DB all active_graph agents use local execution", wrongExecutionModes.length === 0, JSON.stringify(wrongExecutionModes));
+  record(true, "live DB active_graph clone branch metadata rows", branchMetadataRows.length ? JSON.stringify(branchMetadataRows) : "none exposed");
 }
 
 async function main() {
@@ -314,6 +323,15 @@ async function main() {
     requireText("current bridge health log", currentBridgeHealthLog, "--max-age-seconds 180");
     requireText("current bridge health log", currentBridgeHealthLog, "--interval-ms 1000");
     requireText("current bridge health log", currentBridgeHealthLog, "does not close the native Pentagon autonomy requirement");
+  }
+
+  const repoIsolationAudit = repoFile(REPO_ISOLATION_AUDIT);
+  must("repo isolation audit exists", repoIsolationAudit, REPO_ISOLATION_AUDIT);
+  if (repoIsolationAudit) {
+    requireText("repo isolation audit", repoIsolationAudit, "Repo-specific directory/model/provider/local-execution evidence is green.");
+    requireText("repo isolation audit", repoIsolationAudit, "Own clone/branch proof is not green.");
+    requireText("repo isolation audit", repoIsolationAudit, "base_branch: null");
+    requireText("repo isolation audit", repoIsolationAudit, "does not change the native autonomy boundary");
   }
 
   if (requireNative) {
