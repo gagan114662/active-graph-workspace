@@ -21,6 +21,7 @@ const CURRENT_BRIDGE_FILE_TASK_PROOF = "frames/t5j-current-bridge-easy-20260523T
 const NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG = "frames/t5k-native-probe-and-bridge-queue-hardening-2026-05-23.log";
 const NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG = "frames/t5l-native-app-poller-and-probe-output-audit-2026-05-23.log";
 const REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG = "frames/t5m-repeatable-native-app-poller-diagnostic-2026-05-23.log";
+const CODEX_HARNESS_NATIVE_RECHECK_LOG = "frames/t5n-codex-harness-native-recheck-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -41,6 +42,7 @@ const CRITICAL_PROOF_FILES = [
   NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG,
   NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG,
   REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG,
+  CODEX_HARNESS_NATIVE_RECHECK_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
   "scripts/probe-native-poller.mjs",
   "scripts/probe-native-app-poller.mjs",
@@ -193,17 +195,19 @@ async function verifyLiveRows() {
 
   const agents = await supabase(
     state,
-    "/rest/v1/agents?select=id,name,provider,model,directory,execution_mode,base_directory,base_branch,deleted_at&deleted_at=is.null&limit=200"
+    "/rest/v1/agents?select=id,name,provider,model,harness_id,directory,execution_mode,base_directory,base_branch,deleted_at&deleted_at=is.null&limit=200"
   );
   const activeGraphAgents = agents.filter((agent) => agent.directory === ROOT);
   const wrongModels = activeGraphAgents.filter((agent) => agent.model !== "gpt-5.5");
   const wrongProviders = activeGraphAgents.filter((agent) => agent.provider !== "codex");
+  const wrongHarnesses = activeGraphAgents.filter((agent) => agent.harness_id !== "codex");
   const wrongExecutionModes = activeGraphAgents.filter((agent) => agent.execution_mode !== "local");
   const branchMetadataRows = activeGraphAgents.filter((agent) => agent.base_directory || agent.base_branch);
   must("live DB active_graph agent rows present", activeGraphAgents.length >= 20, "count=" + activeGraphAgents.length);
   must("live DB active_graph agent rows have exact repo directory", activeGraphAgents.every((agent) => agent.directory === ROOT), JSON.stringify(activeGraphAgents.map((agent) => ({ name: agent.name, directory: agent.directory }))));
   must("live DB all active_graph agents are gpt-5.5", wrongModels.length === 0, JSON.stringify(wrongModels));
   must("live DB all active_graph agents use codex provider", wrongProviders.length === 0, JSON.stringify(wrongProviders));
+  must("live DB all active_graph agents use codex harness", wrongHarnesses.length === 0, JSON.stringify(wrongHarnesses));
   must("live DB all active_graph agents use local execution", wrongExecutionModes.length === 0, JSON.stringify(wrongExecutionModes));
   record(true, "live DB active_graph clone branch metadata rows", branchMetadataRows.length ? JSON.stringify(branchMetadataRows) : "none exposed");
 }
@@ -450,6 +454,22 @@ async function main() {
     requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "log_match_counts.TriggerPoller=0");
     requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "state=running");
     requireText("repeatable native app poller diagnostic log", repeatableNativeAppPollerDiagnosticLog, "Native Pentagon handoff activation remains red.");
+  }
+
+  const codexHarnessNativeRecheckLog = repoFile(CODEX_HARNESS_NATIVE_RECHECK_LOG);
+  must("codex harness native recheck log exists", codexHarnessNativeRecheckLog, CODEX_HARNESS_NATIVE_RECHECK_LOG);
+  if (codexHarnessNativeRecheckLog) {
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "INTERPRETER_OK Codex");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "codex|gpt-5.5|claude-code|local: 20");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "updated_count: 20");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "codex|gpt-5.5|codex|local: 20");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "T5N_CODEX_HARNESS_NATIVE_APP_PROBE_REFRESH_20260523");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "message_id: 8c60c705-3ea7-489d-8127-3fb2401d498c");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "trigger_id: 6fab7bd2-1b19-4cb6-8ecf-f9e65670a5a8");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "final_claimed_at: null");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "native_pass: false");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "log_match_counts.TriggerPoller: 0");
+    requireText("codex harness native recheck log", codexHarnessNativeRecheckLog, "Native Pentagon handoff activation remains red.");
   }
 
   if (requireNative) {

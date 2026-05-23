@@ -1,0 +1,148 @@
+# T5N codex harness native recheck - 2026-05-23
+
+Purpose: preserve the live Pentagon harness correction and rerun a bounded
+native-only app poller probe after all active_graph agents were aligned to the
+Codex harness.
+
+## Interpreter smoke
+
+```
+INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph fe39a54
+git status --short --branch
+## main...origin/main
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+?? .review-worktrees/
+
+python3 --version
+Python 3.14.3
+
+node --version
+v25.8.2
+```
+
+The dirty T4 evaluation log and untracked .review-worktrees/ are unrelated
+pre-existing work and were not edited for this frame.
+
+## Live harness drift found and repaired
+
+Before the repair, every active_graph Pentagon agent was already configured for
+the requested provider/model/execution mode, but the runner harness was still
+claude-code:
+
+```
+codex|gpt-5.5|claude-code|local: 20
+```
+
+Applied live Supabase patch:
+
+```
+PATCH /rest/v1/agents?directory=eq./Users/gaganarora/Desktop/my%20projects/active_graph&deleted_at=is.null&provider=eq.codex&harness_id=eq.claude-code
+body: { "harness_id": "codex" }
+updated_count: 20
+```
+
+Updated rows:
+
+```
+Theo (Test Owner)
+Riley (Evidence Lead)
+Simone (Security Auditor)
+Blake (Budget Marshal)
+Priya (Goal Reaper)
+Sam (Docs Owner)
+Parker (Performance Sentinel)
+Maya (Code Owner)
+Grace (Gate Sentinel)
+Casey (Compatibility Auditor)
+Rowan (Code Reviewer)
+Taylor (Trace Archivist)
+Sofia (Spec Owner)
+Ravi (Replay Validator)
+Carmen (Contract Owner)
+T5d Activation Engineer
+Finn (Fork Debugger)
+Sasha (Spec Skeptic)
+Avery (Frame Architect)
+Quinn (Test Adversary)
+```
+
+Live readback after the repair:
+
+```
+count: 20
+codex|gpt-5.5|codex|local: 20
+```
+
+Device readback note: 19 agents have device_id
+44A67911-6A9B-441D-9F25-C2241A154691. T5d Activation Engineer still has
+device_id null. This does not affect the Theo-to-Maya native probe below because
+Theo and Maya both have the active device id.
+
+## Native app poller recheck after harness correction
+
+Command:
+
+```
+node scripts/probe-native-app-poller.mjs --watch-seconds 30 --hash T5N_CODEX_HARNESS_NATIVE_APP_PROBE_REFRESH_20260523
+```
+
+Exit code: 2
+
+Relevant output:
+
+```
+hash: T5N_CODEX_HARNESS_NATIVE_APP_PROBE_REFRESH_20260523
+app_version.short_version: 1.7.3
+app_process_before: 468 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+binary_hooks.TriggerPoller: true
+binary_hooks.claim_agent_trigger: true
+binary_hooks.complete_agent_trigger: true
+binary_hooks.triggerAgentResponse: true
+bridge_mode: stopped_for_native_probe
+conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+message_id: 8c60c705-3ea7-489d-8127-3fb2401d498c
+trigger_id: 6fab7bd2-1b19-4cb6-8ecf-f9e65670a5a8
+final_claimed_at: null
+final_completed_at: null
+ack_rows: []
+bridge_assisted_pass: false
+native_pass: false
+verdict: native_poller_still_blocked
+log_match_counts.TriggerPoller: 0
+log_match_counts.handleAgentTrigger: 0
+log_match_counts.triggerAgentResponse: 0
+log_match_counts.claim_agent_trigger: 0
+log_match_counts.hash: 0
+```
+
+The macOS log stream did capture Pentagon CFNetwork request/response activity
+during the probe window, including HTTP 201 and 200 responses, but did not
+capture app-level TriggerPoller, handleAgentTrigger, triggerAgentResponse,
+claim_agent_trigger, or probe-hash log lines.
+
+Bridge restoration after the native-only probe:
+
+```
+run.pentagon.trigger-bridge
+state = xpcproxy
+pid = 21807
+working directory = /Users/gaganarora/Desktop/my projects/active_graph
+```
+
+## Evidence audit
+
+| Predicate | Evidence | Status |
+| --- | --- | --- |
+| active_graph agents use Codex provider/model/local execution | live readback count 20, codex|gpt-5.5|codex|local: 20 | green |
+| previous harness drift was repaired | patch updated_count: 20 from claude-code harness to codex harness | green |
+| installed Pentagon.app contains native trigger code paths | binary_hooks.* true in app poller diagnostic | green |
+| native app poller claims a fresh target trigger | trigger 6fab7bd2-1b19-4cb6-8ecf-f9e65670a5a8 final_claimed_at null | red |
+| native app poller completes the handoff | final_completed_at null, ack_rows empty | red |
+| app logs show native trigger poller activity for the probe | all trigger-poller log_match_counts are 0 | red |
+
+## Verdict
+
+The live Codex harness mismatch is repaired and now must be checked by the
+verifier. Native Pentagon handoff activation remains red. This frame does not
+close the full goal; it narrows the remaining blocker to native app trigger
+polling/claiming after the agent harness is correctly aligned.
