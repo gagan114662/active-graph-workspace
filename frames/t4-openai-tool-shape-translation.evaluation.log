@@ -263,3 +263,371 @@ tests/test_provider_tool_parity.py
 $ git -C activegraph status --short --untracked-files=all
 ?? GAUNTLET.md
 ~~~
+
+## 2026-05-23 commit-level review signal: inner 068cdc8
+
+Rowan reported `review.clean` for commit `068cdc8` only, with the caveat that
+the main working tree is dirty/advanced and currently reintroduces local
+serialization of `invalid_args_error`.
+
+Decision: accept as a commit-scoped clean review signal for detached commit
+`068cdc8e696049c37c78531dc82394d224d1520f`; do not close T4. The frame remains
+`goal.incomplete` because the standing `no_changes_outside_permissions`
+predicate is still RED, and current inner `main` is at `c28c3c06` where
+`ToolCall.to_dict()` again serializes `invalid_args_error`.
+
+Predicate checked:
+
+- `invalid_tool_arguments_use_existing_tool_invalid_input_path`: GREEN for
+  detached commit `068cdc8`. Expected: invalid OpenAI argument marker remains
+  runtime/internal and does not leak into `llm.responded.tool_calls`. Actual:
+  `ToolCall.to_dict()` returns only `id`, `name`, and `args`; targeted parity
+  tests pass.
+- `current_main_does_not_reintroduce_invalid_args_error_serialization`: RED.
+  Expected: current main keeps `invalid_args_error` out of serialized tool
+  calls. Actual: current inner `main` HEAD `c28c3c06` serializes
+  `invalid_args_error` when present.
+
+Literal command output:
+
+~~~text
+$ cd activegraph && git status --short && git rev-parse HEAD && git show --name-only --oneline --stat 068cdc8
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+c28c3c06cd6853d04267805cf9f2c5f911d52d0a
+068cdc8 Internalize invalid OpenAI argument marker
+activegraph/llm/types.py
+tests/test_provider_tool_parity.py
+
+$ cd activegraph && git show 068cdc8 -- activegraph/llm/types.py tests/test_provider_tool_parity.py | sed -n '1,260p'
+commit 068cdc8e696049c37c78531dc82394d224d1520f
+Author: gagan114662 <gagan@designgaga.ca>
+Date:   Fri May 22 18:06:51 2026 -0400
+
+    Internalize invalid OpenAI argument marker
+
+diff --git a/activegraph/llm/types.py b/activegraph/llm/types.py
+index 371a03d..eba5685 100644
+--- a/activegraph/llm/types.py
++++ b/activegraph/llm/types.py
+@@ -88,10 +88,7 @@ class ToolCall:
+     invalid_args_error: Optional[str] = None
+ 
+     def to_dict(self) -> dict[str, Any]:
+-        out = {"id": self.id, "name": self.name, "args": dict(self.args)}
+-        if self.invalid_args_error is not None:
+-            out["invalid_args_error"] = self.invalid_args_error
+-        return out
++        return {"id": self.id, "name": self.name, "args": dict(self.args)}
+ 
+ 
+ @dataclass
+diff --git a/tests/test_provider_tool_parity.py b/tests/test_provider_tool_parity.py
+index 6afaa9b..028f93f 100644
+--- a/tests/test_provider_tool_parity.py
++++ b/tests/test_provider_tool_parity.py
+@@ -452,6 +452,10 @@ def test_openai_tool_arguments_must_decode_to_object() -> None:
+             "behavior.failed",
+         ]
+         assert _terminal_reason(result.graph) == "tool.invalid_input"
++        llm_responded = [
++            e for e in result.graph.events if e.type == "llm.responded"
++        ][0]
++        assert "invalid_args_error" not in llm_responded.payload["tool_calls"][0]
+         assert not [
+             e for e in result.graph.events
+             if e.type == "object.created"
+@@ -472,6 +476,10 @@ def test_openai_invalid_tool_arguments_rejected_for_zero_field_schema() -> None:
+             "behavior.failed",
+         ]
+         assert _terminal_reason(result.graph) == "tool.invalid_input"
++        llm_responded = [
++            e for e in result.graph.events if e.type == "llm.responded"
++        ][0]
++        assert "invalid_args_error" not in llm_responded.payload["tool_calls"][0]
+         assert [
+             e.payload.get("error", {}).get("reason")
+             for e in result.graph.events
+
+$ cd .review-worktrees/068cdc8 && git status --short && git rev-parse HEAD && git show --name-only --oneline -1 && sed -n '70,125p' activegraph/llm/types.py
+068cdc8e696049c37c78531dc82394d224d1520f
+068cdc8 Internalize invalid OpenAI argument marker
+activegraph/llm/types.py
+tests/test_provider_tool_parity.py
+            out["tool_calls"] = [tc.to_dict() for tc in self.tool_calls]
+        return out
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    """A single tool-call request returned inside `LLMResponse.tool_calls`.
+
+    `id` is the provider-assigned identifier the assistant uses to
+    match up its tool_use block with the following tool result; the
+    runtime forwards it back as `LLMMessage.tool_use_id`. `name`
+    matches the tool's `@tool(name=...)`. `args` is the JSON-shaped
+    argument payload.
+    """
+
+    id: str
+    name: str
+    args: dict[str, Any]
+    invalid_args_error: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"id": self.id, "name": self.name, "args": dict(self.args)}
+
+
+@dataclass
+class LLMResponse:
+    raw_text: str
+    parsed: Optional[Any]
+    input_tokens: int
+    output_tokens: int
+    cost_usd: Decimal
+    latency_seconds: float
+    model: str
+    finish_reason: str
+    seed: Optional[int] = None
+    cache_hit: bool = False
+    provider_meta: dict[str, Any] = field(default_factory=dict)
+    # v0.7: when finish_reason indicates the model wants to call tools,
+    # `tool_calls` is non-empty and the runtime enters the turn loop
+    # instead of handing `parsed` to the handler.
+    tool_calls: Optional[list[ToolCall]] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "raw_text": self.raw_text,
+            "parsed": _parsed_to_jsonable(self.parsed),
+            "input_tokens": int(self.input_tokens),
+            "output_tokens": int(self.output_tokens),
+            "cost_usd": str(self.cost_usd),
+            "latency_seconds": float(self.latency_seconds),
+            "model": self.model,
+            "finish_reason": self.finish_reason,
+            "seed": self.seed,
+            "cache_hit": bool(self.cache_hit),
+            "provider_meta": dict(self.provider_meta),
+            "tool_calls": (
+
+$ cd .review-worktrees/068cdc8 && ../../venv/bin/pytest tests/test_provider_tool_parity.py -q
+.......                                                                  [100%]
+7 passed in 0.02s
+
+$ cd activegraph && git status --short && git rev-parse HEAD && sed -n '80,105p' activegraph/llm/types.py && rg -n "invalid_args_error" tests/test_provider_tool_parity.py activegraph/llm/types.py
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+c28c3c06cd6853d04267805cf9f2c5f911d52d0a
+    runtime forwards it back as `LLMMessage.tool_use_id`. `name`
+    matches the tool's `@tool(name=...)`. `args` is the JSON-shaped
+    argument payload.
+    """
+
+    id: str
+    name: str
+    args: dict[str, Any]
+    invalid_args_error: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        d = {"id": self.id, "name": self.name, "args": dict(self.args)}
+        if self.invalid_args_error is not None:
+            d["invalid_args_error"] = self.invalid_args_error
+        return d
+
+
+@dataclass
+class LLMResponse:
+    raw_text: str
+    parsed: Optional[Any]
+    input_tokens: int
+    output_tokens: int
+    cost_usd: Decimal
+    latency_seconds: float
+    model: str
+activegraph/llm/types.py:88:    invalid_args_error: Optional[str] = None
+activegraph/llm/types.py:92:        if self.invalid_args_error is not None:
+activegraph/llm/types.py:93:            d["invalid_args_error"] = self.invalid_args_error
+tests/test_provider_tool_parity.py:458:        assert llm_responded.payload["tool_calls"][0]["invalid_args_error"]
+tests/test_provider_tool_parity.py:482:        assert llm_responded.payload["tool_calls"][0]["invalid_args_error"]
+tests/test_provider_tool_parity.py:510:                invalid_args_error="OpenAI tool arguments must decode to a JSON object.",
+tests/test_provider_tool_parity.py:517:        tool_call["invalid_args_error"]
+tests/test_provider_tool_parity.py:533:        cached.tool_calls[0].invalid_args_error
+tests/test_provider_tool_parity.py:558:                    "invalid_args_error": (
+tests/test_provider_tool_parity.py:569:        response.tool_calls[0].invalid_args_error
+~~~
+
+## 2026-05-23 heartbeat current-head check: inner d691afc
+
+Decision: `goal.incomplete`. Current inner `main` is `d691afc`, and the
+working tree is dirty. A focused T4 gate now has a real failing predicate:
+`test_invalid_tool_argument_marker_survives_fork_replay_cache` calls the LLM
+on fork replay instead of using the cache.
+
+Predicate updates:
+
+- `invalid_tool_arguments_use_existing_tool_invalid_input_path`: still not closable on current tree. Focused current-head tests fail.
+- `mypy_strict_passes_full_allowlist`: GREEN.
+- `ring0_not_missing_pct_equals_100`: GREEN.
+- `ring1_not_missing_pct_ge_80`: GREEN.
+- `no_changes_outside_permissions`: RED. Current T4 range and dirty tree include files outside the frame permission list, including `README.md` and `docs/reference/llm-providers.md`.
+
+Literal command output:
+
+~~~text
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py
+...............F..................                                       [100%]
+=================================== FAILURES ===================================
+_________ test_invalid_tool_argument_marker_survives_fork_replay_cache _________
+
+    def test_invalid_tool_argument_marker_survives_fork_replay_cache() -> None:
+        clear_registry()
+        clear_tool_registry()
+        invoked: list[str] = []
+    
+        @tool(
+            name="ping",
+            description="No-argument ping.",
+            input_schema=_EmptyArgs,
+            output_schema=_PingResult,
+            deterministic=True,
+        )
+        def ping(args: _EmptyArgs, ctx: Any) -> _PingResult:
+            invoked.append("parent")
+            return _PingResult(ok=True)
+    
+        @llm_behavior(
+            name="answer_with_ping",
+            on=["goal.created"],
+            description="Answer with a no-argument tool call.",
+            output_schema=_Answer,
+            tools=[ping],
+            max_tool_turns=2,
+            temperature=0.0,
+        )
+        def answer_with_ping(event: Any, graph: Any, ctx: Any, out: _Answer) -> None:
+            graph.add_object("answer", {"answer": out.answer})
+    
+        first = SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content=None,
+                        tool_calls=[
+                            SimpleNamespace(
+                                id="call_1",
+                                type="function",
+                                function=SimpleNamespace(
+                                    name="ping",
+                                    arguments="{",
+                                ),
+                            )
+                        ],
+                    ),
+                    finish_reason="tool_calls",
+                )
+            ],
+            usage=SimpleNamespace(prompt_tokens=5, completion_tokens=2),
+            model="gpt-4o-mini",
+        )
+        client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(calls=[], _responses=[first]))
+        )
+    
+        def create(**kwargs: Any) -> SimpleNamespace:
+            client.chat.completions.calls.append(kwargs)
+            return client.chat.completions._responses.pop(0)
+    
+        client.chat.completions.create = create
+        db = tempfile.mktemp(suffix=".db")
+        try:
+            graph = _fresh_graph()
+            rt = Runtime(
+                graph,
+                llm_provider=OpenAIProvider(client=client),
+                budget={"max_tool_calls": 4},
+                persist_to=db,
+            )
+            rt.run_goal("g")
+    
+            assert _terminal_reason(graph) == "tool.invalid_input"
+            assert invoked == []
+            llm_responded = next(e for e in graph.events if e.type == "llm.responded")
+            assert "invalid_args_error" not in llm_responded.payload["tool_calls"][0]
+    
+            fork_client = SimpleNamespace(
+                chat=SimpleNamespace(
+                    completions=SimpleNamespace(calls=[], _responses=[])
+                )
+            )
+    
+            def fork_create(**kwargs: Any) -> SimpleNamespace:
+                fork_client.chat.completions.calls.append(kwargs)
+                raise AssertionError("fork replay should use the LLM cache")
+    
+            fork_client.chat.completions.create = fork_create
+            goal_event = next(e for e in graph.events if e.type == "goal.created")
+            fork = rt.fork(
+                at_event=goal_event.id,
+                label="invalid-args-cache",
+                replay_llm_cache=True,
+                llm_provider=OpenAIProvider(client=fork_client),
+            )
+            fork.run_until_idle()
+    
+>           assert fork_client.chat.completions.calls == []
+E           assert [{'max_tokens...e': 0.0, ...}] == []
+E             
+E             Left contains one more item: {'max_tokens': 4096, 'messages': [{'content': 'You are an active-graph behavior named "answer_with_ping".\n\nRole: Ans...'content': '{"ok": true}', 'role': 'tool', 'tool_call_id': 'call_1'}], 'model': 'gpt-4o-mini', 'temperature': 0.0, ...}
+E             Use -v to get more diff
+
+tests/test_provider_tool_parity.py:668: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  activegraph.runtime:runtime.py:1610 behavior failed: answer_with_ping (reason=tool.invalid_input)
+WARNING  activegraph.runtime:runtime.py:1610 behavior failed: answer_with_ping (reason=llm.network_error)
+=========================== short test summary info ============================
+FAILED tests/test_provider_tool_parity.py::test_invalid_tool_argument_marker_survives_fork_replay_cache
+1 failed, 33 passed in 0.59s
+
+$ cd activegraph && ../venv/bin/mypy
+Success: no issues found in 23 source files
+
+$ cd activegraph && ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+$ cd activegraph && git diff --name-only ccd4f45..HEAD && echo '---dirty---' && git diff --name-only
+activegraph/llm/cache.py
+activegraph/llm/openai.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+---dirty---
+CHANGELOG.md
+CONTRACT.md
+README.md
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+tests/test_provider_tool_parity.py
+~~~
