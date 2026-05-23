@@ -16,6 +16,8 @@ const BRIDGE_RESILIENCE_LOG = "frames/t5f-bridge-loop-resilience-2026-05-23.log"
 const CURRENT_BRIDGE_HEALTH_LOG = "frames/t5g-current-bridge-health-2026-05-23.log";
 const REPO_ISOLATION_AUDIT = "frames/t5h-repo-isolation-audit-2026-05-23.md";
 const REPEATABLE_NATIVE_PROBE_LOG = "frames/t5i-repeatable-native-poller-probe-2026-05-23.log";
+const CURRENT_BRIDGE_FILE_TASK_LOG = "frames/t5j-current-bridge-file-task-2026-05-23.log";
+const CURRENT_BRIDGE_FILE_TASK_PROOF = "frames/t5j-current-bridge-easy-20260523T1330Z.proof";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -31,6 +33,8 @@ const CRITICAL_PROOF_FILES = [
   CURRENT_BRIDGE_HEALTH_LOG,
   REPO_ISOLATION_AUDIT,
   REPEATABLE_NATIVE_PROBE_LOG,
+  CURRENT_BRIDGE_FILE_TASK_LOG,
+  CURRENT_BRIDGE_FILE_TASK_PROOF,
   "scripts/pentagon-trigger-bridge.mjs",
   "scripts/probe-native-poller.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
@@ -349,6 +353,30 @@ async function main() {
     requireText("repeatable native poller probe log", repeatableNativeProbeLog, "final_claimed_at: null");
     requireText("repeatable native poller probe log", repeatableNativeProbeLog, "ack_count: 0");
     requireText("repeatable native poller probe log", repeatableNativeProbeLog, "Native Pentagon handoff activation remains red.");
+  }
+
+  const currentBridgeFileTaskLog = repoFile(CURRENT_BRIDGE_FILE_TASK_LOG);
+  must("current bridge file task log exists", currentBridgeFileTaskLog, CURRENT_BRIDGE_FILE_TASK_LOG);
+  if (currentBridgeFileTaskLog) {
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "T5J_CURRENT_BRIDGE_EASY_20260523T1330Z");
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "a4bbc28c-0866-4ad2-ac66-4f5fdf93104f");
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "960401d6-ff68-4f7a-a191-3dead03302be");
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "0dcd25a9-8def-4a6f-8927-5070c137837f");
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "ae32695d-64df-4e00-bbb7-7371549e6213");
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "c55bfbf9-9e9f-4ce5-bad1-29bee92038da");
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "group conversation");
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "explicit bridge processing");
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "not native Pentagon autonomy evidence");
+    requireText("current bridge file task log", currentBridgeFileTaskLog, "Native Pentagon activation remains red.");
+  }
+
+  const currentBridgeFileTaskProof = repoFile(CURRENT_BRIDGE_FILE_TASK_PROOF);
+  must("current bridge file task proof exists", currentBridgeFileTaskProof, CURRENT_BRIDGE_FILE_TASK_PROOF);
+  if (currentBridgeFileTaskProof) {
+    requireText("current bridge file task proof", currentBridgeFileTaskProof, "hash: T5J_CURRENT_BRIDGE_EASY_20260523T1330Z");
+    requireText("current bridge file task proof", currentBridgeFileTaskProof, "agent: Maya (Code Owner)");
+    requireText("current bridge file task proof", currentBridgeFileTaskProof, "task_class: easy");
+    requireText("current bridge file task proof", currentBridgeFileTaskProof, "evidence: current bridge-backed Pentagon target turn created this file");
   }
 
   if (requireNative) {

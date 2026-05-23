@@ -1,0 +1,86 @@
+# T5J Current Bridge File Task Evidence
+
+Date: 2026-05-23
+Hash: T5J_CURRENT_BRIDGE_EASY_20260523T1330Z
+Task class: easy
+Repo: /Users/gaganarora/Desktop/my projects/active_graph
+
+## Predicate
+
+Pentagon can still execute a current repo-specific easy file task through the bridge path and leave auditable file evidence in the repo.
+
+This is not native Pentagon autonomy evidence. The handoff went through a group conversation and required explicit bridge processing for Maya's trigger after the initial watch did not observe a clean daemon-only pickup.
+
+## Dispatch
+
+Conversation: 06c47896-db6b-4107-91f1-6f6441f9ece0
+Message: a4bbc28c-0866-4ad2-ac66-4f5fdf93104f
+Instruction summary: Maya was asked to create frames/t5j-current-bridge-easy-20260523T1330Z.proof with the exact hash, agent, task_class, and evidence lines, then reply with the ACK.
+
+## Group Conversation Routing
+
+The selected conversation was a group conversation, so one dispatch created multiple recipient triggers:
+
+- Parker trigger: ae32695d-64df-4e00-bbb7-7371549e6213
+- Sam trigger: 271c6c7e-89f8-4f03-aa95-f2ac12461dd8
+- Sofia trigger: 5cd7045b-ffdb-4ef2-a974-6a38ed51fc98
+- Maya trigger: 960401d6-ff68-4f7a-a191-3dead03302be
+
+This routing is evidence of bridge-backed target execution, but it is not clean directed DM activation evidence.
+
+## Maya Bridge Processing
+
+Command:
+
+node scripts/pentagon-trigger-bridge.mjs --trigger-id 960401d6-ff68-4f7a-a191-3dead03302be --codex-timeout-ms 180000
+
+Observed result:
+
+manual_bridge_exit=0
+status=ok
+processed=1
+result0.status=completed
+persisted_message=0dcd25a9-8def-4a6f-8927-5070c137837f
+completed_at=2026-05-23T13:31:12.945175+00:00
+stderr_tail=""
+
+ACK:
+
+MAYA_BRIDGE_FILE_ACK T5J_CURRENT_BRIDGE_EASY_20260523T1330Z artifact=frames/t5j-current-bridge-easy-20260523T1330Z.proof
+
+Proof file:
+
+frames/t5j-current-bridge-easy-20260523T1330Z.proof
+
+Proof contents:
+
+hash: T5J_CURRENT_BRIDGE_EASY_20260523T1330Z
+agent: Maya (Code Owner)
+task_class: easy
+evidence: current bridge-backed Pentagon target turn created this file
+
+## Leftover Trigger Cleanup
+
+The group-route Parker trigger was explicitly processed to avoid leaving a stale unclaimed trigger from this dispatch.
+
+Command:
+
+node scripts/pentagon-trigger-bridge.mjs --trigger-id ae32695d-64df-4e00-bbb7-7371549e6213 --codex-timeout-ms 180000
+
+Observed result:
+
+exit=0
+status=ok
+processed=1
+result0.status=completed
+persisted_message=c55bfbf9-9e9f-4ce5-bad1-29bee92038da
+completed_at=2026-05-23T13:33:09.910242+00:00
+stderr_tail=""
+
+The cleanup turn wrote the same proof contents and returned the same ACK string.
+
+## Verdict
+
+Current bridge-backed repo file work is green for this easy task.
+
+Native Pentagon activation remains red. This T5J evidence does not close the native poller blocker and should not be counted as full autonomous Pentagon completion.
