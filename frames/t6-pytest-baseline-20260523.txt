@@ -1,0 +1,3 @@
+FAILED tests/test_errors_format.py::test_pack_schema_violation_for_object_snapshot
+FAILED tests/test_wheel_completeness.py::test_wheel_installs_and_quickstart_runs
+2 failed, 696 passed, 16 skipped in 18.02s

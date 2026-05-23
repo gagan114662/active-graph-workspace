@@ -1,0 +1,3 @@
+
+Found 97 errors.
+[*] 51 fixable with the `--fix` option (6 hidden fixes can be enabled with the `--unsafe-fixes` option).
