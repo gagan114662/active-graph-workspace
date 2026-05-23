@@ -220,9 +220,9 @@ function pathExistsAtHead(relativePath) {
 }
 
 function innerRepoPath(relativePath) {
-  return relativePath?.startsWith("activegraph/activegraph/")
-    ? relativePath.slice("activegraph/".length)
-    : relativePath;
+  if (relativePath?.startsWith("activegraph/activegraph/")) return relativePath.slice("activegraph/".length);
+  if (relativePath?.startsWith("activegraph/tests/")) return relativePath.slice("activegraph/".length);
+  return relativePath;
 }
 
 function gitShowForTarget(commitSha, relativePath) {
@@ -270,6 +270,72 @@ function verifyAgentCommitTouchesTarget(proof) {
       has_docstring_or_annotation_add: hasDocstringOrAnnotationAdd,
     }),
   };
+}
+
+function verifyAgentCommitAddsTests(proof) {
+  const commitSha = proof.agent_commit_sha;
+  const testFile = proof.test_file;
+  const newTestCount = parseInteger(proof.new_test_count);
+  if (!commitSha) return { ok: false, detail: "missing agent_commit_sha" };
+  const shown = gitShowForTarget(commitSha, testFile);
+  if (!shown.ok) return { ok: false, detail: shown.error };
+  const changedFiles = shown.nameOnly.split(/\r?\n/).filter(Boolean);
+  const touchesTestFile = changedFiles.includes(testFile) || changedFiles.includes(shown.pathForCompare);
+  const addedTestDefs = (shown.diff.match(/^\+\s*def\s+test_/gm) ?? []).length;
+  return {
+    ok: touchesTestFile && newTestCount !== null && addedTestDefs >= newTestCount,
+    detail: JSON.stringify({
+      commit: commitSha,
+      test_file: testFile,
+      path_checked: shown.pathForCompare,
+      touches_test_file: touchesTestFile,
+      added_test_defs: addedTestDefs,
+      new_test_count: newTestCount,
+    }),
+  };
+}
+
+function innerPathExistsAtHead(relativePath) {
+  const innerPath = innerRepoPath(relativePath);
+  if (!innerPath) return false;
+  const res = spawnSync("git", ["cat-file", "-e", "HEAD:" + innerPath], {
+    cwd: ROOT + "/activegraph",
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+  });
+  return res.status === 0;
+}
+
+function collectCountFromOutput(output) {
+  const text = String(output ?? "");
+  const slashMatch = text.match(/(\d+)\/\d+ tests collected/);
+  if (slashMatch) return Number(slashMatch[1]);
+  const collectedItems = text.match(/collected (\d+) items/);
+  if (collectedItems) return Number(collectedItems[1]);
+  const testsCollected = text.match(/(\d+) tests collected/);
+  if (testsCollected) return Number(testsCollected[1]);
+  if (text.includes("no tests collected")) return 0;
+  return null;
+}
+
+function pytestCollectCountForSymbol(symbol) {
+  const res = spawnSync("uv", ["run", "pytest", "--collect-only", "-q", "-k", String(symbol ?? "")], {
+    cwd: ROOT + "/activegraph",
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  const output = (res.stdout ?? "") + (res.stderr ?? "");
+  return { status: res.status, count: collectCountFromOutput(output), output: output.trim().split(/\r?\n/).slice(-6).join("\n") };
+}
+
+function ruffCheckInnerPath(relativePath) {
+  const innerPath = innerRepoPath(relativePath);
+  const res = spawnSync("uv", ["run", "ruff", "check", innerPath], {
+    cwd: ROOT + "/activegraph",
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  return { status: res.status, output: ((res.stdout ?? "") + (res.stderr ?? "")).trim() };
 }
 
 function pythonAstInspect(relativePath, symbol) {
@@ -482,10 +548,11 @@ async function verifyLiveRows() {
 function proofAckPaths(proofFile) {
   const paths = [proofFile];
   if (proofFile.startsWith("activegraph/")) paths.push(proofFile.slice("activegraph/".length));
+  if (proofFile.startsWith("frames/")) paths.push("activegraph/" + proofFile);
   return [...new Set(paths)];
 }
 
-async function verifyT6EasyAck(proofFile) {
+async function verifyT6Ack(proofFile, hash) {
   const state = readPentagonSession();
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const mayaRows = await supabase(
@@ -499,7 +566,7 @@ async function verifyT6EasyAck(proofFile) {
     state,
     "/rest/v1/messages?sender_id=eq." + maya.id + "&created_at=gte." + encodeURIComponent(since) + "&select=id,content,created_at,sender_id&order=created_at.desc&limit=200"
   );
-  const ackPrefix = "MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_EASY_20260523";
+  const ackPrefix = "MAYA_NATIVE_GAUNTLET_ACK " + hash;
   const matching = rows.filter((row) => String(row.content ?? "").includes(ackPrefix));
   const acceptedPaths = proofAckPaths(proofFile);
   const pathMatches = matching.filter((row) => acceptedPaths.some((path) => String(row.content ?? "").includes(path)));
@@ -514,14 +581,14 @@ async function verifyT6EasyAck(proofFile) {
   };
 }
 
-async function t6EasyRuntimeEventCount() {
+async function t6RuntimeEventCount(hash) {
   const state = readPentagonSession();
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const rows = await supabase(
     state,
     "/rest/v1/agent_runtime_events?select=*&created_at=gte." + encodeURIComponent(since) + "&limit=1000"
   );
-  return rows.filter((row) => JSON.stringify(row).includes("T6_NATIVE_EASY_20260523")).length;
+  return rows.filter((row) => JSON.stringify(row).includes(hash)).length;
 }
 
 async function runT6EasyVerifier() {
@@ -572,7 +639,7 @@ async function runT6EasyVerifier() {
     record(true, "T6 easy messages table has Maya ACK referencing proof", "skipped by --no-db");
   } else {
     try {
-      const eventCheck = await verifyT6EasyAck(proofFile);
+      const eventCheck = await verifyT6Ack(proofFile, "T6_NATIVE_EASY_20260523");
       must("T6 easy messages table has Maya ACK referencing proof", eventCheck.ok, eventCheck.detail);
     } catch (error) {
       must("T6 easy messages table has Maya ACK referencing proof", false, error.message);
@@ -585,7 +652,7 @@ async function runT6EasyVerifier() {
   }
   if (!noDb) {
     try {
-      const runtimeEventCount = await t6EasyRuntimeEventCount();
+      const runtimeEventCount = await t6RuntimeEventCount("T6_NATIVE_EASY_20260523");
       console.log("WARN T6 easy agent_runtime_events runtime event missing :: " + runtimeEventCount + " rows");
     } catch (error) {
       console.log("WARN T6 easy agent_runtime_events runtime event missing :: query failed: " + error.message);
@@ -594,6 +661,85 @@ async function runT6EasyVerifier() {
   console.log("");
   console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
   console.log("verdict: " + (failed.length ? "failed" : "t6_easy_verified"));
+  const exitCode = failed.length > 0 ? 1 : 0;
+  process.exit(exitCode);
+}
+
+async function runT6MediumVerifier() {
+  const noDb = process.argv.includes("--no-db");
+  const proofFile = arg("--proof-file", "frames/t6-native-gauntlet-medium-20260523.proof");
+  const proofText = repoFile(proofFile);
+  const parsed = proofText ? parseKeyValueProof(proofText) : { ok: false, error: "missing proof", proof: {} };
+  const proof = parsed.proof;
+
+  must("T6 medium proof file exists and parses as key=value lines", Boolean(proofText) && parsed.ok, parsed.error || proofFile);
+  must("T6 medium hash field matches", proof.hash === "T6_NATIVE_MEDIUM_20260523", proof.hash ?? "<missing>");
+  must("T6 medium verdict field matches", proof.verdict === "native_medium_done", proof.verdict ?? "<missing>");
+  must("T6 medium test_file exists at HEAD in inner repo", innerPathExistsAtHead(proof.test_file), proof.test_file ?? "<missing>");
+  must("T6 medium test_file is inside activegraph/tests/", String(proof.test_file ?? "").startsWith("activegraph/tests/"), proof.test_file ?? "<missing>");
+
+  const newTestCount = parseInteger(proof.new_test_count);
+  must("T6 medium new_test_count is integer >= 2", newTestCount !== null && newTestCount >= 2, proof.new_test_count ?? "<missing>");
+
+  const commitCheck = verifyAgentCommitAddsTests(proof);
+  must("T6 medium agent committed test_file with new tests", commitCheck.ok, commitCheck.detail);
+
+  const collectBefore = parseInteger(proof.pytest_collect_before);
+  const collectAfter = parseInteger(proof.pytest_collect_after);
+  must(
+    "T6 medium pytest_collect_after - before equals new_test_count",
+    collectBefore !== null && collectAfter !== null && newTestCount !== null && collectAfter - collectBefore === newTestCount,
+    "before=" + String(proof.pytest_collect_before) + " after=" + String(proof.pytest_collect_after) + " new_test_count=" + String(proof.new_test_count)
+  );
+
+  const pytestBefore = parseInteger(proof.pytest_before);
+  const pytestAfter = parseInteger(proof.pytest_after);
+  must(
+    "T6 medium pytest_after did not regress",
+    pytestBefore !== null && pytestAfter !== null && pytestAfter >= pytestBefore,
+    "before=" + String(proof.pytest_before) + " after=" + String(proof.pytest_after)
+  );
+
+  const collectCheck = pytestCollectCountForSymbol(proof.uncovered_symbol);
+  must(
+    "T6 medium re-run collect for uncovered_symbol returns >= 2",
+    collectCheck.status === 0 && collectCheck.count !== null && collectCheck.count >= 2,
+    JSON.stringify({ uncovered_symbol: proof.uncovered_symbol, status: collectCheck.status, count: collectCheck.count, output: collectCheck.output })
+  );
+
+  const ruffCheck = ruffCheckInnerPath(proof.test_file);
+  must(
+    "T6 medium re-run ruff check on test_file exits 0",
+    ruffCheck.status === 0,
+    JSON.stringify({ test_file: proof.test_file, status: ruffCheck.status, output: ruffCheck.output })
+  );
+
+  if (noDb) {
+    record(true, "T6 medium messages table has Maya ACK referencing proof", "skipped by --no-db");
+  } else {
+    try {
+      const eventCheck = await verifyT6Ack(proofFile, "T6_NATIVE_MEDIUM_20260523");
+      must("T6 medium messages table has Maya ACK referencing proof", eventCheck.ok, eventCheck.detail);
+    } catch (error) {
+      must("T6 medium messages table has Maya ACK referencing proof", false, error.message);
+    }
+  }
+
+  const failed = checks.filter((check) => !check.ok);
+  for (const check of checks) {
+    console.log((check.ok ? "PASS " : "FAIL ") + check.name + (check.detail ? " :: " + check.detail : ""));
+  }
+  if (!noDb) {
+    try {
+      const runtimeEventCount = await t6RuntimeEventCount("T6_NATIVE_MEDIUM_20260523");
+      console.log("WARN T6 medium agent_runtime_events runtime event missing :: " + runtimeEventCount + " rows");
+    } catch (error) {
+      console.log("WARN T6 medium agent_runtime_events runtime event missing :: query failed: " + error.message);
+    }
+  }
+  console.log("");
+  console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
+  console.log("verdict: " + (failed.length ? "failed" : "t6_medium_verified"));
   const exitCode = failed.length > 0 ? 1 : 0;
   process.exit(exitCode);
 }
@@ -664,8 +810,16 @@ async function main() {
   }
   if (process.argv.includes("--t6")) {
     const tier = arg("--tier");
-    if (tier !== "easy") {
-      record(false, "T6 tier is supported", "--tier must be easy");
+    if (tier === "easy") {
+      await runT6EasyVerifier();
+      return;
+    }
+    if (tier === "medium") {
+      await runT6MediumVerifier();
+      return;
+    }
+    {
+      record(false, "T6 tier is supported", "--tier must be easy or medium");
       const failed = checks.filter((check) => !check.ok);
       for (const check of checks) console.log((check.ok ? "PASS " : "FAIL ") + check.name + (check.detail ? " :: " + check.detail : ""));
       console.log("");
@@ -674,8 +828,6 @@ async function main() {
       process.exitCode = 1;
       return;
     }
-    await runT6EasyVerifier();
-    return;
   }
 
   const gitStatus = command("git", ["status", "--short", "--branch"]);

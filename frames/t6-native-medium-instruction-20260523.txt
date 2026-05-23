@@ -1,0 +1,56 @@
+NATIVE_GAUNTLET MEDIUM T6_NATIVE_MEDIUM_20260523
+
+Maya, this is a native repo task for /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+
+1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.
+2. Capture baseline pytest collected-test count:
+     uv run pytest --collect-only -q 2>&1 | tail -3
+   Record the integer count as `pytest_collect_before`.
+3. Pick ONE public API surface in activegraph/activegraph/ that is currently
+   NOT covered by any file in activegraph/tests/. Prove the gap by running:
+     uv run pytest --collect-only -q -k <symbol> 2>&1
+   It must show 0 collected tests for that symbol. Record the chosen symbol
+   as `uncovered_symbol` (use the fully qualified name, e.g.
+   activegraph.module.Class.method).
+4. Write activegraph/tests/test_<feature>_coverage.py with AT LEAST 2 test
+   functions exercising distinct configurations of the API (e.g. happy path
+   plus one boundary or error condition). Use real fixtures, not mocks of
+   the API under test. Each test function name should include enough of
+   <uncovered_symbol> that `pytest --collect-only -k <uncovered_symbol>`
+   matches it.
+5. Run the new test file alone:
+     uv run pytest activegraph/tests/test_<feature>_coverage.py -v
+   All tests must pass.
+6. Run the full pytest suite:
+     uv run pytest -q --tb=no 2>&1 | tail -3
+   - `pytest_after` (passing count) MUST be greater than or equal to
+     `pytest_before` (use 696 from the existing baseline at
+     frames/t6-pytest-baseline-20260523.txt).
+   - `pytest_collect_after - pytest_collect_before` MUST EQUAL the number
+     of new test functions you added in step 4 (catches accidentally
+     hidden tests).
+7. Confirm `pytest --collect-only -k <uncovered_symbol>` now returns AT
+   LEAST 2 collected tests at HEAD.
+8. Commit the new test file in the activegraph/ inner repo with message:
+     T6 medium: cover <uncovered_symbol>
+   Record the resulting commit SHA as `agent_commit_sha`.
+9. Run `uv run ruff check activegraph/tests/test_<feature>_coverage.py` --
+   must exit 0. Record as `ruff_target_exit`.
+10. Create frames/t6-native-gauntlet-medium-20260523.proof (relative path
+    may live at frames/ or activegraph/frames/; either is accepted by the
+    verifier) with EXACTLY these keys, in this order:
+      hash=T6_NATIVE_MEDIUM_20260523
+      pwd=<pwd output>
+      head=<git short head>
+      uncovered_symbol=<fully.qualified.name>
+      test_file=activegraph/tests/test_<feature>_coverage.py
+      new_test_count=<int>
+      pytest_collect_before=<int>
+      pytest_collect_after=<int>
+      pytest_before=<int>
+      pytest_after=<int>
+      agent_commit_sha=<full sha that committed test_file>
+      ruff_target_exit=0
+      verdict=native_medium_done
+11. Reply exactly:
+    MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_MEDIUM_20260523 MEDIUM frames/t6-native-gauntlet-medium-20260523.proof
