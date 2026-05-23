@@ -1,0 +1,86 @@
+NATIVE_GAUNTLET HARD T6_NATIVE_HARD_20260523
+
+Maya, this is a native repo task for /Users/gaganarora/Desktop/my projects/active_graph/activegraph. This tier requires real bug discovery and a two-commit fail-then-fix workflow. Quinn (Test Adversary) will independently verify your work in a separate trigger after you ACK.
+
+1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.
+
+2. Find a REAL bug. Acceptable sources, in priority order:
+     (a) A function in activegraph/activegraph/ whose docstring promises
+         behavior the code does not deliver.
+     (b) A README/mkdocs example that does not execute cleanly verbatim.
+     (c) A TODO / FIXME / XXX comment in activegraph/activegraph/ that names
+         a concrete defect (not an aspirational wish).
+     (d) An xfail / skip marker in activegraph/tests/ whose reason string
+         contains "bug" or "TODO".
+   Record the source as `bug_source`. Format:
+     (a) -> "docstring:<relative_path>:<line>"
+     (b) -> "docs:<relative_path>"
+     (c) -> "comment:<relative_path>:<line>"
+     (d) -> "marker:<relative_path>:<line>"
+   Record a one-line `bug_summary`.
+
+3. Capture baseline:
+     uv run pytest -q --tb=no 2>&1 | tail -3
+   Record passing count as `pytest_before`.
+
+4. Write a FAILING test FIRST. File path:
+     activegraph/tests/test_<bug_handle>_regression.py
+   The test file MUST begin with a module docstring that contains:
+     - Where you found the bug (file:line or doc path)
+     - What correct behavior should look like
+     - Why current behavior is wrong
+   Add AT LEAST 1 `def test_*` function that asserts the correct behavior.
+   Assertions must be concrete (not `assert True`); a single representative
+   assertion of expected output/state is fine.
+
+5. Run the new test alone:
+     uv run pytest activegraph/tests/test_<bug_handle>_regression.py -v
+   It MUST FAIL. Capture the failure summary line.
+
+6. Commit the failing test ALONE in the activegraph/ inner repo. Do NOT
+   include source-code changes in this commit. Commit message MUST start
+   with "Reproduce bug:".
+     git -C ../activegraph add tests/test_<bug_handle>_regression.py
+     git -C ../activegraph commit -m "Reproduce bug: <bug_summary>"
+   Record the resulting SHA as `failing_test_commit`.
+
+7. Fix the underlying code in activegraph/activegraph/ with the MINIMUM
+   diff that makes the test pass. Do NOT modify the test file in this step.
+
+8. Run the test again — it must now PASS.
+
+9. Run the full suite:
+     uv run pytest -q --tb=no 2>&1 | tail -3
+   `pytest_after` MUST be greater than or equal to `pytest_before`.
+
+10. Commit the fix ALONE. Do NOT include test-file changes. Commit message
+    MUST start with "Fix ".
+      git -C ../activegraph add activegraph/
+      git -C ../activegraph commit -m "Fix <bug_handle>: <bug_summary>"
+    Record the resulting SHA as `fix_commit`.
+
+11. Verify fix_commit is a descendant of failing_test_commit:
+      git -C ../activegraph merge-base --is-ancestor <failing_test_commit> <fix_commit>
+    Must exit 0.
+
+12. Create frames/t6-native-gauntlet-hard-20260523.proof (relative path
+    may live at frames/ or activegraph/frames/; either is accepted by the
+    verifier) with EXACTLY these keys, in this order:
+      hash=T6_NATIVE_HARD_20260523
+      pwd=<pwd output>
+      head=<git short head of inner repo>
+      bug_source=<formatted per step 2>
+      bug_summary=<one line>
+      failing_test_commit=<full SHA from step 6>
+      fix_commit=<full SHA from step 10>
+      test_file=activegraph/tests/test_<bug_handle>_regression.py
+      pytest_before=<int>
+      pytest_after=<int>
+      verdict=native_hard_done
+
+13. Reply exactly:
+    MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_HARD_20260523 HARD frames/t6-native-gauntlet-hard-20260523.proof
+
+After you ACK, the operator will trigger Quinn (Test Adversary) with the
+adversarial verification instruction. Do not wait for Quinn — your turn
+ends with the ACK.

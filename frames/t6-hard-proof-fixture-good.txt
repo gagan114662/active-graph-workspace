@@ -1,0 +1,11 @@
+hash=T6_NATIVE_HARD_20260523
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=99ec5eb
+bug_source=comment:activegraph/t6_hard_fixture_module.py:1
+bug_summary=fixture helper module was missing
+failing_test_commit=8b76432d2585d40b4d1a665934ac01f8b333bef7
+fix_commit=1e56ac950f883a2c58d2ed07994f5b28447d0cb4
+test_file=activegraph/tests/test_t6_hard_fixture_regression.py
+pytest_before=698
+pytest_after=699
+verdict=native_hard_done

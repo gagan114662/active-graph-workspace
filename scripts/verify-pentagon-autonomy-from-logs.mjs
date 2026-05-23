@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 
 const ROOT = "/Users/gaganarora/Desktop/my projects/active_graph";
 const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
@@ -352,6 +352,107 @@ function ruffCheckInnerPath(relativePath) {
   return { status: res.status, output: ((res.stdout ?? "") + (res.stderr ?? "")).trim() };
 }
 
+function innerGit(args, options = {}) {
+  return spawnSync("git", args, {
+    cwd: ROOT + "/activegraph",
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+    ...options,
+  });
+}
+
+function innerCommitExists(commitSha) {
+  if (!commitSha) return false;
+  return innerGit(["cat-file", "-e", commitSha + "^{commit}"]).status === 0;
+}
+
+function innerPathExistsAtCommit(commitSha, relativePath) {
+  if (!commitSha) return false;
+  return innerRepoPathCandidates(relativePath).some((innerPath) => innerGit(["cat-file", "-e", commitSha + ":" + innerPath]).status === 0);
+}
+
+function changedFilesForInnerCommit(commitSha) {
+  const res = innerGit(["show", "--name-only", "--format=", commitSha]);
+  if (res.status !== 0) return { ok: false, files: [], error: res.stderr || res.stdout };
+  return { ok: true, files: res.stdout.split(/\r?\n/).filter(Boolean), error: "" };
+}
+
+function commitTimestamp(commitSha) {
+  const res = innerGit(["show", "-s", "--format=%ct", commitSha]);
+  if (res.status !== 0) return null;
+  return parseInteger(res.stdout.trim());
+}
+
+function triggerTimestampFromLog(hash) {
+  const candidates = [
+    "frames/t6-native-hard-maya-run-20260523.log",
+    "frames/t6-native-hard-run-20260523.log",
+    "frames/t6-native-hard-quinn-run-20260523.log",
+  ];
+  for (const relativePath of candidates) {
+    const text = repoFile(relativePath);
+    if (!text || !text.includes(hash)) continue;
+    const match = text.match(/"created_at":\s*"([^"]+)"/);
+    if (!match) continue;
+    const millis = Date.parse(match[1]);
+    if (!Number.isNaN(millis)) return Math.floor(millis / 1000);
+  }
+  return null;
+}
+
+function bugSourceExists(bugSource, commitSha = "HEAD") {
+  const text = String(bugSource ?? "");
+  const match = text.match(/^(docstring|docs|comment|marker):(.+?)(?::(\d+))?$/);
+  if (!match) return { ok: false, detail: text || "<missing>" };
+  const [, kind, pathText, lineText] = match;
+  const candidates = innerRepoPathCandidates(pathText);
+  const existingPath = candidates.find((candidate) => innerGit(["cat-file", "-e", commitSha + ":" + candidate]).status === 0);
+  if (!existingPath) return { ok: false, detail: JSON.stringify({ kind, path: pathText, exists: false }) };
+  if (!lineText) return { ok: true, detail: JSON.stringify({ kind, path: existingPath, exists: true }) };
+  const show = innerGit(["show", commitSha + ":" + existingPath]);
+  if (show.status !== 0) return { ok: false, detail: show.stderr || show.stdout };
+  const line = parseInteger(lineText);
+  const lines = show.stdout.split(/\r?\n/);
+  const lineTextAtPath = line && line <= lines.length ? lines[line - 1] : "";
+  const markerOk = kind !== "comment" && kind !== "marker" ? true : /TODO|FIXME|XXX|bug|xfail|skip/i.test(lineTextAtPath);
+  return { ok: Boolean(line && line <= lines.length && markerOk), detail: JSON.stringify({ kind, path: existingPath, commit: commitSha, line, text: lineTextAtPath.trim() }) };
+}
+
+function hardSourceTestSplit(proof, commitSha, mode) {
+  const changed = changedFilesForInnerCommit(commitSha);
+  if (!changed.ok) return { ok: false, detail: changed.error };
+  const candidateTestPaths = innerRepoPathCandidates(proof.test_file);
+  const touchesTest = changed.files.some((path) => candidateTestPaths.includes(path));
+  const touchesSource = changed.files.some((path) => path.startsWith("activegraph/") && !path.startsWith("activegraph/tests/"));
+  const ok = mode === "test" ? touchesTest && !touchesSource : touchesSource && !touchesTest;
+  return { ok, detail: JSON.stringify({ commit: commitSha, files: changed.files, touches_test: touchesTest, touches_source: touchesSource }) };
+}
+
+function hardWorktreePytest(commitSha, testFile, suffix) {
+  const worktreePath = "/tmp/t6h-verify-" + suffix;
+  const list = innerGit(["worktree", "list"]);
+  if (list.stdout.includes(worktreePath) || existsSync(worktreePath)) {
+    innerGit(["worktree", "remove", worktreePath, "--force"]);
+    rmSync(worktreePath, { recursive: true, force: true });
+  }
+  let add = null;
+  let pytest = null;
+  try {
+    add = innerGit(["worktree", "add", worktreePath, commitSha]);
+    if (add.status !== 0) return { status: null, ok: false, output: add.stderr || add.stdout };
+    const testPath = innerRepoPathCandidates(testFile).find((candidate) => existsSync(worktreePath + "/" + candidate)) ?? innerRepoPath(testFile);
+    pytest = spawnSync("uv", ["run", "pytest", testPath, "--tb=no", "-q"], {
+      cwd: worktreePath,
+      encoding: "utf8",
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    return { status: pytest.status, ok: true, output: ((pytest.stdout ?? "") + (pytest.stderr ?? "")).trim().split(/\r?\n/).slice(-8).join("\n") };
+  } finally {
+    innerGit(["worktree", "remove", worktreePath, "--force"]);
+    rmSync(worktreePath, { recursive: true, force: true });
+  }
+}
+
 function pythonAstInspect(relativePath, symbol) {
   const target = resolveTargetFile(relativePath + ":1");
   const astPath = target.astPath ?? ROOT + "/" + relativePath;
@@ -595,6 +696,41 @@ async function verifyT6Ack(proofFile, hash) {
   };
 }
 
+async function verifyT6QuinnAck(proof) {
+  const state = readPentagonSession();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const quinnRows = await supabase(
+    state,
+    "/rest/v1/agents?directory=eq." + encodeURIComponent(ROOT) + "&name=eq." + encodeURIComponent("Quinn (Test Adversary)") + "&deleted_at=is.null&select=id,name&limit=1"
+  );
+  const quinn = quinnRows[0];
+  if (!quinn) return { ok: false, detail: "Quinn agent row not found" };
+  const rows = await supabase(
+    state,
+    "/rest/v1/messages?sender_id=eq." + quinn.id + "&created_at=gte." + encodeURIComponent(since) + "&select=id,content,created_at,sender_id&order=created_at.desc&limit=200"
+  );
+  const rejected = rows.filter((row) => String(row.content ?? "").includes("QUINN_REGRESSION_REJECTED T6_NATIVE_HARD_20260523"));
+  const matching = rows.filter((row) => String(row.content ?? "").includes("QUINN_REGRESSION_VERIFIED T6_NATIVE_HARD_20260523"));
+  const commitA = String(proof.failing_test_commit ?? "");
+  const commitB = String(proof.fix_commit ?? "");
+  const referencesCommits = matching.filter((row) => {
+    const content = String(row.content ?? "");
+    return content.includes(commitA) || content.includes(commitA.slice(0, 7))
+      ? content.includes(commitB) || content.includes(commitB.slice(0, 7))
+      : false;
+  });
+  return {
+    ok: rejected.length === 0 && matching.length === 1 && referencesCommits.length === 1,
+    detail: JSON.stringify({
+      verified_rows: matching.length,
+      rejected_rows: rejected.length,
+      commit_ref_rows: referencesCommits.length,
+      verified_ids: matching.map((row) => row.id),
+      rejected_ids: rejected.map((row) => row.id),
+    }),
+  };
+}
+
 async function t6RuntimeEventCount(hash) {
   const state = readPentagonSession();
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -758,6 +894,114 @@ async function runT6MediumVerifier() {
   process.exit(exitCode);
 }
 
+async function runT6HardVerifier() {
+  const noDb = process.argv.includes("--no-db");
+  const proofFile = arg("--proof-file", "frames/t6-native-gauntlet-hard-20260523.proof");
+  const proofText = repoFile(proofFile);
+  const parsed = proofText ? parseKeyValueProof(proofText) : { ok: false, error: "missing proof", proof: {} };
+  const proof = parsed.proof;
+
+  must("T6 hard proof file exists and parses as key=value lines", Boolean(proofText) && parsed.ok, parsed.error || proofFile);
+  must("T6 hard hash field matches", proof.hash === "T6_NATIVE_HARD_20260523", proof.hash ?? "<missing>");
+  must("T6 hard verdict field matches", proof.verdict === "native_hard_done", proof.verdict ?? "<missing>");
+
+  const testFileOk = String(proof.test_file ?? "").startsWith("activegraph/tests/")
+    && (innerPathExistsAtHead(proof.test_file) || innerPathExistsAtCommit(proof.fix_commit, proof.test_file));
+  must("T6 hard test_file is inside activegraph/tests/ and exists", testFileOk, proof.test_file ?? "<missing>");
+
+  const bugSourceAtHead = bugSourceExists(proof.bug_source);
+  const bugSource = bugSourceAtHead.ok ? bugSourceAtHead : bugSourceExists(proof.bug_source, proof.fix_commit);
+  must("T6 hard bug_source points at existing documented source", bugSource.ok, bugSource.detail);
+
+  const commitAExists = innerCommitExists(proof.failing_test_commit);
+  const commitBExists = innerCommitExists(proof.fix_commit);
+  must("T6 hard failing_test_commit resolves in inner repo", commitAExists, proof.failing_test_commit ?? "<missing>");
+  must("T6 hard fix_commit resolves in inner repo", commitBExists, proof.fix_commit ?? "<missing>");
+
+  const ancestor = commitAExists && commitBExists
+    ? innerGit(["merge-base", "--is-ancestor", proof.failing_test_commit, proof.fix_commit])
+    : { status: 1, stderr: "missing commit" };
+  must(
+    "T6 hard failing_test_commit is strict ancestor of fix_commit",
+    ancestor.status === 0 && proof.failing_test_commit !== proof.fix_commit,
+    ancestor.stderr || ancestor.stdout || JSON.stringify({ failing_test_commit: proof.failing_test_commit, fix_commit: proof.fix_commit })
+  );
+
+  const triggerTs = triggerTimestampFromLog("T6_NATIVE_HARD_20260523");
+  const commitATs = commitTimestamp(proof.failing_test_commit);
+  if (triggerTs === null) {
+    record(true, "T6 hard failing_test_commit timestamp after trigger", "skipped (no T6 hard run log found)");
+  } else {
+    must(
+      "T6 hard failing_test_commit timestamp after trigger",
+      commitATs !== null && commitATs > triggerTs,
+      JSON.stringify({ commit_ts: commitATs, trigger_ts: triggerTs })
+    );
+  }
+
+  const splitA = hardSourceTestSplit(proof, proof.failing_test_commit, "test");
+  must("T6 hard source-vs-test split at failing_test_commit", splitA.ok, splitA.detail);
+  const splitB = hardSourceTestSplit(proof, proof.fix_commit, "source");
+  must("T6 hard source-vs-test split at fix_commit", splitB.ok, splitB.detail);
+
+  const pytestA = hardWorktreePytest(proof.failing_test_commit, proof.test_file, "A");
+  must(
+    "T6 hard ground truth at failing_test_commit fails",
+    pytestA.ok && pytestA.status !== 0,
+    JSON.stringify({ status: pytestA.status, output: pytestA.output })
+  );
+  const pytestB = hardWorktreePytest(proof.fix_commit, proof.test_file, "B");
+  must(
+    "T6 hard ground truth at fix_commit passes",
+    pytestB.ok && pytestB.status === 0,
+    JSON.stringify({ status: pytestB.status, output: pytestB.output })
+  );
+
+  const pytestBefore = parseInteger(proof.pytest_before);
+  const pytestAfter = parseInteger(proof.pytest_after);
+  must(
+    "T6 hard pytest_after did not regress",
+    pytestBefore !== null && pytestAfter !== null && pytestAfter >= pytestBefore,
+    "before=" + String(proof.pytest_before) + " after=" + String(proof.pytest_after)
+  );
+
+  if (noDb) {
+    record(true, "T6 hard messages table has Maya ACK referencing proof", "skipped by --no-db");
+    record(true, "T6 hard messages table has Quinn verification ACK", "skipped by --no-db");
+  } else {
+    try {
+      const mayaCheck = await verifyT6Ack(proofFile, "T6_NATIVE_HARD_20260523");
+      must("T6 hard messages table has Maya ACK referencing proof", mayaCheck.ok, mayaCheck.detail);
+    } catch (error) {
+      must("T6 hard messages table has Maya ACK referencing proof", false, error.message);
+    }
+    try {
+      const quinnCheck = await verifyT6QuinnAck(proof);
+      must("T6 hard messages table has Quinn verification ACK", quinnCheck.ok, quinnCheck.detail);
+    } catch (error) {
+      must("T6 hard messages table has Quinn verification ACK", false, error.message);
+    }
+  }
+
+  const failed = checks.filter((check) => !check.ok);
+  for (const check of checks) {
+    console.log((check.ok ? "PASS " : "FAIL ") + check.name + (check.detail ? " :: " + check.detail : ""));
+  }
+  if (!noDb) {
+    try {
+      const runtimeEventCount = await t6RuntimeEventCount("T6_NATIVE_HARD_20260523");
+      console.log("WARN T6 hard agent_runtime_events runtime event missing :: " + runtimeEventCount + " rows");
+    } catch (error) {
+      console.log("WARN T6 hard agent_runtime_events runtime event missing :: query failed: " + error.message);
+    }
+  }
+  console.log("");
+  console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
+  console.log("verdict: " + (failed.length ? "failed" : "t6_hard_verified"));
+  const exitCode = failed.length > 0 ? 1 : 0;
+  process.exit(exitCode);
+}
+
 function rowAgentName(row, agentsById) {
   const ids = [row.agent_id, row.actor_id, row.author_id, row.user_id, row.sender_id].filter(Boolean);
   for (const id of ids) {
@@ -832,8 +1076,12 @@ async function main() {
       await runT6MediumVerifier();
       return;
     }
+    if (tier === "hard") {
+      await runT6HardVerifier();
+      return;
+    }
     {
-      record(false, "T6 tier is supported", "--tier must be easy or medium");
+      record(false, "T6 tier is supported", "--tier must be easy, medium, or hard");
       const failed = checks.filter((check) => !check.ok);
       for (const check of checks) console.log((check.ok ? "PASS " : "FAIL ") + check.name + (check.detail ? " :: " + check.detail : ""));
       console.log("");
