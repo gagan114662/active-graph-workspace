@@ -572,9 +572,70 @@ async function runT6EasyVerifier() {
   process.exit(failed.length ? 1 : 0);
 }
 
+function rowAgentName(row, agentsById) {
+  const ids = [row.agent_id, row.actor_id, row.author_id, row.user_id, row.sender_id].filter(Boolean);
+  for (const id of ids) {
+    if (agentsById.has(id)) return agentsById.get(id).name;
+  }
+  return row.agent_name ?? row.actor_name ?? row.author_name ?? row.sender_name ?? "";
+}
+
+function rowPayload(row) {
+  return row.payload ?? row.data ?? row.metadata ?? row.content ?? row;
+}
+
+async function runT6DebugEvents() {
+  const state = readPentagonSession();
+  const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+  const agents = await supabase(
+    state,
+    "/rest/v1/agents?select=id,name&limit=500"
+  );
+  const agentsById = new Map(agents.map((agent) => [agent.id, agent]));
+  const maya = agents.find((agent) => agent.name === "Maya (Code Owner)");
+  const rows = await supabase(
+    state,
+    "/rest/v1/agent_runtime_events?select=*&created_at=gte." + encodeURIComponent(since) + "&order=created_at.asc&limit=1000"
+  );
+  const matched = rows.filter((row) => {
+    const json = JSON.stringify(row);
+    const name = rowAgentName(row, agentsById);
+    const mayaIdMatch = maya && [row.agent_id, row.actor_id, row.author_id, row.user_id, row.sender_id].includes(maya.id);
+    return mayaIdMatch || name === "Maya (Code Owner)" || json.includes("T6_NATIVE_EASY_20260523");
+  });
+  const frequencies = new Map();
+  console.log("T6 easy Pentagon event shapes");
+  console.log("since=" + since);
+  console.log("matched_rows=" + matched.length);
+  for (const row of matched) {
+    const kind = row.kind ?? row.type ?? "<missing>";
+    frequencies.set(kind, (frequencies.get(kind) ?? 0) + 1);
+    const payload = JSON.stringify(rowPayload(row)).replace(/\s+/g, " ").slice(0, 240);
+    const agentName = rowAgentName(row, agentsById);
+    const agentId = row.agent_id ?? row.actor_id ?? row.author_id ?? row.user_id ?? row.sender_id ?? "";
+    console.log(JSON.stringify({
+      id: row.id ?? "",
+      created_at: row.created_at ?? "",
+      kind: row.kind ?? null,
+      type: row.type ?? null,
+      agent_id: agentId,
+      agent_name: agentName,
+      payload,
+    }));
+  }
+  console.log("kind_frequency:");
+  for (const [kind, count] of [...frequencies.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))) {
+    console.log(String(kind) + "=" + count);
+  }
+}
+
 async function main() {
   const noDb = process.argv.includes("--no-db");
   const requireNative = process.argv.includes("--require-native");
+  if (process.argv.includes("--t6-debug-events")) {
+    await runT6DebugEvents();
+    return;
+  }
   if (process.argv.includes("--t6")) {
     const tier = arg("--tier");
     if (tier !== "easy") {
