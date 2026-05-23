@@ -1235,6 +1235,132 @@ Predicate updates:
 - `ring1_not_missing_pct_ge_80`: GREEN.
 - `no_changes_outside_permissions`: RED. Current T4 range and dirty tree include files outside the frame permission list, including `README.md` and `docs/reference/llm-providers.md`.
 
+## Heartbeat 2026-05-23T14:40:17Z — scope amendment re-eval for `no_changes_outside_permissions`
+
+Scope decision received from Frame Architect: do not revert `README.md` or
+`docs/reference/llm-providers.md`; treat both as T4-scoped public
+provider/tool parity documentation after amended frame commit `outer:13babac`.
+
+Command:
+
+```text
+$ git log --oneline -5
+13babac Frame t4: permit README and provider reference docs
+1e80914 Update T4 heartbeat dirty-unpushed evidence
+53fcebb Update T4 heartbeat current-head evidence
+628406e Update T4 heartbeat current-head evidence
+77568ca Record restarted Pentagon native activation
+```
+
+Command:
+
+```text
+$ python3 - <<'PY'
+import yaml
+from pathlib import Path
+p=Path('frames/t4-openai-tool-shape-translation.yaml')
+print('exists=', p.exists())
+if p.exists():
+    y=yaml.safe_load(p.read_text())
+    print('id=', y.get('id'))
+    print('predicate_count=', len(y.get('success_criteria', [])))
+    print('permissions:')
+    for perm in y.get('permissions', []):
+        if 'README.md' in str(perm) or 'llm-providers.md' in str(perm):
+            print(perm)
+PY
+exists= True
+id= t4-openai-tool-shape-translation
+predicate_count= 25
+permissions:
+activegraph/README.md:rw
+activegraph/docs/reference/llm-providers.md:rw
+```
+
+Command:
+
+```text
+$ git -C activegraph status --short
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M activegraph/llm/cache.py
+ M activegraph/llm/recorded.py
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+```
+
+Command:
+
+```text
+$ python3 - <<'PY'
+import fnmatch, subprocess, yaml
+from pathlib import Path
+outer=Path('/Users/gaganarora/Desktop/my projects/active_graph')
+frame=yaml.safe_load((outer/'frames/t4-openai-tool-shape-translation.yaml').read_text())
+rw=[]
+ro=[]
+for item in frame['permissions']:
+    path, mode = item.rsplit(':',1)
+    (rw if mode=='rw' else ro).append(path)
+
+def matches(pattern, path):
+    return fnmatch.fnmatchcase(path, pattern)
+
+def classify(inner_path):
+    full='activegraph/'+inner_path
+    rw_matches=[p for p in rw if matches(p, full)]
+    ro_matches=[p for p in ro if matches(p, full)]
+    if rw_matches:
+        return 'IN_SCOPE_RW', rw_matches[0]
+    if ro_matches:
+        return 'OUT_OF_SCOPE_RO_CHANGED', ro_matches[0]
+    return 'OUT_OF_SCOPE_NO_MATCH', '-'
+cmds=[['git','-C',str(outer/'activegraph'),'diff','--name-only','62015ed..HEAD'], ['git','-C',str(outer/'activegraph'),'diff','--name-only']]
+labels=['committed_range_62015ed..HEAD','dirty_tree']
+for label,cmd in zip(labels,cmds):
+    out=subprocess.check_output(cmd, text=True).splitlines()
+    print(label)
+    for p in out:
+        status, pat=classify(p)
+        print(f'{p}\t{status}\t{pat}')
+    print()
+PY
+committed_range_62015ed..HEAD
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/types.py	IN_SCOPE_RW	activegraph/activegraph/llm/types.py
+activegraph/runtime/runtime.py	IN_SCOPE_RW	activegraph/activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py	IN_SCOPE_RW	activegraph/tests/test_provider_tool_parity.py
+
+dirty_tree
+CHANGELOG.md	IN_SCOPE_RW	activegraph/CHANGELOG.md
+CONTRACT.md	IN_SCOPE_RW	activegraph/CONTRACT.md
+README.md	IN_SCOPE_RW	activegraph/README.md
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+docs/concepts/provider-tool-parity.md	IN_SCOPE_RW	activegraph/docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md	IN_SCOPE_RW	activegraph/docs/reference/llm-providers.md
+```
+
+Predicate: `no_changes_outside_permissions`
+
+Expected: all committed T4-range and dirty inner paths are covered by `:rw`
+permissions in `frames/t4-openai-tool-shape-translation.yaml`.
+
+Actual: `README.md` and `docs/reference/llm-providers.md` now evaluate
+`IN_SCOPE_RW` against amended frame `outer:13babac`. Predicate remains RED
+because `activegraph/llm/cache.py` and `activegraph/llm/recorded.py` are changed
+while only covered by `activegraph/activegraph/**/*.py:ro`, not `:rw`.
+
+Verdict: `goal.incomplete`.
+
 Literal command output:
 
 ~~~text
