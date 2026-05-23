@@ -1,0 +1,146 @@
+# T5P native poller surface audit - 2026-05-23
+
+Purpose: inspect the installed Pentagon native app surface and live prerequisite
+state after bridge, harness, queue, and attribution were already accounted for.
+
+## Interpreter smoke
+
+```
+INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph 1059c5b
+git status --short --branch
+## main...origin/main
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+?? .review-worktrees/
+
+python3 --version
+Python 3.14.3
+
+node --version
+v25.8.2
+
+node scripts/verify-pentagon-autonomy-from-logs.mjs | rg 'summary:|verdict:'
+summary: 239/239 checks passed
+verdict: bridge_autonomy_verified_native_blocked
+```
+
+The dirty T4 evaluation log and untracked .review-worktrees/ are unrelated
+pre-existing work and were not edited for this frame.
+
+## Diagnostic added
+
+Added scripts/audit-pentagon-native-poller-surface.mjs.
+
+The script is read-only. It captures:
+
+- installed Pentagon app version and process state;
+- relevant run.pentagon.app defaults;
+- binary strings for TriggerPoller, catch-up, claim, complete, and execution
+  surfaces;
+- live active_graph agent provider/model/harness/execution/device rows;
+- Theo/Maya pending and recent trigger queue rows;
+- bridge LaunchAgent state.
+
+Syntax check:
+
+```
+node --check scripts/audit-pentagon-native-poller-surface.mjs
+exit: 0
+```
+
+## Surface audit run
+
+Command:
+
+```
+node scripts/audit-pentagon-native-poller-surface.mjs
+```
+
+Exit code: 0
+
+Relevant output:
+
+```
+app.bundle_short_version: 1.7.3
+app.bundle_version: 1.7.3
+app.process: 468 Fri 22 May 17:33:07 2026     16:39:54 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+defaults.sync_device_id: 44A67911-6A9B-441D-9F25-C2241A154691
+defaults.codex_cli_path: /opt/homebrew/bin/codex
+defaults.default_model: gpt-5.5
+defaults.last_execution_mode: local
+binary_surface.TriggerPoller: 7
+binary_surface.cloud.trigger-catchup: 1
+binary_surface.handleAgentTrigger: 5
+binary_surface.claim_agent_trigger: 1
+binary_surface.messaging.claim-trigger: 1
+binary_surface.messaging.complete-trigger: 1
+binary_surface.triggerAgentResponse: 3
+binary_surface.MessagePoller: 8
+binary_surface.HeartbeatPoller: 7
+live_agents.count: 20
+live_agents.provider_model_harness_execution_counts.codex|gpt-5.5|codex|local: 20
+live_agents.device_counts.44A67911-6A9B-441D-9F25-C2241A154691: 19
+live_agents.device_counts.null: 1
+theo.device_id: 44A67911-6A9B-441D-9F25-C2241A154691
+maya.device_id: 44A67911-6A9B-441D-9F25-C2241A154691
+theo.provider_endpoint_mode: gateway
+maya.provider_endpoint_mode: gateway
+maya.last_seen_at: null
+trigger_queue.conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+trigger_queue.pending_count: 0
+bridge.launchd.state: running
+bridge.launchd.pid: 24670
+```
+
+Binary string excerpts included:
+
+```
+cloud.trigger-catchup
+[triggerAgentResponse] START
+[triggerAgentResponse] DEQUEUE
+[triggerAgentResponse] QUEUED
+[handleAgentTrigger] START
+claim_agent_trigger
+messaging.claim-trigger
+[handleAgentTrigger] Executing
+messaging.complete-trigger
+[handleAgentTrigger] Completed
+[handleAgentTrigger] Already claimed
+TriggerPoller started
+TriggerPoller: found %ld unclaimed trigger(s)
+TriggerPoller poll #%ld failed: %s
+```
+
+## Interpretation
+
+The native app prerequisite surface is aligned:
+
+- The installed app contains TriggerPoller and handleAgentTrigger code paths.
+- The app process is running.
+- The app default device id matches Theo and Maya.
+- Theo and Maya are active_graph agents on the Codex provider/model/harness/local
+  execution path.
+- The stale Theo/Maya trigger queue was clear at audit time.
+- The bridge is running as mitigation.
+
+The remaining native blocker is therefore not explained by harness mismatch,
+wrong device id for Theo/Maya, missing binary trigger code, stale queue backlog,
+or bridge attribution confusion. Native Pentagon handoff activation remains red
+because the app still does not claim a fresh valid target trigger during the
+bounded native-only probe window.
+
+## Evidence audit
+
+| Predicate | Evidence | Status |
+| --- | --- | --- |
+| installed app has native trigger code paths | binary_surface TriggerPoller 7, handleAgentTrigger 5, claim/complete strings present | green |
+| app/device prerequisites match Theo/Maya | defaults.sync_device_id and Theo/Maya device_id all 44A67911... | green |
+| active_graph agents are Codex/local aligned | live_agents count 20 and codex|gpt-5.5|codex|local count 20 | green |
+| stale queue is not the current native blocker | trigger_queue.pending_count 0 | green |
+| native poller completion | T5O fresh probe still final_claimed_at null during native window | red |
+
+## Verdict
+
+T5P narrows the native product blocker: the installed app has the expected
+TriggerPoller/handleAgentTrigger surface and the live agent/device prerequisites
+are aligned, but native app trigger polling still does not claim fresh target
+triggers inside the watchdog window. The full goal remains open.

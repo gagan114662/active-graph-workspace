@@ -23,6 +23,7 @@ const NATIVE_APP_POLLER_PROBE_OUTPUT_AUDIT_LOG = "frames/t5l-native-app-poller-a
 const REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG = "frames/t5m-repeatable-native-app-poller-diagnostic-2026-05-23.log";
 const CODEX_HARNESS_NATIVE_RECHECK_LOG = "frames/t5n-codex-harness-native-recheck-2026-05-23.log";
 const CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG = "frames/t5o-cleared-queue-native-attribution-2026-05-23.log";
+const NATIVE_POLLER_SURFACE_AUDIT_LOG = "frames/t5p-native-poller-surface-audit-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -45,10 +46,12 @@ const CRITICAL_PROOF_FILES = [
   REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG,
   CODEX_HARNESS_NATIVE_RECHECK_LOG,
   CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG,
+  NATIVE_POLLER_SURFACE_AUDIT_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
   "scripts/probe-native-poller.mjs",
   "scripts/probe-native-app-poller.mjs",
   "scripts/audit-pentagon-trigger-attribution.mjs",
+  "scripts/audit-pentagon-native-poller-surface.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
 ];
 
@@ -268,6 +271,14 @@ async function main() {
     requireText("trigger attribution diagnostic script", triggerAttributionScript, "bridge_catchup_after_native_window");
     requireText("trigger attribution diagnostic script", triggerAttributionScript, "native_window_claim_possible");
     requireText("trigger attribution diagnostic script", triggerAttributionScript, "pending_unclaimed_triggers_in_conversation");
+  }
+  const nativePollerSurfaceScript = repoFile("scripts/audit-pentagon-native-poller-surface.mjs");
+  must("native poller surface audit script exists", nativePollerSurfaceScript);
+  if (nativePollerSurfaceScript) {
+    requireText("native poller surface audit script", nativePollerSurfaceScript, "cloud.trigger-catchup");
+    requireText("native poller surface audit script", nativePollerSurfaceScript, "provider_model_harness_execution_counts");
+    requireText("native poller surface audit script", nativePollerSurfaceScript, "pending_count");
+    requireText("native poller surface audit script", nativePollerSurfaceScript, "pentagon.sync.deviceId");
   }
 
   const plistCheck = command("plutil", ["-lint", "launchagents/run.pentagon.trigger-bridge.plist"]);
@@ -495,6 +506,22 @@ async function main() {
     requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "log_match_counts.TriggerPoller: 0");
     requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "ack_id: 90d3853d-b3b5-454c-9a8b-7e43515cd2b6");
     requireText("cleared queue native attribution log", clearedQueueNativeAttributionLog, "Native Pentagon handoff activation remains red.");
+  }
+
+  const nativePollerSurfaceAuditLog = repoFile(NATIVE_POLLER_SURFACE_AUDIT_LOG);
+  must("native poller surface audit log exists", nativePollerSurfaceAuditLog, NATIVE_POLLER_SURFACE_AUDIT_LOG);
+  if (nativePollerSurfaceAuditLog) {
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "scripts/audit-pentagon-native-poller-surface.mjs");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "app.bundle_short_version: 1.7.3");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "defaults.sync_device_id: 44A67911-6A9B-441D-9F25-C2241A154691");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "binary_surface.TriggerPoller: 7");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "binary_surface.cloud.trigger-catchup: 1");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "live_agents.provider_model_harness_execution_counts.codex|gpt-5.5|codex|local: 20");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "theo.device_id: 44A67911-6A9B-441D-9F25-C2241A154691");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "maya.device_id: 44A67911-6A9B-441D-9F25-C2241A154691");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "trigger_queue.pending_count: 0");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "bridge.launchd.state: running");
+    requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "native app trigger polling still does not claim fresh target");
   }
 
   if (requireNative) {
