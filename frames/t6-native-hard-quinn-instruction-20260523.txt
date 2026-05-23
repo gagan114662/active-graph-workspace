@@ -22,8 +22,16 @@ Extract these fields:
 2. Verify commit A: test must FAIL.
      git -C activegraph worktree add /tmp/quinn-T6H-A <commitA>
      cd /tmp/quinn-T6H-A
-     uv run pytest <test_file> --tb=no -q 2>&1 | tee /tmp/quinn-T6H-A.log
-   Record the process exit code as `a_exit`. MUST be non-zero.
+     uv venv
+     uv pip install -e . pytest
+     # CRITICAL: use the worktree's .venv/bin/python directly, never `uv run pytest`.
+     # `uv run pytest` can fall back to a global pytest that imports activegraph
+     # from global site-packages, producing a false signal. The verifier was
+     # bitten by this; the verifier fix is commit c1c2603 in the outer repo.
+     # Confirm isolation before running the test:
+     ./.venv/bin/python -c "import activegraph; assert '/tmp/quinn-T6H-A' in activegraph.__file__, activegraph.__file__"
+     ./.venv/bin/python -m pytest <test_file> --tb=no -q 2>&1 | tee /tmp/quinn-T6H-A.log
+   Record the python -m pytest process exit code as `a_exit`. MUST be non-zero.
    cd back to the active_graph repo root:
      cd "/Users/gaganarora/Desktop/my projects/active_graph"
      git -C activegraph worktree remove /tmp/quinn-T6H-A --force
@@ -31,8 +39,11 @@ Extract these fields:
 3. Verify commit B: test must PASS.
      git -C activegraph worktree add /tmp/quinn-T6H-B <commitB>
      cd /tmp/quinn-T6H-B
-     uv run pytest <test_file> --tb=no -q 2>&1 | tee /tmp/quinn-T6H-B.log
-   Record the process exit code as `b_exit`. MUST be 0.
+     uv venv
+     uv pip install -e . pytest
+     ./.venv/bin/python -c "import activegraph; assert '/tmp/quinn-T6H-B' in activegraph.__file__, activegraph.__file__"
+     ./.venv/bin/python -m pytest <test_file> --tb=no -q 2>&1 | tee /tmp/quinn-T6H-B.log
+   Record the python -m pytest process exit code as `b_exit`. MUST be 0.
    cd back and remove worktree:
      cd "/Users/gaganarora/Desktop/my projects/active_graph"
      git -C activegraph worktree remove /tmp/quinn-T6H-B --force
