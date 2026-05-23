@@ -83,6 +83,327 @@ $ ../venv/bin/pytest -q
 690 passed, 15 skipped in 17.96s
 ~~~
 
+## 2026-05-23 heartbeat: current inner 62015ed
+
+Verdict: `goal.incomplete`.
+
+Predicate delta:
+
+- Focused T4 tests: RED. Expected: selected T4 regression tests pass. Actual:
+  `tests/test_provider_tool_parity.py::test_invalid_tool_argument_marker_is_ignored_from_recorded_fixture`
+  fails because `_response_from_fixture()` preserves `invalid_args_error`;
+  expected value is `None`.
+- `mypy_strict_passes_full_allowlist`: GREEN.
+- `ring0_not_missing_pct_equals_100`: GREEN.
+- `ring1_not_missing_pct_ge_80`: GREEN.
+- `no_changes_outside_permissions`: RED. Expected: changed files stay inside
+  frame permissions. Actual: current dirty tree includes `README.md`,
+  `docs/reference/llm-providers.md`, `activegraph/llm/cache.py`, and
+  `activegraph/llm/recorded.py`, which are not listed as `:rw` in the frame
+  yaml.
+
+Literal command output:
+
+~~~text
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && pwd && git status --short --branch && git rev-parse --short HEAD && git rev-parse --short origin/main
+/Users/gaganarora/Desktop/my projects/active_graph
+## main...origin/main
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+ M frames/t4-openai-tool-shape-translation.status
+?? .review-worktrees/
+?? frames/t5r-native-easy-instruction-20260523.txt
+?? frames/t5r-native-extra-hard-instruction-20260523.txt
+?? frames/t5r-native-gauntlet-easy-20260523.proof
+?? frames/t5r-native-hard-instruction-20260523.txt
+?? frames/t5r-native-medium-instruction-20260523.txt
+?? scripts/run-native-pentagon-task.mjs
+628406e
+628406e
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git status --short --branch && git rev-parse --short HEAD && git rev-parse --short origin/main && git log --oneline -8
+## main...origin/main
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M activegraph/llm/cache.py
+ M activegraph/llm/recorded.py
+ M activegraph/llm/types.py
+ M activegraph/runtime/runtime.py
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+62015ed
+62015ed
+62015ed Bypass durable cache for invalid tool input
+7886d71 Keep invalid arg marker internal
+d691afc Move invalid marker replay test to permitted surface
+56e5498 Test invalid arg marker fork replay
+c28c3c0 Test invalid tool argument marker hydration
+605c438 Preserve invalid tool argument marker
+068cdc8 Internalize invalid OpenAI argument marker
+7a975cd Reject invalid OpenAI tool arguments
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py; printf '\n---exit=%s---\n' $?
+..............F....................                                      [100%]
+=================================== FAILURES ===================================
+______ test_invalid_tool_argument_marker_is_ignored_from_recorded_fixture ______
+
+    def test_invalid_tool_argument_marker_is_ignored_from_recorded_fixture() -> None:
+        from activegraph.llm.recorded import _response_from_fixture
+
+        response = _response_from_fixture(
+            {
+                "raw_text": "",
+                "parsed": None,
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "cost_usd": "0",
+                "latency_seconds": 0.0,
+                "model": "m",
+                "finish_reason": "tool_calls",
+                "seed": None,
+                "provider_meta": {},
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "name": "ping",
+                        "args": {},
+                        "invalid_args_error": (
+                            "OpenAI tool arguments must decode to a JSON object."
+                        ),
+                    }
+                ],
+            },
+            output_schema=None,
+        )
+
+        assert response.tool_calls is not None
+>       assert response.tool_calls[0].invalid_args_error is None
+E       AssertionError: assert 'OpenAI tool arguments must decode to a JSON object.' is None
+E        +  where 'OpenAI tool arguments must decode to a JSON object.' = ToolCall(id='call_1', name='ping', args={}, invalid_args_error='OpenAI tool arguments must decode to a JSON object.').invalid_args_error
+
+tests/test_provider_tool_parity.py:568: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_provider_tool_parity.py::test_invalid_tool_argument_marker_is_ignored_from_recorded_fixture
+1 failed, 34 passed in 0.45s
+
+---exit=1---
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && ../venv/bin/mypy; printf '\n---exit=%s---\n' $?
+Success: no issues found in 23 source files
+
+---exit=0---
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && ../venv/bin/python scripts/gate_docstrings.py; printf '\n---exit=%s---\n' $?
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+---exit=0---
+~~~
+
+## 2026-05-23 Rowan review.clean check: inner 7886d71
+
+Decision: `goal.incomplete`. Rowan's commit-scoped `review.clean` for
+`inner:7886d71` is accepted for the invalid-argument marker fix, but T4 is not
+closed. The current inner checkout is dirty, `inner:main` is ahead of
+`origin/main`, and `no_changes_outside_permissions` is still RED because the T4
+range contains `docs/reference/llm-providers.md` and `mkdocs.yml`, which are not
+listed in `frames/t4-openai-tool-shape-translation.yaml` permissions.
+
+Predicate updates:
+
+- `invalid_tool_arguments_use_existing_tool_invalid_input_path`: GREEN for
+  committed `7886d71` marker-internal behavior.
+  - Expected: `invalid_args_error` remains internal and does not serialize into
+    `LLMResponse.to_dict()` / `llm.responded.tool_calls[]`.
+  - Actual: `ToolCall.to_dict()` at `7886d71` returns only `id`, `name`, and
+    `args`; targeted parity tests pass.
+- `llm_cache_round_trips_openai_tool_calls`: GREEN for committed `7886d71`
+  marker absence from hydrated cache payloads.
+  - Expected: persisted `llm.responded.tool_calls[]` does not reconstruct
+    `invalid_args_error`.
+  - Actual: tests assert hydrated cache marker is `None`.
+- `recorded_fixture_mode_covers_openai_tool_calls_without_live_network`: GREEN
+  for committed `7886d71` marker absence from recorded fixture hydration.
+  - Expected: recorded fixture payloads ignore any stale
+    `invalid_args_error` key.
+  - Actual: tests assert fixture-hydrated marker is `None`.
+- `no_changes_outside_permissions`: RED.
+  - Expected: all changed files in T4 range and dirty checkout are within frame
+    permissions.
+  - Actual: T4 range still includes `docs/reference/llm-providers.md` and
+    `mkdocs.yml`; dirty checkout includes `README.md`,
+    `docs/reference/llm-providers.md`, `GAUNTLET.md`, frame adversary logs, and
+    `uv.lock`.
+- `pushed_head_confirmed`: RED/unknown for inner.
+  - Expected: evaluated head equals pushed head or push evidence exists.
+  - Actual: local inner `HEAD=7886d718f3bd1ac86cf5d8bc4a5c21e031940b73`;
+    `origin/main=56e5498d2b1bff5978010254f3a7e98faa217580`.
+
+Literal command output:
+
+~~~text
+$ cd activegraph && git status --short && git rev-parse HEAD && git log --oneline -5
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+7886d718f3bd1ac86cf5d8bc4a5c21e031940b73
+7886d71 Keep invalid arg marker internal
+d691afc Move invalid marker replay test to permitted surface
+56e5498 Test invalid arg marker fork replay
+c28c3c0 Test invalid tool argument marker hydration
+605c438 Preserve invalid tool argument marker
+
+$ cd activegraph && git show --stat --oneline --decorate 7886d71 && git show --name-only --format='%H%n%s' 7c319cf..7886d71 | sed -n '1,120p'
+7886d71 (HEAD -> main) Keep invalid arg marker internal
+ activegraph/llm/cache.py           |  1 -
+ activegraph/llm/recorded.py        |  1 -
+ activegraph/llm/types.py           |  5 +--
+ tests/test_provider_tool_parity.py | 66 ++++++++++++++++++++++++--------------
+ 4 files changed, 43 insertions(+), 30 deletions(-)
+7886d718f3bd1ac86cf5d8bc4a5c21e031940b73
+Keep invalid arg marker internal
+
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+tests/test_provider_tool_parity.py
+d691afc151d0607ea960233da291b7db93fa0001
+Move invalid marker replay test to permitted surface
+
+tests/test_llm_replay.py
+56e5498d2b1bff5978010254f3a7e98faa217580
+Test invalid arg marker fork replay
+
+tests/test_provider_tool_parity.py
+c28c3c06cd6853d04267805cf9f2c5f911d52d0a
+Test invalid tool argument marker hydration
+
+tests/test_llm_replay.py
+605c4383f15f113259091a42a877385e9dad0e44
+Preserve invalid tool argument marker
+
+activegraph/llm/types.py
+tests/test_provider_tool_parity.py
+068cdc8e696049c37c78531dc82394d224d1520f
+Internalize invalid OpenAI argument marker
+
+activegraph/llm/types.py
+tests/test_provider_tool_parity.py
+7a975cd070c9ad94b19552d3fd05b4a81298e29b
+Reject invalid OpenAI tool arguments
+
+activegraph/llm/cache.py
+activegraph/llm/openai.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+ccd4f45fef7e8171dd3a7a089b38b1facc517efb
+Frame t5b impl: handle mapping OpenAI responses
+
+activegraph/llm/openai.py
+8d3ff89e66d38832e83b70bf8830fc900bbdc67c
+Frame t5b test: OpenAI mapping response text
+
+tests/test_llm_openai.py
+fce0cabacf91ec359ad75b9e8adcc59d1275efed
+Frame t4 fix OpenAI tool argument normalization
+
+activegraph/llm/openai.py
+tests/test_provider_tool_parity.py
+ab05ed0f869e32d154f97726e48d82b5775bc8bc
+Frame t5 test: OpenAI tool call token estimate
+
+tests/test_llm_openai.py
+4604f0e3759bfb5768c14b82900370936109de08
+Frame t4 docs: close OpenAI tool parity contract
+
+CHANGELOG.md
+CONTRACT.md
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+mkdocs.yml
+tests/test_llm_openai.py
+612ac0adc3d0837161de9301b0b10d20ca967271
+Frame t4: implement OpenAI tool translation\n\nCo-authored-by: Codex <noreply@openai.com>
+
+activegraph/llm/anthropic.py
+activegraph/runtime/runtime.py
+b8eb5089404ab5c9566de67333ce57d299938085
+Frame t4 impl: OpenAI tool shape translation\n\nCo-authored-by: Codex <noreply@openai.com>
+
+activegraph/llm/openai.py
+
+$ cd activegraph && ../venv/bin/pytest tests/test_provider_tool_parity.py -q
+...........                                                              [100%]
+11 passed in 0.07s
+
+$ cd activegraph && git diff --name-only 7c319cf..HEAD && git diff --name-only && git ls-files --others --exclude-standard
+CHANGELOG.md
+CONTRACT.md
+activegraph/llm/anthropic.py
+activegraph/llm/openai.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+mkdocs.yml
+tests/test_llm_openai.py
+tests/test_provider_tool_parity.py
+CHANGELOG.md
+CONTRACT.md
+README.md
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+GAUNTLET.md
+frames/t4-invalid-marker-internal-7886d71.adversary.log
+frames/t4-openai-invalid-marker-068cdc8.adversary.log
+frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+uv.lock
+
+$ cd activegraph && git status --short && git rev-parse HEAD && git rev-parse origin/main
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M activegraph/llm/cache.py
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+7886d718f3bd1ac86cf5d8bc4a5c21e031940b73
+56e5498d2b1bff5978010254f3a7e98faa217580
+
+$ git status --short && git rev-parse HEAD && git rev-parse origin/main
+?? .review-worktrees/
+?? frames/t5r-native-easy-instruction-20260523.txt
+?? frames/t5r-native-gauntlet-easy-20260523.proof
+?? scripts/run-native-pentagon-task.mjs
+628406ec7cfabe386a0f117d59445ae5b45c0082
+628406ec7cfabe386a0f117d59445ae5b45c0082
+~~~
+
 ## 2026-05-23 heartbeat current-head check: outer 77568ca, inner 7886d71
 
 Decision: `goal.incomplete`. The previously recorded focused T4 regression is
