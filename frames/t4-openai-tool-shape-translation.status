@@ -1,11 +1,11 @@
-status: incomplete_current_head_regression_and_permissions
-inner_head: d691afc
-outer_head: 256c290
+status: incomplete_permissions_dirty_tree
+inner_head: 7886d71
+outer_head: 77568ca
 evaluated: 2026-05-23
 review: clean_for_inner_0920142
-focused_tests: "34 selected T4 tests: 1 failed, 33 passed"
+focused_tests: "34 selected T4 tests: passed"
 adjacent_runtime_tests: 48 passed
-full_tests: 692 passed, 15 skipped
+full_tests: 698 passed, 15 skipped
 mypy: success
 docstrings: Ring 0 102/102, Ring 1 103/120
 cli_flag_drift: OK
@@ -21,8 +21,7 @@ autonomy:
   implementation_completed_by_codex_fallback: true
   counts_as_pentagon_only_extra_hard_autonomy: false
 bottlenecks_open:
-  - current inner tree fails tests/test_provider_tool_parity.py::test_invalid_tool_argument_marker_survives_fork_replay_cache; fork replay calls the LLM instead of using cache
-  - strict no_changes_outside_permissions is false: committed T4-range diff includes docs/reference/llm-providers.md and mkdocs.yml, which are not listed in frame permissions
+  - strict no_changes_outside_permissions is false: current dirty inner tree includes README.md and docs/reference/llm-providers.md, which are not listed in frame permissions
   - Pentagon handoff message does not auto-activate Code Owner
 untracked_not_claimed:
   inner:

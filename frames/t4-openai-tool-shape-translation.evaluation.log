@@ -83,6 +83,201 @@ $ ../venv/bin/pytest -q
 690 passed, 15 skipped in 17.96s
 ~~~
 
+## 2026-05-23 heartbeat current-head check: outer 77568ca, inner 7886d71
+
+Decision: `goal.incomplete`. The previously recorded focused T4 regression is
+not reproducible on current inner `HEAD=7886d71`; the 34 selected T4 tests now
+pass, the full pytest suite passes, mypy passes, docstring gate passes, and
+wheel completeness passes. Closure still remains blocked because
+`no_changes_outside_permissions` is false against the current dirty inner tree:
+`README.md` and `docs/reference/llm-providers.md` are modified and are not in
+the T4 frame permissions.
+
+Predicate updates:
+
+- `pytest_full_suite_passes`: GREEN. Actual `698 passed, 15 skipped`; expected
+  full suite exits 0.
+- `invalid_tool_arguments_use_existing_tool_invalid_input_path`: GREEN on
+  current focused T4 selection. Actual `34 passed`; expected selected T4 tests
+  exit 0.
+- `mypy_strict_passes_full_allowlist`: GREEN. Actual `Success: no issues found
+  in 23 source files`; expected mypy exits 0.
+- `ring0_not_missing_pct_equals_100`: GREEN. Actual `102/102 documented
+  (100.0%)`; expected 100%.
+- `ring1_not_missing_pct_ge_80`: GREEN. Actual `103/120 not-missing (85.8%)`;
+  expected >=80%.
+- `wheel_completeness_passes`: GREEN. Actual `1 passed`; expected wheel
+  completeness exits 0.
+- `no_changes_outside_permissions`: RED. Actual dirty inner tree contains
+  `README.md` and `docs/reference/llm-providers.md` outside T4 permissions;
+  expected no committed or dirty changes outside the permissions list.
+
+Literal command output:
+
+~~~text
+$ cd activegraph && pwd && git rev-parse --show-toplevel && git log -1 --oneline && git status --short && ../venv/bin/python --version
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+7886d71 Keep invalid arg marker internal
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+Python 3.14.3
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_provider_tool_parity.py::test_invalid_tool_argument_marker_survives_fork_replay_cache
+ERROR: not found: /Users/gaganarora/Desktop/my projects/active_graph/activegraph/tests/test_provider_tool_parity.py::test_invalid_tool_argument_marker_survives_fork_replay_cache
+(no match in any of [<Module test_provider_tool_parity.py>])
+
+
+no tests ran in 0.01s
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py
+..................................                                       [100%]
+34 passed in 0.38s
+
+$ cd activegraph && ../venv/bin/pytest -q
+....................................................................... . [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 30%]
+........................................................................ [ 40%]
+........................................................................ [ 50%]
+................ssssss.................................................. [ 60%]
+........................................................................ [ 70%]
+...............................sssssssss................................ [ 80%]
+........................................................................ [ 90%]
+................................................................ .        [100%]
+698 passed, 15 skipped in 22.02s
+
+$ cd activegraph && ../venv/bin/mypy
+Success: no issues found in 23 source files
+
+$ cd activegraph && ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_wheel_completeness.py
+.                                                                        [100%]
+1 passed in 8.01s
+
+$ cd activegraph && git diff --name-only ccd4f45..HEAD && printf '%s\n' '---dirty---' && git diff --name-only
+activegraph/llm/openai.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+---dirty---
+CHANGELOG.md
+CONTRACT.md
+README.md
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+
+$ git log -1 --oneline && git rev-parse --short HEAD && git rev-parse --short origin/main && git status --short
+77568ca Record restarted Pentagon native activation
+77568ca
+77568ca
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+?? .review-worktrees/
+~~~
+
+## 2026-05-23T14:23:12Z heartbeat current-head recheck: inner 7886d71
+
+Decision: `goal.incomplete`. Maya's correction is verified: the focused T4
+regression previously observed at inner `d691afc` is not reproducible at current
+head `7886d71` (`Keep invalid arg marker internal`). The focused T4 shard is
+GREEN again. The frame still does not close because `no_changes_outside_permissions`
+remains RED: current dirty files include docs/root surfaces outside the frame
+permission list.
+
+Predicate updates:
+
+- `invalid_tool_arguments_use_existing_tool_invalid_input_path`: GREEN on current
+  head. Expected invalid tool arguments use the existing `tool.invalid_input`
+  path and survive fork replay cache; actual focused T4 shard passes 34/34.
+- `llm_cache_round_trips_openai_tool_calls`: GREEN on current head. Expected fork
+  replay does not call the LLM when cache replay is enabled; actual focused T4
+  shard passes 34/34.
+- `mypy_strict_passes_full_allowlist`: GREEN. Expected mypy allowlist passes;
+  actual output is `Success: no issues found in 23 source files`.
+- `ring0_not_missing_pct_equals_100`: GREEN. Expected Ring 0 100%; actual Ring 0
+  is 102/102 documented (100.0%).
+- `ring1_not_missing_pct_ge_80`: GREEN. Expected Ring 1 >= 80%; actual Ring 1 is
+  103/120 not-missing (85.8%).
+- `no_changes_outside_permissions`: RED. Expected committed T4-range and dirty
+  changes are inside frame permissions; actual dirty files include `README.md`,
+  `docs/concepts/provider-tool-parity.md`, and `docs/reference/llm-providers.md`,
+  which are outside the current frame permission list.
+
+Literal command output:
+
+~~~text
+$ cd activegraph && pwd
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+
+$ git rev-parse --short HEAD
+7886d71
+
+$ git branch --show-current && git rev-parse --short origin/main && git log --oneline -5
+main
+56e5498
+7886d71 Keep invalid arg marker internal
+d691afc Move invalid marker replay test to permitted surface
+56e5498 Test invalid arg marker fork replay
+c28c3c0 Test invalid tool argument marker hydration
+605c438 Preserve invalid tool argument marker
+
+$ git status --short
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+
+$ ../venv/bin/python --version
+Python 3.14.3
+
+$ ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py
+..................................                                       [100%]
+34 passed in 0.45s
+
+$ ../venv/bin/mypy
+Success: no issues found in 23 source files
+
+$ ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+$ git diff --name-only ccd4f45..HEAD
+activegraph/llm/openai.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+
+$ git diff --name-only
+CHANGELOG.md
+CONTRACT.md
+README.md
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+~~~
+
 ## Autonomy finding
 
 Easy/medium/hard/extra-hard repo work is now file-backed and checkable. The
