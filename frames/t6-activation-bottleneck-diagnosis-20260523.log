@@ -1,0 +1,685 @@
+T6 activation bottleneck diagnosis 2026-05-23
+diagnosis_started_utc=2026-05-23T21:57:01Z
+
+== activation/bottleneck evidence files ==
+-rw-r--r--@ 1 gaganarora  staff  33265 May 22 19:05 frames/bottleneck-feedback.log
+-rw-r--r--@ 1 gaganarora  staff   2645 May 22 17:55 frames/flywheel-bottleneck-gate-map.md
+-rw-r--r--@ 1 gaganarora  staff   8090 May 22 13:37 frames/pentagon-agent-activation-packet-2026-05-22.md
+-rw-r--r--@ 1 gaganarora  staff   4701 May 23 09:05 frames/pentagon-docs-activation-audit-2026-05-23.md
+-rw-r--r--@ 1 gaganarora  staff    935 May 23 10:28 frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+-rw-r--r--@ 1 gaganarora  staff   3392 May 22 14:19 frames/t5-pentagon-handoff-activation-smoke.dispatch.log
+-rw-r--r--@ 1 gaganarora  staff   1759 May 22 14:19 frames/t5-pentagon-handoff-activation-smoke.status
+-rw-r--r--@ 1 gaganarora  staff   2354 May 22 12:53 frames/t5-pentagon-handoff-activation-smoke.yaml
+-rw-r--r--@ 1 gaganarora  staff   4524 May 22 14:32 frames/t5b-pentagon-handoff-activation-smoke.adversary.log
+-rw-r--r--@ 1 gaganarora  staff   1781 May 22 14:33 frames/t5b-pentagon-handoff-activation-smoke.dispatch.log
+-rw-r--r--@ 1 gaganarora  staff  18131 May 22 16:53 frames/t5b-pentagon-handoff-activation-smoke.evaluation.log
+-rw-r--r--@ 1 gaganarora  staff   3460 May 22 14:32 frames/t5b-pentagon-handoff-activation-smoke.gates.log
+-rw-r--r--@ 1 gaganarora  staff   1524 May 22 14:31 frames/t5b-pentagon-handoff-activation-smoke.review.log
+-rw-r--r--@ 1 gaganarora  staff   1686 May 22 14:33 frames/t5b-pentagon-handoff-activation-smoke.status
+-rw-r--r--@ 1 gaganarora  staff   2673 May 22 14:21 frames/t5b-pentagon-handoff-activation-smoke.yaml
+-rw-r--r--@ 1 gaganarora  staff  12607 May 22 20:40 frames/t5d-target-agent-turn-activation-primitive.status
+-rw-r--r--@ 1 gaganarora  staff   2645 May 22 17:55 frames/t5d-target-agent-turn-activation-primitive.yaml
+-rw-r--r--@ 1 gaganarora  staff   7018 May 23 10:23 frames/t5q-restarted-app-native-activation-2026-05-23.log
+-rw-r--r--@ 1 gaganarora  staff    133 May 23 17:57 frames/t6-activation-bottleneck-diagnosis-20260523.log
+-rw-r--r--@ 1 gaganarora  staff    927 May 23 15:10 frames/t6-native-easy-activation-bottleneck-20260523.log
+
+== t6 hard maya run log ==
+{
+  "hash": "T6_NATIVE_HARD_20260523",
+  "level": "hard",
+  "target": {
+    "id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "name": "Maya (Code Owner)",
+    "directory": "/Users/gaganarora/Desktop/my projects/active_graph",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "harness_id": "codex",
+    "execution_mode": "local"
+  },
+  "sender": {
+    "id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "name": "Theo (Test Owner)",
+    "directory": "/Users/gaganarora/Desktop/my projects/active_graph",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "harness_id": "codex",
+    "execution_mode": "local"
+  },
+  "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+  "instruction_file": "frames/t6-native-hard-maya-instruction-20260523.txt",
+  "expect_file": "frames/t6-native-gauntlet-hard-20260523.proof",
+  "bridge_before": {
+    "ok": true
+  },
+  "bridge_stop": {
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "bridge_after_stop": {
+    "ok": false,
+    "stdout": "",
+    "stderr": "Bad request.\nCould not find service \"run.pentagon.trigger-bridge\" in domain for user gui: 501\n"
+  },
+  "message": {
+    "id": "0c5aef62-d7f3-4493-b28c-61f7533b6881",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "content": "NATIVE_GAUNTLET HARD T6_NATIVE_HARD_20260523\n\nMaya, this is a native repo task for /Users/gaganarora/Desktop/my projects/active_graph/activegraph. This tier requires real bug discovery and a two-commit fail-then-fix workflow. Quinn (Test Adversary) will independently verify your work in a separate trigger after you ACK.\n\n1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.\n\n2. Find a REAL bug. Acceptable sources, in priority order:\n     (a) A function in activegraph/activegraph/ whose docstring promises\n         behavior the code does not deliver.\n     (b) A README/mkdocs example that does not execute cleanly verbatim.\n     (c) A TODO / FIXME / XXX comment in activegraph/activegraph/ that names\n         a concrete defect (not an aspirational wish).\n     (d) An xfail / skip marker in activegraph/tests/ whose reason string\n         contains \"bug\" or \"TODO\".\n   Record the source as `bug_source`. Format:\n     (a) -> \"docstring:<relative_path>:<line>\"\n     (b) -> \"docs:<relative_path>\"\n     (c) -> \"comment:<relative_path>:<line>\"\n     (d) -> \"marker:<relative_path>:<line>\"\n   Record a one-line `bug_summary`.\n\n3. Capture baseline:\n     uv run pytest -q --tb=no 2>&1 | tail -3\n   Record passing count as `pytest_before`.\n\n4. Write a FAILING test FIRST. File path:\n     activegraph/tests/test_<bug_handle>_regression.py\n   The test file MUST begin with a module docstring that contains:\n     - Where you found the bug (file:line or doc path)\n     - What correct behavior should look like\n     - Why current behavior is wrong\n   Add AT LEAST 1 `def test_*` function that asserts the correct behavior.\n   Assertions must be concrete (not `assert True`); a single representative\n   assertion of expected output/state is fine.\n\n5. Run the new test alone:\n     uv run pytest activegraph/tests/test_<bug_handle>_regression.py -v\n   It MUST FAIL. Capture the failure summary line.\n\n6. Commit the failing test ALONE in the activegraph/ inner repo. Do NOT\n   include source-code changes in this commit. Commit message MUST start\n   with \"Reproduce bug:\".\n     git -C ../activegraph add tests/test_<bug_handle>_regression.py\n     git -C ../activegraph commit -m \"Reproduce bug: <bug_summary>\"\n   Record the resulting SHA as `failing_test_commit`.\n\n7. Fix the underlying code in activegraph/activegraph/ with the MINIMUM\n   diff that makes the test pass. Do NOT modify the test file in this step.\n\n8. Run the test again — it must now PASS.\n\n9. Run the full suite:\n     uv run pytest -q --tb=no 2>&1 | tail -3\n   `pytest_after` MUST be greater than or equal to `pytest_before`.\n\n10. Commit the fix ALONE. Do NOT include test-file changes. Commit message\n    MUST start with \"Fix \".\n      git -C ../activegraph add activegraph/\n      git -C ../activegraph commit -m \"Fix <bug_handle>: <bug_summary>\"\n    Record the resulting SHA as `fix_commit`.\n\n11. Verify fix_commit is a descendant of failing_test_commit:\n      git -C ../activegraph merge-base --is-ancestor <failing_test_commit> <fix_commit>\n    Must exit 0.\n\n12. Create frames/t6-native-gauntlet-hard-20260523.proof (relative path\n    may live at frames/ or activegraph/frames/; either is accepted by the\n    verifier) with EXACTLY these keys, in this order:\n      hash=T6_NATIVE_HARD_20260523\n      pwd=<pwd output>\n      head=<git short head of inner repo>\n      bug_source=<formatted per step 2>\n      bug_summary=<one line>\n      failing_test_commit=<full SHA from step 6>\n      fix_commit=<full SHA from step 10>\n      test_file=activegraph/tests/test_<bug_handle>_regression.py\n      pytest_before=<int>\n      pytest_after=<int>\n      verdict=native_hard_done\n\n13. Reply exactly:\n    MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_HARD_20260523 HARD frames/t6-native-gauntlet-hard-20260523.proof\n\nAfter you ACK, the operator will trigger Quinn (Test Adversary) with the\nadversarial verification instruction. Do not wait for Quinn — your turn\nends with the ACK.\n",
+    "created_at": "2026-05-23T21:08:44.498172+00:00"
+  },
+  "initial_trigger": {
+    "id": "f106eabf-f025-4c79-862a-57d740eebded",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "0c5aef62-d7f3-4493-b28c-61f7533b6881",
+    "content": "NATIVE_GAUNTLET HARD T6_NATIVE_HARD_20260523\n\nMaya, this is a native repo task for /Users/gaganarora/Desktop/my projects/active_graph/activegraph. This tier requires real bug discovery and a two-commit fail-then-fix workflow. Quinn (Test Adversary) will independently verify your work in a separate trigger after you ACK.\n\n1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.\n\n2. Find a REAL bug. Acceptable sources, in priority order:\n     (a) A function in activegraph/activegraph/ whose docstring promises\n         behavior the code does not deliver.\n     (b) A README/mkdocs example that does not execute cleanly verbatim.\n     (c) A TODO / FIXME / XXX comment in activegraph/activegraph/ that names\n         a concrete defect (not an aspirational wish).\n     (d) An xfail / skip marker in activegraph/tests/ whose reason string\n         contains \"bug\" or \"TODO\".\n   Record the source as `bug_source`. Format:\n     (a) -> \"docstring:<relative_path>:<line>\"\n     (b) -> \"docs:<relative_path>\"\n     (c) -> \"comment:<relative_path>:<line>\"\n     (d) -> \"marker:<relative_path>:<line>\"\n   Record a one-line `bug_summary`.\n\n3. Capture baseline:\n     uv run pytest -q --tb=no 2>&1 | tail -3\n   Record passing count as `pytest_before`.\n\n4. Write a FAILING test FIRST. File path:\n     activegraph/tests/test_<bug_handle>_regression.py\n   The test file MUST begin with a module docstring that contains:\n     - Where you found the bug (file:line or doc path)\n     - What correct behavior should look like\n     - Why current behavior is wrong\n   Add AT LEAST 1 `def test_*` function that asserts the correct behavior.\n   Assertions must be concrete (not `assert True`); a single representative\n   assertion of expected output/state is fine.\n\n5. Run the new test alone:\n     uv run pytest activegraph/tests/test_<bug_handle>_regression.py -v\n   It MUST FAIL. Capture the failure summary line.\n\n6. Commit the failing test ALONE in the activegraph/ inner repo. Do NOT\n   include source-code changes in this commit. Commit message MUST start\n   with \"Reproduce bug:\".\n     git -C ../activegraph add tests/test_<bug_handle>_regression.py\n     git -C ../activegraph commit -m \"Reproduce bug: <bug_summary>\"\n   Record the resulting SHA as `failing_test_commit`.\n\n7. Fix the underlying code in activegraph/activegraph/ with the MINIMUM\n   diff that makes the test pass. Do NOT modify the test file in this step.\n\n8. Run the test again — it must now PASS.\n\n9. Run the full suite:\n     uv run pytest -q --tb=no 2>&1 | tail -3\n   `pytest_after` MUST be greater than or equal to `pytest_before`.\n\n10. Commit the fix ALONE. Do NOT include test-file changes. Commit message\n    MUST start with \"Fix \".\n      git -C ../activegraph add activegraph/\n      git -C ../activegraph commit -m \"Fix <bug_handle>: <bug_summary>\"\n    Record the resulting SHA as `fix_commit`.\n\n11. Verify fix_commit is a descendant of failing_test_commit:\n      git -C ../activegraph merge-base --is-ancestor <failing_test_commit> <fix_commit>\n    Must exit 0.\n\n12. Create frames/t6-native-gauntlet-hard-20260523.proof (relative path\n    may live at frames/ or activegraph/frames/; either is accepted by the\n    verifier) with EXACTLY these keys, in this order:\n      hash=T6_NATIVE_HARD_20260523\n      pwd=<pwd output>\n      head=<git short head of inner repo>\n      bug_source=<formatted per step 2>\n      bug_summary=<one line>\n      failing_test_commit=<full SHA from step 6>\n      fix_commit=<full SHA from step 10>\n      test_file=activegraph/tests/test_<bug_handle>_regression.py\n      pytest_before=<int>\n      pytest_after=<int>\n      verdict=native_hard_done\n\n13. Reply exactly:\n    MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_HARD_20260523 HARD frames/t6-native-gauntlet-hard-20260523.proof\n\nAfter you ACK, the operator will trigger Quinn (Test Adversary) with the\nadversarial verification instruction. Do not wait for Quinn — your turn\nends with the ACK.\n",
+    "created_at": "2026-05-23T21:08:44.498172+00:00",
+    "claimed_at": null,
+    "completed_at": null
+  },
+  "final_trigger": {
+    "id": "f106eabf-f025-4c79-862a-57d740eebded",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "0c5aef62-d7f3-4493-b28c-61f7533b6881",
+    "content": "NATIVE_GAUNTLET HARD T6_NATIVE_HARD_20260523\n\nMaya, this is a native repo task for /Users/gaganarora/Desktop/my projects/active_graph/activegraph. This tier requires real bug discovery and a two-commit fail-then-fix workflow. Quinn (Test Adversary) will independently verify your work in a separate trigger after you ACK.\n\n1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.\n\n2. Find a REAL bug. Acceptable sources, in priority order:\n     (a) A function in activegraph/activegraph/ whose docstring promises\n         behavior the code does not deliver.\n     (b) A README/mkdocs example that does not execute cleanly verbatim.\n     (c) A TODO / FIXME / XXX comment in activegraph/activegraph/ that names\n         a concrete defect (not an aspirational wish).\n     (d) An xfail / skip marker in activegraph/tests/ whose reason string\n         contains \"bug\" or \"TODO\".\n   Record the source as `bug_source`. Format:\n     (a) -> \"docstring:<relative_path>:<line>\"\n     (b) -> \"docs:<relative_path>\"\n     (c) -> \"comment:<relative_path>:<line>\"\n     (d) -> \"marker:<relative_path>:<line>\"\n   Record a one-line `bug_summary`.\n\n3. Capture baseline:\n     uv run pytest -q --tb=no 2>&1 | tail -3\n   Record passing count as `pytest_before`.\n\n4. Write a FAILING test FIRST. File path:\n     activegraph/tests/test_<bug_handle>_regression.py\n   The test file MUST begin with a module docstring that contains:\n     - Where you found the bug (file:line or doc path)\n     - What correct behavior should look like\n     - Why current behavior is wrong\n   Add AT LEAST 1 `def test_*` function that asserts the correct behavior.\n   Assertions must be concrete (not `assert True`); a single representative\n   assertion of expected output/state is fine.\n\n5. Run the new test alone:\n     uv run pytest activegraph/tests/test_<bug_handle>_regression.py -v\n   It MUST FAIL. Capture the failure summary line.\n\n6. Commit the failing test ALONE in the activegraph/ inner repo. Do NOT\n   include source-code changes in this commit. Commit message MUST start\n   with \"Reproduce bug:\".\n     git -C ../activegraph add tests/test_<bug_handle>_regression.py\n     git -C ../activegraph commit -m \"Reproduce bug: <bug_summary>\"\n   Record the resulting SHA as `failing_test_commit`.\n\n7. Fix the underlying code in activegraph/activegraph/ with the MINIMUM\n   diff that makes the test pass. Do NOT modify the test file in this step.\n\n8. Run the test again — it must now PASS.\n\n9. Run the full suite:\n     uv run pytest -q --tb=no 2>&1 | tail -3\n   `pytest_after` MUST be greater than or equal to `pytest_before`.\n\n10. Commit the fix ALONE. Do NOT include test-file changes. Commit message\n    MUST start with \"Fix \".\n      git -C ../activegraph add activegraph/\n      git -C ../activegraph commit -m \"Fix <bug_handle>: <bug_summary>\"\n    Record the resulting SHA as `fix_commit`.\n\n11. Verify fix_commit is a descendant of failing_test_commit:\n      git -C ../activegraph merge-base --is-ancestor <failing_test_commit> <fix_commit>\n    Must exit 0.\n\n12. Create frames/t6-native-gauntlet-hard-20260523.proof (relative path\n    may live at frames/ or activegraph/frames/; either is accepted by the\n    verifier) with EXACTLY these keys, in this order:\n      hash=T6_NATIVE_HARD_20260523\n      pwd=<pwd output>\n      head=<git short head of inner repo>\n      bug_source=<formatted per step 2>\n      bug_summary=<one line>\n      failing_test_commit=<full SHA from step 6>\n      fix_commit=<full SHA from step 10>\n      test_file=activegraph/tests/test_<bug_handle>_regression.py\n      pytest_before=<int>\n      pytest_after=<int>\n      verdict=native_hard_done\n\n13. Reply exactly:\n    MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_HARD_20260523 HARD frames/t6-native-gauntlet-hard-20260523.proof\n\nAfter you ACK, the operator will trigger Quinn (Test Adversary) with the\nadversarial verification instruction. Do not wait for Quinn — your turn\nends with the ACK.\n",
+    "created_at": "2026-05-23T21:08:44.498172+00:00",
+    "claimed_at": null,
+    "completed_at": null
+  },
+  "response_rows": [],
+  "expected_file": {
+    "exists": false,
+    "contains_hash": false,
+    "content": null
+  },
+  "activation_path": "incomplete",
+  "native_pass": false,
+  "verdict": "native_task_failed_or_incomplete",
+  "bridge_restore": {
+    "kick_status": 0,
+    "kick_stdout": "",
+    "kick_stderr": "",
+    "state": {
+      "ok": true,
+      "stdout": "gui/501/run.pentagon.trigger-bridge = {\n\tactive count = 1\n\tpath = /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist\n\ttype = LaunchAgent\n\tstate = xpcproxy\n\n\tprogram = /opt/homebrew/bin/node\n\targuments = {\n\t\t/opt/homebrew/bin/node\n\t\t/Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs\n\t\t--loop\n\t\t--interval-ms\n\t\t1000\n\t\t--limit\n\t\t8\n\t\t--max-age-seconds\n\t\t180\n\t\t--codex-timeout-ms\n\t\t180000\n\t}\n\n\tworking directory = /Users/gaganarora/Desktop/my projects/active_graph\n\n\tstdout path = /Users/gaganarora/.pentagon/trigger-bridge.out.log\n\tstderr path = /Users/gaganarora/.pentagon/trigger-bridge.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /private/tmp/com.apple.launchd.DFXPJtlDGd/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tPATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin\n\t\tXPC_SERVICE_NAME => run.pentagon.trigger-bridge\n\t}\n\n\tdomain = gui/501 [100003]\n\tasid = 100003\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 2\n\tpid = 95649\n\timmediate reason = inefficient\n\tforks = 0\n\texecs = 0\n\tinitialized = 0\n\ttrampolined = 0\n\tstarted suspended = 0\n\tproxy started suspended = 0\n\tlast terminating signal = Terminated: 15\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\tprobabilistic guard malloc policy = {\n\t\tactivation rate = 1/1000\n\t\tsample rate = 1/0\n\t}\n\n\tproperties = keepalive | runatload | inferred program\n}\n",
+      "stderr": ""
+    }
+  }
+}
+
+== process state ==
+-- launchctl bridge --
+gui/501/run.pentagon.trigger-bridge = {
+	active count = 1
+	path = /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist
+	type = LaunchAgent
+	state = running
+
+	program = /opt/homebrew/bin/node
+	arguments = {
+		/opt/homebrew/bin/node
+		/Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs
+		--loop
+		--interval-ms
+		1000
+		--limit
+		8
+		--max-age-seconds
+		180
+		--codex-timeout-ms
+		180000
+	}
+
+	working directory = /Users/gaganarora/Desktop/my projects/active_graph
+
+	stdout path = /Users/gaganarora/.pentagon/trigger-bridge.out.log
+	stderr path = /Users/gaganarora/.pentagon/trigger-bridge.err.log
+	inherited environment = {
+		SSH_AUTH_SOCK => /private/tmp/com.apple.launchd.DFXPJtlDGd/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		PATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+		XPC_SERVICE_NAME => run.pentagon.trigger-bridge
+	}
+
+	domain = gui/501 [100003]
+	asid = 100003
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 2
+	pid = 95649
+	immediate reason = inefficient
+	forks = 5
+	execs = 1
+	initialized = 1
+	trampolined = 1
+	started suspended = 0
+	proxy started suspended = 0
+	last terminating signal = Terminated: 15
+
+	spawn type = daemon (3)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	probabilistic guard malloc policy = {
+		activation rate = 1/1000
+		sample rate = 1/0
+	}
+
+	properties = keepalive | runatload | inferred program
+}
+-- bridge processes --
+gaganarora       11414   2.1  0.5 417036608  44160   ??  S     3:11PM   7:52.86 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+gaganarora       95649   0.6  0.4 420960304  34864   ??  S     5:48PM   0:01.50 /opt/homebrew/bin/node /Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs --loop --interval-ms 1000 --limit 8 --max-age-seconds 180 --codex-timeout-ms 180000
+gaganarora       32816   0.5  1.7 430164064 146736 s000  S+    8:59AM   9:59.20 /opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex
+gaganarora        7431   0.1  0.1 460790656   8800   ??  S     2:17PM   0:24.79 /Applications/Codex.app/Contents/Frameworks/Codex Helper.app/Contents/MacOS/Codex Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=network --user-data-dir=/Users/gaganarora/Library/Application Support/Codex --standard-schemes=app --secure-schemes=app,sentry-ipc --bypasscsp-schemes=sentry-ipc --cors-schemes=sentry-ipc --fetch-schemes=app,sentry-ipc --streaming-schemes=app --shared-files --field-trial-handle=1718379636,r,6725276702448601356,8319134223649207807,262144 --enable-features=DocumentPolicyIncludeJSCallStacksInCrashReports,PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5446652392356546519,3737854488087535236,4 --trace-process-track-uuid=3190708989122997041 --seatbelt-client=33
+gaganarora        7475   0.1  0.2 415813728  18816   ??  S     2:17PM   1:32.98 /Applications/Codex.app/Contents/Resources/codex app-server --analytics-default-enabled
+gaganarora        7747   0.0  0.1 411114256   4480   ??  S     2:17PM   0:00.04 /Applications/Codex.app/Contents/Resources/codex builtin-mcp memories --codex-home /Users/gaganarora/.codex
+gaganarora        7744   0.0  0.0 410678480    784   ??  S     2:17PM   0:00.01 /Applications/Codex.app/Contents/Resources/node_repl
+gaganarora        7503   0.0  0.0 411495328   3856   ??  S     2:17PM   0:25.49 /Applications/Codex.app/Contents/Resources/codex_chronicle
+gaganarora        7478   0.0  0.3 1873186256  24560   ??  S     2:17PM   1:03.54 /Applications/Codex.app/Contents/Frameworks/Codex Helper (Renderer).app/Contents/MacOS/Codex Helper (Renderer) --type=renderer --user-data-dir=/Users/gaganarora/Library/Application Support/Codex --standard-schemes=app --secure-schemes=app,sentry-ipc --bypasscsp-schemes=sentry-ipc --cors-schemes=sentry-ipc --fetch-schemes=app,sentry-ipc --streaming-schemes=app --app-path=/Applications/Codex.app/Contents/Resources/app.asar --enable-sandbox --lang=en-US --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1779497547475365 --launch-time-ticks=62701240495 --shared-files --field-trial-handle=1718379636,r,6725276702448601356,8319134223649207807,262144 --enable-features=DocumentPolicyIncludeJSCallStacksInCrashReports,PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5446652392356546519,3737854488087535236,4 --trace-process-track-uuid=3190708990060038890 --seatbelt-client=69
+gaganarora        7429   0.0  0.1 460999408   9264   ??  S     2:17PM   0:24.63 /Applications/Codex.app/Contents/Frameworks/Codex Helper.app/Contents/MacOS/Codex Helper --type=gpu-process --user-data-dir=/Users/gaganarora/Library/Application Support/Codex --gpu-preferences=SAAAAAAAAAAgAQAEAAAAAAAAAAAAAGAAAwAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --field-trial-handle=1718379636,r,6725276702448601356,8319134223649207807,262144 --enable-features=DocumentPolicyIncludeJSCallStacksInCrashReports,PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5446652392356546519,3737854488087535236,4 --trace-process-track-uuid=3190708988185955192 --seatbelt-client=31
+gaganarora        7428   0.0  0.0 460470400   1616   ??  S     2:17PM   0:00.03 /Applications/Codex.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --no-rate-limit --monitor-self-annotation=ptype=crashpad-handler --database=/Users/gaganarora/Library/Application Support/Codex/Crashpad --url=https://f.a.k/e --annotation=_productName=Codex --annotation=_version=26.506.21252 --annotation=plat=OS X --annotation=prod=Electron --annotation=ver=41.2.0 --handshake-fd=18
+gaganarora        7426   0.0  0.2 1867786816  20560   ??  S     2:17PM  14:01.07 /Applications/Codex.app/Contents/MacOS/Codex
+gaganarora        3929   0.0  0.1 411560672   5456 s001  S+   11:12AM   0:00.14 /opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex mcp-server
+gaganarora        3924   0.0  0.0 411867648   3840 s001  S+   11:12AM   0:00.28 node /opt/homebrew/bin/codex mcp-server
+gaganarora       32815   0.0  0.0 411735552   3680 s000  S+    8:59AM   0:00.32 node /opt/homebrew/bin/codex
+gaganarora       95992   0.0  0.0 410595920   1056   ??  R     5:57PM   0:00.00 rg pentagon-trigger-bridge|run-native-pentagon-task|Pentagon|Codex.app|codex app-server|node
+gaganarora       95971   0.0  0.0 410729232   2592   ??  Ss    5:57PM   0:00.02 /bin/zsh -c {\012  echo "T6 activation bottleneck diagnosis 2026-05-23"\012  date -u '+diagnosis_started_utc=%Y-%m-%dT%H:%M:%SZ'\012  echo\012  echo "== activation/bottleneck evidence files =="\012  find frames -type f \( -name "*activation*" -o -name "*bottleneck*" \) -print0 | xargs -0 ls -la\012  echo\012  echo "== t6 hard maya run log =="\012  sed -n '1,220p' frames/t6-native-hard-maya-run-20260523.log\012  echo\012  echo "== process state =="\012  echo "-- launchctl bridge --"\012  launchctl print "gui/$(id -u)/run.pentagon.trigger-bridge" 2>&1 || true\012  echo "-- bridge processes --"\012  ps aux | rg 'pentagon-trigger-bridge|run-native-pentagon-task|Pentagon|Codex.app|codex app-server|node' | head -80 || true\012  echo "-- app process health --"\012  pgrep -lf 'Pentagon|Codex.app|codex app-server' || true\012  echo\012  echo "== supabase activation rows =="\012  node --input-type=module <<'NODE'\012import { execFileSync } from "node:child_process";\012const ROOT = "/Users/gaganarora/Desktop/my projects/active_graph";\012const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";\012const PENTAGON_BIN = "/Applications/Pentagon.app/Contents/MacOS/Pentagon";\012function decode(jwt){const p=jwt.split(".")[1];return JSON.parse(Buffer.from(p.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(p.length/4)*4,"="),"base64").toString("utf8"))}\012const session=JSON.parse(execFileSync("/usr/libexec/PlistBuddy",["-c","Print :supabase.auth.sb-auth-auth-token",PLIST],{encoding:"utf8"}));\012const origin=new URL(decode(session.accessToken).iss).origin;\012const anon=execFileSync("zsh",["-lc","strings "+JSON.stringify(PENTAGON_BIN)+" | rg '^eyJ' | head -1"],{encoding:"utf8"}).trim();\012async function req(path, opts={}) {\012  const res=await fetch(origin+path,{method:opts.method ?? "GET", headers:{apikey:anon,Authorization:"Bearer "+session.accessToken,Accept:"application/json","Content-Type":"application/json", ...(opts.prefer ? {Prefer: opts.prefer} : {})}, body: opts.body === undefined ? undefined : JSON.stringify(opts.body)});\012  const text=await res.text(); let parsed=text; try{parsed=JSON.parse(text)}catch{}\012  if(!res.ok) throw new Error(path+" "+res.status+" "+JSON.stringify(parsed));\012  return parsed;\012}\012const stuck = await req("/rest/v1/agent_triggers?id=eq.f106eabf-f025-4c79-862a-57d740eebded&select=*&limit=1");\012console.log("stuck_trigger_full_row=");\012console.log(JSON.stringify(stuck, null, 2));\012const maya = await req("/rest/v1/agents?name=eq."+encodeURIComponent("Maya (Code Owner)")+"&directory=eq."+encodeURIComponent(ROOT)+"&select=*&limit=5");\012console.log("maya_agent_rows=");\012console.log(JSON.stringify(maya, null, 2));\012const since = new Date(Date.now() - 6*60*60*1000).toISOString();\012const triggers = await req("/rest/v1/agent_triggers?created_at=gte."+encodeURIComponent(since)+"&select=id,created_at,claimed_at,completed_at,agent_id,message_id&order=created_at.desc&limit=50");\012const claimed = triggers.filter(t => t.claimed_at);\012const completed = triggers.filter(t => t.completed_at);\012const stuckRows = triggers.filter(t => !t.claimed_at && !t.completed_at);\012console.log("last_6h_since="+since);\012console.log("last_6h_trigger_counts="+JSON.stringify({total:triggers.length, claimed:claimed.length, completed:completed.length, stuck:stuckRows.length}));\012console.log("last_6h_triggers=");\012console.log(JSON.stringify(triggers, null, 2));\012NODE\012  echo\012  echo "== root cause assessment =="\012  echo "Most likely: Pentagon desktop app native trigger poller desynced/not polling triggers."\012  echo "Evidence: runner intentionally stopped the bridge, so bridge daemon state cannot explain native trigger pickup; Pentagon.app process was present, Maya agent config remained canonical, trigger row existed for Maya and stayed claimed_at=null completed_at=null for the full 40-minute watch, while the runner restored bridge only after failure. This isolates failure to the native app/poller trigger-claim path rather than missing trigger creation, agent config drift, or bridge death."\012  echo "hypothesis=a: bridge daemon died silently -> unlikely for native run; bridge was intentionally stopped and later restored, and native trigger should be claimed by Pentagon.app."\012  echo "hypothesis=b: Pentagon desktop app desynced / not polling triggers -> most likely."\012  echo "hypothesis=c: trigger-table state machine stuck -> possible secondary, but new trigger row was ordinary pending state with null claimed/completed."\012  echo "hypothesis=d: Maya config drifted -> check agent row above; expected canonical config."\012  echo "diagnosis_verdict=CLEAR_ROOT_CAUSE_NATIVE_POLLER_DESYNC"\012  date -u '+diagnosis_finished_utc=%Y-%m-%dT%H:%M:%SZ'\012} > frames/t6-activation-bottleneck-diagnosis-20260523.log 2>&1\012\012tail -80 frames/t6-activation-bottleneck-diagnosis-20260523.log\012
+-- app process health --
+7426 /Applications/Codex.app/Contents/MacOS/Codex
+7428 /Applications/Codex.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --no-rate-limit --monitor-self-annotation=ptype=crashpad-handler --database=/Users/gaganarora/Library/Application Support/Codex/Crashpad --url=https://f.a.k/e --annotation=_productName=Codex --annotation=_version=26.506.21252 --annotation=plat=OS X --annotation=prod=Electron --annotation=ver=41.2.0 --handshake-fd=18
+7429 /Applications/Codex.app/Contents/Frameworks/Codex Helper.app/Contents/MacOS/Codex Helper --type=gpu-process --user-data-dir=/Users/gaganarora/Library/Application Support/Codex --gpu-preferences=SAAAAAAAAAAgAQAEAAAAAAAAAAAAAGAAAwAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --field-trial-handle=1718379636,r,6725276702448601356,8319134223649207807,262144 --enable-features=DocumentPolicyIncludeJSCallStacksInCrashReports,PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5446652392356546519,3737854488087535236,4 --trace-process-track-uuid=3190708988185955192 --seatbelt-client=31
+7431 /Applications/Codex.app/Contents/Frameworks/Codex Helper.app/Contents/MacOS/Codex Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=network --user-data-dir=/Users/gaganarora/Library/Application Support/Codex --standard-schemes=app --secure-schemes=app,sentry-ipc --bypasscsp-schemes=sentry-ipc --cors-schemes=sentry-ipc --fetch-schemes=app,sentry-ipc --streaming-schemes=app --shared-files --field-trial-handle=1718379636,r,6725276702448601356,8319134223649207807,262144 --enable-features=DocumentPolicyIncludeJSCallStacksInCrashReports,PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5446652392356546519,3737854488087535236,4 --trace-process-track-uuid=3190708989122997041 --seatbelt-client=33
+7475 /Applications/Codex.app/Contents/Resources/codex app-server --analytics-default-enabled
+7478 /Applications/Codex.app/Contents/Frameworks/Codex Helper (Renderer).app/Contents/MacOS/Codex Helper (Renderer) --type=renderer --user-data-dir=/Users/gaganarora/Library/Application Support/Codex --standard-schemes=app --secure-schemes=app,sentry-ipc --bypasscsp-schemes=sentry-ipc --cors-schemes=sentry-ipc --fetch-schemes=app,sentry-ipc --streaming-schemes=app --app-path=/Applications/Codex.app/Contents/Resources/app.asar --enable-sandbox --lang=en-US --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1779497547475365 --launch-time-ticks=62701240495 --shared-files --field-trial-handle=1718379636,r,6725276702448601356,8319134223649207807,262144 --enable-features=DocumentPolicyIncludeJSCallStacksInCrashReports,PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1935764596,r,5446652392356546519,3737854488087535236,4 --trace-process-track-uuid=3190708990060038890 --seatbelt-client=69
+7503 /Applications/Codex.app/Contents/Resources/codex_chronicle
+7744 /Applications/Codex.app/Contents/Resources/node_repl
+7747 /Applications/Codex.app/Contents/Resources/codex builtin-mcp memories --codex-home /Users/gaganarora/.codex
+11414 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+
+== supabase activation rows ==
+stuck_trigger_full_row=
+[
+  {
+    "id": "f106eabf-f025-4c79-862a-57d740eebded",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "0c5aef62-d7f3-4493-b28c-61f7533b6881",
+    "content": "NATIVE_GAUNTLET HARD T6_NATIVE_HARD_20260523\n\nMaya, this is a native repo task for /Users/gaganarora/Desktop/my projects/active_graph/activegraph. This tier requires real bug discovery and a two-commit fail-then-fix workflow. Quinn (Test Adversary) will independently verify your work in a separate trigger after you ACK.\n\n1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.\n\n2. Find a REAL bug. Acceptable sources, in priority order:\n     (a) A function in activegraph/activegraph/ whose docstring promises\n         behavior the code does not deliver.\n     (b) A README/mkdocs example that does not execute cleanly verbatim.\n     (c) A TODO / FIXME / XXX comment in activegraph/activegraph/ that names\n         a concrete defect (not an aspirational wish).\n     (d) An xfail / skip marker in activegraph/tests/ whose reason string\n         contains \"bug\" or \"TODO\".\n   Record the source as `bug_source`. Format:\n     (a) -> \"docstring:<relative_path>:<line>\"\n     (b) -> \"docs:<relative_path>\"\n     (c) -> \"comment:<relative_path>:<line>\"\n     (d) -> \"marker:<relative_path>:<line>\"\n   Record a one-line `bug_summary`.\n\n3. Capture baseline:\n     uv run pytest -q --tb=no 2>&1 | tail -3\n   Record passing count as `pytest_before`.\n\n4. Write a FAILING test FIRST. File path:\n     activegraph/tests/test_<bug_handle>_regression.py\n   The test file MUST begin with a module docstring that contains:\n     - Where you found the bug (file:line or doc path)\n     - What correct behavior should look like\n     - Why current behavior is wrong\n   Add AT LEAST 1 `def test_*` function that asserts the correct behavior.\n   Assertions must be concrete (not `assert True`); a single representative\n   assertion of expected output/state is fine.\n\n5. Run the new test alone:\n     uv run pytest activegraph/tests/test_<bug_handle>_regression.py -v\n   It MUST FAIL. Capture the failure summary line.\n\n6. Commit the failing test ALONE in the activegraph/ inner repo. Do NOT\n   include source-code changes in this commit. Commit message MUST start\n   with \"Reproduce bug:\".\n     git -C ../activegraph add tests/test_<bug_handle>_regression.py\n     git -C ../activegraph commit -m \"Reproduce bug: <bug_summary>\"\n   Record the resulting SHA as `failing_test_commit`.\n\n7. Fix the underlying code in activegraph/activegraph/ with the MINIMUM\n   diff that makes the test pass. Do NOT modify the test file in this step.\n\n8. Run the test again — it must now PASS.\n\n9. Run the full suite:\n     uv run pytest -q --tb=no 2>&1 | tail -3\n   `pytest_after` MUST be greater than or equal to `pytest_before`.\n\n10. Commit the fix ALONE. Do NOT include test-file changes. Commit message\n    MUST start with \"Fix \".\n      git -C ../activegraph add activegraph/\n      git -C ../activegraph commit -m \"Fix <bug_handle>: <bug_summary>\"\n    Record the resulting SHA as `fix_commit`.\n\n11. Verify fix_commit is a descendant of failing_test_commit:\n      git -C ../activegraph merge-base --is-ancestor <failing_test_commit> <fix_commit>\n    Must exit 0.\n\n12. Create frames/t6-native-gauntlet-hard-20260523.proof (relative path\n    may live at frames/ or activegraph/frames/; either is accepted by the\n    verifier) with EXACTLY these keys, in this order:\n      hash=T6_NATIVE_HARD_20260523\n      pwd=<pwd output>\n      head=<git short head of inner repo>\n      bug_source=<formatted per step 2>\n      bug_summary=<one line>\n      failing_test_commit=<full SHA from step 6>\n      fix_commit=<full SHA from step 10>\n      test_file=activegraph/tests/test_<bug_handle>_regression.py\n      pytest_before=<int>\n      pytest_after=<int>\n      verdict=native_hard_done\n\n13. Reply exactly:\n    MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_HARD_20260523 HARD frames/t6-native-gauntlet-hard-20260523.proof\n\nAfter you ACK, the operator will trigger Quinn (Test Adversary) with the\nadversarial verification instruction. Do not wait for Quinn — your turn\nends with the ACK.\n",
+    "owner_id": "8e327bb0-4cbc-4162-a539-d2584db6d559",
+    "created_at": "2026-05-23T21:08:44.498172+00:00",
+    "claimed_at": null,
+    "completed_at": null
+  }
+]
+maya_agent_rows=
+[
+  {
+    "id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "user_id": "8e327bb0-4cbc-4162-a539-d2584db6d559",
+    "data": null,
+    "updated_at": "2026-05-23T19:32:18.856833+00:00",
+    "deleted_at": null,
+    "device_id": "44A67911-6A9B-441D-9F25-C2241A154691",
+    "owner_id": "8e327bb0-4cbc-4162-a539-d2584db6d559",
+    "map_id": "c57026b2-4fe0-46f1-85b4-77bb48d6af94",
+    "name": "Maya (Code Owner)",
+    "directory": "/Users/gaganarora/Desktop/my projects/active_graph",
+    "base_directory": null,
+    "base_branch": null,
+    "role_id": null,
+    "desk_x": -1890,
+    "desk_y": 1650,
+    "provider": "codex",
+    "shape_sides": 8,
+    "color": "#f0ff00",
+    "emoji": "🤖",
+    "created_at": "2026-05-20T19:39:10.195414+00:00",
+    "model": "gpt-5.5",
+    "note_offset_x": 47.7268085106383,
+    "note_offset_y": -136.187234042553,
+    "heartbeat_interval_seconds": 60,
+    "last_seen_at": "2026-05-23T19:32:18.647+00:00",
+    "heartbeat_prompt": "T5d bounded handoff watchdog. Every heartbeat, inspect your recent direct/group messages and the Theo-Maya conversation for any unacknowledged hash matching T5D_HEARTBEAT_HANDOFF_* from Theo. If found, reply in the same conversation: MAYA_T5D_ACK <hash> cwd=<pwd> head=<git -C activegraph rev-parse --short HEAD>. If you cannot inspect or respond, reply MAYA_T5D_BLOCKED <hash> <literal reason>. Keep it short and do not wait for a manual poke.",
+    "grid_col": -32,
+    "grid_row": 27,
+    "execution_mode": "local",
+    "sandbox_id": null,
+    "snapshot_id": null,
+    "harness_id": "codex",
+    "runtime_version": null,
+    "warm_window_seconds": 300,
+    "provider_endpoint_mode": "gateway",
+    "provider_endpoint_binary": null,
+    "agent_os_serve_session_id": null
+  }
+]
+last_6h_since=2026-05-23T15:57:02.514Z
+last_6h_trigger_counts={"total":50,"claimed":48,"completed":48,"stuck":2}
+last_6h_triggers=
+[
+  {
+    "id": "f106eabf-f025-4c79-862a-57d740eebded",
+    "created_at": "2026-05-23T21:08:44.498172+00:00",
+    "claimed_at": null,
+    "completed_at": null,
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "message_id": "0c5aef62-d7f3-4493-b28c-61f7533b6881"
+  },
+  {
+    "id": "0d3b4e25-652f-4c60-8641-c5a75ce2d29a",
+    "created_at": "2026-05-23T20:09:59.674901+00:00",
+    "claimed_at": null,
+    "completed_at": null,
+    "agent_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "945367f2-db04-42ac-9893-ea91d38d4309"
+  },
+  {
+    "id": "4b0a882b-f458-47e8-b94f-5e9dca0ddfc3",
+    "created_at": "2026-05-23T19:54:06.294318+00:00",
+    "claimed_at": "2026-05-23T20:07:53.836455+00:00",
+    "completed_at": "2026-05-23T20:10:03.207+00:00",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "message_id": "700727ab-6d18-4b41-a60f-87301ac6d6a3"
+  },
+  {
+    "id": "22b3ca0e-37b1-45a3-86ed-393ed3903fa2",
+    "created_at": "2026-05-23T19:49:13.208942+00:00",
+    "claimed_at": "2026-05-23T19:49:14.125149+00:00",
+    "completed_at": "2026-05-23T19:49:14.222467+00:00",
+    "agent_id": "ab752676-b8e9-4bf0-8f0f-6101933177a3",
+    "message_id": "ce2075a1-d60a-4688-9955-8adbd0c8e7c6"
+  },
+  {
+    "id": "ad41db51-a799-45c4-be3c-305ac4106a2b",
+    "created_at": "2026-05-23T19:49:13.208942+00:00",
+    "claimed_at": "2026-05-23T19:49:13.716335+00:00",
+    "completed_at": "2026-05-23T19:49:13.815301+00:00",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "message_id": "ce2075a1-d60a-4688-9955-8adbd0c8e7c6"
+  },
+  {
+    "id": "b1afa170-5c69-4d45-9e39-cd057d8ca7e3",
+    "created_at": "2026-05-23T19:49:13.208942+00:00",
+    "claimed_at": "2026-05-23T19:49:13.912839+00:00",
+    "completed_at": "2026-05-23T19:49:14.026985+00:00",
+    "agent_id": "9ce67d98-bc38-404b-a979-8db00379fbda",
+    "message_id": "ce2075a1-d60a-4688-9955-8adbd0c8e7c6"
+  },
+  {
+    "id": "ec91ed39-a96e-4b47-962f-fe34188200c4",
+    "created_at": "2026-05-23T19:49:13.208942+00:00",
+    "claimed_at": "2026-05-23T19:49:13.528206+00:00",
+    "completed_at": "2026-05-23T19:49:13.625989+00:00",
+    "agent_id": "04579801-e0a0-4474-a6e9-bedfcd7eebe9",
+    "message_id": "ce2075a1-d60a-4688-9955-8adbd0c8e7c6"
+  },
+  {
+    "id": "0c318ee4-1038-434a-a83d-259176dcdd92",
+    "created_at": "2026-05-23T19:48:57.353273+00:00",
+    "claimed_at": "2026-05-23T19:48:58.816082+00:00",
+    "completed_at": "2026-05-23T19:48:58.913737+00:00",
+    "agent_id": "3170d32c-8ff8-46e7-811f-2fb2622ab3c5",
+    "message_id": "bb9bbb0a-f3d5-4482-ba94-fcda7877a9d2"
+  },
+  {
+    "id": "5a16824f-84b2-4307-a2ae-6dea3690e4de",
+    "created_at": "2026-05-23T19:48:57.353273+00:00",
+    "claimed_at": "2026-05-23T19:48:59.007018+00:00",
+    "completed_at": "2026-05-23T19:48:59.105444+00:00",
+    "agent_id": "642755a2-a869-440b-b4f7-e5a718e0fb8b",
+    "message_id": "bb9bbb0a-f3d5-4482-ba94-fcda7877a9d2"
+  },
+  {
+    "id": "939d769c-ecb3-454b-ab3c-5002aa5ff962",
+    "created_at": "2026-05-23T19:48:57.013606+00:00",
+    "claimed_at": "2026-05-23T19:48:58.005535+00:00",
+    "completed_at": "2026-05-23T19:48:58.105762+00:00",
+    "agent_id": "04579801-e0a0-4474-a6e9-bedfcd7eebe9",
+    "message_id": "388bd076-d30d-4855-82b3-d24e5883cc54"
+  },
+  {
+    "id": "4ffa79f7-73bf-48e8-823b-29f2cc074c2e",
+    "created_at": "2026-05-23T19:48:57.013606+00:00",
+    "claimed_at": "2026-05-23T19:48:58.418573+00:00",
+    "completed_at": "2026-05-23T19:48:58.515527+00:00",
+    "agent_id": "9ce67d98-bc38-404b-a979-8db00379fbda",
+    "message_id": "388bd076-d30d-4855-82b3-d24e5883cc54"
+  },
+  {
+    "id": "05cd3dac-6b28-4ebc-961e-93044aed340b",
+    "created_at": "2026-05-23T19:48:57.013606+00:00",
+    "claimed_at": "2026-05-23T19:48:58.61792+00:00",
+    "completed_at": "2026-05-23T19:48:58.727931+00:00",
+    "agent_id": "ab752676-b8e9-4bf0-8f0f-6101933177a3",
+    "message_id": "388bd076-d30d-4855-82b3-d24e5883cc54"
+  },
+  {
+    "id": "f609848a-ea96-42f7-b747-69436871f163",
+    "created_at": "2026-05-23T19:48:57.013606+00:00",
+    "claimed_at": "2026-05-23T19:48:58.225547+00:00",
+    "completed_at": "2026-05-23T19:48:58.326454+00:00",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "message_id": "388bd076-d30d-4855-82b3-d24e5883cc54"
+  },
+  {
+    "id": "fd61ba6a-0284-4838-8e02-bf7089017fa7",
+    "created_at": "2026-05-23T19:48:18.268748+00:00",
+    "claimed_at": "2026-05-23T19:48:27.066884+00:00",
+    "completed_at": "2026-05-23T19:48:27.163861+00:00",
+    "agent_id": "04579801-e0a0-4474-a6e9-bedfcd7eebe9",
+    "message_id": "5323438c-0e0e-4727-8745-741e77d195ae"
+  },
+  {
+    "id": "1ffd98a2-0568-4e64-a9bc-ff5ac7af6991",
+    "created_at": "2026-05-23T19:48:18.268748+00:00",
+    "claimed_at": "2026-05-23T19:48:25.780513+00:00",
+    "completed_at": "2026-05-23T19:48:25.871019+00:00",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "message_id": "5323438c-0e0e-4727-8745-741e77d195ae"
+  },
+  {
+    "id": "88429bef-0843-4443-92ea-00c9201e9833",
+    "created_at": "2026-05-23T19:48:18.268748+00:00",
+    "claimed_at": "2026-05-23T19:48:25.600862+00:00",
+    "completed_at": "2026-05-23T19:48:25.690712+00:00",
+    "agent_id": "9ce67d98-bc38-404b-a979-8db00379fbda",
+    "message_id": "5323438c-0e0e-4727-8745-741e77d195ae"
+  },
+  {
+    "id": "636c2ea8-e261-4966-890d-41d435138d86",
+    "created_at": "2026-05-23T19:48:04.68051+00:00",
+    "claimed_at": "2026-05-23T19:48:25.405856+00:00",
+    "completed_at": "2026-05-23T19:48:25.511132+00:00",
+    "agent_id": "ab752676-b8e9-4bf0-8f0f-6101933177a3",
+    "message_id": "3016630e-41eb-4873-801e-af02e097e7b8"
+  },
+  {
+    "id": "78ab6ca7-bf08-4315-b17b-da9090bac175",
+    "created_at": "2026-05-23T19:47:56.128384+00:00",
+    "claimed_at": "2026-05-23T19:48:25.021162+00:00",
+    "completed_at": "2026-05-23T19:48:25.118583+00:00",
+    "agent_id": "642755a2-a869-440b-b4f7-e5a718e0fb8b",
+    "message_id": "dc3614fa-e005-49de-8990-c8eac6d082be"
+  },
+  {
+    "id": "00be362d-a8c0-4125-8607-0c2a3406f9f7",
+    "created_at": "2026-05-23T19:47:56.128384+00:00",
+    "claimed_at": "2026-05-23T19:48:25.213565+00:00",
+    "completed_at": "2026-05-23T19:48:25.310051+00:00",
+    "agent_id": "3170d32c-8ff8-46e7-811f-2fb2622ab3c5",
+    "message_id": "dc3614fa-e005-49de-8990-c8eac6d082be"
+  },
+  {
+    "id": "2c668b74-8544-4697-aa75-c8a605f803c8",
+    "created_at": "2026-05-23T19:47:36.135284+00:00",
+    "claimed_at": "2026-05-23T19:48:24.828199+00:00",
+    "completed_at": "2026-05-23T19:48:24.923606+00:00",
+    "agent_id": "8965cbc1-eed8-4c87-a04f-9f0b8b5febcb",
+    "message_id": "7113ecfa-8e18-446f-88bf-c3bcb0994e30"
+  },
+  {
+    "id": "35fc33dd-8323-4251-a723-c3a3f848a6e8",
+    "created_at": "2026-05-23T19:47:34.765816+00:00",
+    "claimed_at": "2026-05-23T19:48:24.447325+00:00",
+    "completed_at": "2026-05-23T19:48:24.540211+00:00",
+    "agent_id": "04579801-e0a0-4474-a6e9-bedfcd7eebe9",
+    "message_id": "eccb168c-0652-4559-a6f0-99874d6415c2"
+  },
+  {
+    "id": "71fba6d4-8186-4cbf-aed9-77574d8bc63e",
+    "created_at": "2026-05-23T19:47:34.765816+00:00",
+    "claimed_at": "2026-05-23T19:48:23.155926+00:00",
+    "completed_at": "2026-05-23T19:48:23.252178+00:00",
+    "agent_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "eccb168c-0652-4559-a6f0-99874d6415c2"
+  },
+  {
+    "id": "ccedd2b7-45e1-4fa5-b86d-4c9905da3a45",
+    "created_at": "2026-05-23T19:47:34.765816+00:00",
+    "claimed_at": "2026-05-23T19:48:22.975497+00:00",
+    "completed_at": "2026-05-23T19:48:23.062869+00:00",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "message_id": "eccb168c-0652-4559-a6f0-99874d6415c2"
+  },
+  {
+    "id": "00ec2cdc-d447-4258-ba49-bc0de4b7809f",
+    "created_at": "2026-05-23T19:47:34.765816+00:00",
+    "claimed_at": "2026-05-23T19:48:24.641933+00:00",
+    "completed_at": "2026-05-23T19:48:24.734678+00:00",
+    "agent_id": "9ce67d98-bc38-404b-a979-8db00379fbda",
+    "message_id": "eccb168c-0652-4559-a6f0-99874d6415c2"
+  },
+  {
+    "id": "011b2c04-b565-41dd-90a3-a17c9b889f7d",
+    "created_at": "2026-05-23T19:47:25.569139+00:00",
+    "claimed_at": "2026-05-23T19:48:22.789265+00:00",
+    "completed_at": "2026-05-23T19:48:22.881825+00:00",
+    "agent_id": "642755a2-a869-440b-b4f7-e5a718e0fb8b",
+    "message_id": "f1e10196-3151-4ab5-8cc1-9899ae17022c"
+  },
+  {
+    "id": "482b8a5c-8982-491a-9577-53a26e514562",
+    "created_at": "2026-05-23T19:47:23.961314+00:00",
+    "claimed_at": "2026-05-23T19:48:22.601175+00:00",
+    "completed_at": "2026-05-23T19:48:22.701068+00:00",
+    "agent_id": "ab752676-b8e9-4bf0-8f0f-6101933177a3",
+    "message_id": "0b4a2c95-b6cb-4113-97c4-72e30aea04bf"
+  },
+  {
+    "id": "a17e6b87-5354-485f-b18d-ac6086d1adb1",
+    "created_at": "2026-05-23T19:47:03.206241+00:00",
+    "claimed_at": "2026-05-23T19:48:22.226017+00:00",
+    "completed_at": "2026-05-23T19:48:22.319457+00:00",
+    "agent_id": "9ce67d98-bc38-404b-a979-8db00379fbda",
+    "message_id": "b27ae930-6e1a-4060-b308-915a500ff2e9"
+  },
+  {
+    "id": "9ade7177-a702-4f34-9ce9-5368b2fb9aa7",
+    "created_at": "2026-05-23T19:47:03.206241+00:00",
+    "claimed_at": "2026-05-23T19:48:22.039087+00:00",
+    "completed_at": "2026-05-23T19:48:22.133825+00:00",
+    "agent_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "b27ae930-6e1a-4060-b308-915a500ff2e9"
+  },
+  {
+    "id": "8219a54f-9ee0-4c35-966b-e41c35a50ec0",
+    "created_at": "2026-05-23T19:47:03.206241+00:00",
+    "claimed_at": "2026-05-23T19:48:22.412558+00:00",
+    "completed_at": "2026-05-23T19:48:22.511287+00:00",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "message_id": "b27ae930-6e1a-4060-b308-915a500ff2e9"
+  },
+  {
+    "id": "685bc9e7-f7cc-49d9-9f95-ed3a363a61ab",
+    "created_at": "2026-05-23T19:47:03.206241+00:00",
+    "claimed_at": "2026-05-23T19:48:21.855999+00:00",
+    "completed_at": "2026-05-23T19:48:21.948048+00:00",
+    "agent_id": "04579801-e0a0-4474-a6e9-bedfcd7eebe9",
+    "message_id": "b27ae930-6e1a-4060-b308-915a500ff2e9"
+  },
+  {
+    "id": "036a6664-4e80-4dcf-add8-5fffcf06ff51",
+    "created_at": "2026-05-23T19:47:03.042018+00:00",
+    "claimed_at": "2026-05-23T19:47:03.142368+00:00",
+    "completed_at": "2026-05-23T19:47:39.211713+00:00",
+    "agent_id": "3170d32c-8ff8-46e7-811f-2fb2622ab3c5",
+    "message_id": "1d88bfe4-2e7c-450e-8557-9952da12ce98"
+  },
+  {
+    "id": "49b82126-d6d0-40c5-859b-5b644bc5594e",
+    "created_at": "2026-05-23T19:47:03.042018+00:00",
+    "claimed_at": "2026-05-23T19:47:39.304714+00:00",
+    "completed_at": "2026-05-23T19:48:20.662973+00:00",
+    "agent_id": "8965cbc1-eed8-4c87-a04f-9f0b8b5febcb",
+    "message_id": "1d88bfe4-2e7c-450e-8557-9952da12ce98"
+  },
+  {
+    "id": "4fdc5d72-7842-4827-bfb5-ebceed53a751",
+    "created_at": "2026-05-23T19:46:56.146358+00:00",
+    "claimed_at": "2026-05-23T19:46:57.43004+00:00",
+    "completed_at": "2026-05-23T19:46:57.525761+00:00",
+    "agent_id": "642755a2-a869-440b-b4f7-e5a718e0fb8b",
+    "message_id": "4a049c12-3a87-47ec-aa96-f53de8c3bc0a"
+  },
+  {
+    "id": "c95cbbbb-2900-472d-aa4f-6fa3601ba4c3",
+    "created_at": "2026-05-23T19:46:56.146358+00:00",
+    "claimed_at": "2026-05-23T19:46:57.229269+00:00",
+    "completed_at": "2026-05-23T19:46:57.328871+00:00",
+    "agent_id": "3170d32c-8ff8-46e7-811f-2fb2622ab3c5",
+    "message_id": "4a049c12-3a87-47ec-aa96-f53de8c3bc0a"
+  },
+  {
+    "id": "fcde6025-7e04-487a-95ed-45212dd44f71",
+    "created_at": "2026-05-23T19:46:37.159735+00:00",
+    "claimed_at": "2026-05-23T19:46:38.80237+00:00",
+    "completed_at": "2026-05-23T19:46:38.907494+00:00",
+    "agent_id": "04579801-e0a0-4474-a6e9-bedfcd7eebe9",
+    "message_id": "7a39d48e-cd83-4318-9f52-054f3d364a4e"
+  },
+  {
+    "id": "3f262877-16f4-4309-b76c-1911c381fbd9",
+    "created_at": "2026-05-23T19:46:37.159735+00:00",
+    "claimed_at": "2026-05-23T19:46:39.209215+00:00",
+    "completed_at": "2026-05-23T19:46:39.30531+00:00",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "message_id": "7a39d48e-cd83-4318-9f52-054f3d364a4e"
+  },
+  {
+    "id": "bea7bb04-3750-4205-ad0c-ccaab19e9be3",
+    "created_at": "2026-05-23T19:46:37.159735+00:00",
+    "claimed_at": "2026-05-23T19:46:39.399182+00:00",
+    "completed_at": "2026-05-23T19:46:39.492042+00:00",
+    "agent_id": "9ce67d98-bc38-404b-a979-8db00379fbda",
+    "message_id": "7a39d48e-cd83-4318-9f52-054f3d364a4e"
+  },
+  {
+    "id": "991ecd84-0790-44d7-b5cf-45483d0de93c",
+    "created_at": "2026-05-23T19:46:37.159735+00:00",
+    "claimed_at": "2026-05-23T19:46:39.015669+00:00",
+    "completed_at": "2026-05-23T19:46:39.109863+00:00",
+    "agent_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "7a39d48e-cd83-4318-9f52-054f3d364a4e"
+  },
+  {
+    "id": "2703f073-365b-4cd4-badf-067f2d140091",
+    "created_at": "2026-05-23T19:46:36.563338+00:00",
+    "claimed_at": "2026-05-23T19:46:37.378752+00:00",
+    "completed_at": "2026-05-23T19:46:37.544489+00:00",
+    "agent_id": "8965cbc1-eed8-4c87-a04f-9f0b8b5febcb",
+    "message_id": "fd99513b-1fb6-4e2a-83d0-b8fb5b4aaae6"
+  },
+  {
+    "id": "a960c422-8e8c-4cf4-af27-18846d2efc63",
+    "created_at": "2026-05-23T19:46:36.563338+00:00",
+    "claimed_at": "2026-05-23T19:46:37.130723+00:00",
+    "completed_at": "2026-05-23T19:46:37.226551+00:00",
+    "agent_id": "3170d32c-8ff8-46e7-811f-2fb2622ab3c5",
+    "message_id": "fd99513b-1fb6-4e2a-83d0-b8fb5b4aaae6"
+  },
+  {
+    "id": "042f094f-0782-4a81-81a5-6279cc031a3c",
+    "created_at": "2026-05-23T19:46:21.041235+00:00",
+    "claimed_at": "2026-05-23T19:46:27.971958+00:00",
+    "completed_at": "2026-05-23T19:46:28.062931+00:00",
+    "agent_id": "9ce67d98-bc38-404b-a979-8db00379fbda",
+    "message_id": "0ddb1978-1cb8-4d23-8794-6d14d3e367f8"
+  },
+  {
+    "id": "1e9331c6-2ae2-43e7-abf5-8244dd1df95d",
+    "created_at": "2026-05-23T19:46:21.041235+00:00",
+    "claimed_at": "2026-05-23T19:46:27.794162+00:00",
+    "completed_at": "2026-05-23T19:46:27.884373+00:00",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "message_id": "0ddb1978-1cb8-4d23-8794-6d14d3e367f8"
+  },
+  {
+    "id": "c0e66d0c-ec4d-41b0-ab38-3066b8594656",
+    "created_at": "2026-05-23T19:46:21.041235+00:00",
+    "claimed_at": "2026-05-23T19:46:27.603611+00:00",
+    "completed_at": "2026-05-23T19:46:27.695571+00:00",
+    "agent_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "0ddb1978-1cb8-4d23-8794-6d14d3e367f8"
+  },
+  {
+    "id": "9bb39b1c-210d-4b93-b3a2-d63944c2cfac",
+    "created_at": "2026-05-23T19:46:21.041235+00:00",
+    "claimed_at": "2026-05-23T19:46:28.153992+00:00",
+    "completed_at": "2026-05-23T19:46:28.244462+00:00",
+    "agent_id": "ab752676-b8e9-4bf0-8f0f-6101933177a3",
+    "message_id": "0ddb1978-1cb8-4d23-8794-6d14d3e367f8"
+  },
+  {
+    "id": "16b8292b-eb87-496d-842c-3c54e6cfdb5b",
+    "created_at": "2026-05-23T19:46:17.584984+00:00",
+    "claimed_at": "2026-05-23T19:46:27.414012+00:00",
+    "completed_at": "2026-05-23T19:46:27.511913+00:00",
+    "agent_id": "642755a2-a869-440b-b4f7-e5a718e0fb8b",
+    "message_id": "c5209ae7-4468-4c93-a0a5-432bdc9ae94a"
+  },
+  {
+    "id": "a81601c7-d3a9-4c2b-9f93-0dd8b81ea2a3",
+    "created_at": "2026-05-23T19:46:10.111909+00:00",
+    "claimed_at": "2026-05-23T19:46:26.133038+00:00",
+    "completed_at": "2026-05-23T19:46:26.224984+00:00",
+    "agent_id": "3170d32c-8ff8-46e7-811f-2fb2622ab3c5",
+    "message_id": "83beef00-6286-44b9-8bde-2ce1b28ffe66"
+  },
+  {
+    "id": "362f4e42-baba-4179-af4c-024cd178b562",
+    "created_at": "2026-05-23T19:45:34.378526+00:00",
+    "claimed_at": "2026-05-23T19:46:25.94879+00:00",
+    "completed_at": "2026-05-23T19:46:26.041061+00:00",
+    "agent_id": "8965cbc1-eed8-4c87-a04f-9f0b8b5febcb",
+    "message_id": "34ed50d7-6124-46f4-865f-bd309de94549"
+  },
+  {
+    "id": "24a1ade2-cc37-4e8e-a5e9-dc6efccb2552",
+    "created_at": "2026-05-23T19:45:34.378526+00:00",
+    "claimed_at": "2026-05-23T19:46:25.760741+00:00",
+    "completed_at": "2026-05-23T19:46:25.852676+00:00",
+    "agent_id": "3170d32c-8ff8-46e7-811f-2fb2622ab3c5",
+    "message_id": "34ed50d7-6124-46f4-865f-bd309de94549"
+  },
+  {
+    "id": "9c614f3b-a626-4e44-9bc2-acbd0b46bf60",
+    "created_at": "2026-05-23T19:45:31.3082+00:00",
+    "claimed_at": "2026-05-23T19:46:25.385679+00:00",
+    "completed_at": "2026-05-23T19:46:25.486203+00:00",
+    "agent_id": "04579801-e0a0-4474-a6e9-bedfcd7eebe9",
+    "message_id": "ca7f85af-64d5-44a7-8761-19ad5207a04e"
+  },
+  {
+    "id": "3e74f69a-0642-4047-9e7b-1e6da40b9f00",
+    "created_at": "2026-05-23T19:45:31.3082+00:00",
+    "claimed_at": "2026-05-23T19:46:25.57626+00:00",
+    "completed_at": "2026-05-23T19:46:25.665167+00:00",
+    "agent_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "ca7f85af-64d5-44a7-8761-19ad5207a04e"
+  }
+]
+
+== root cause assessment ==
+Most likely: Pentagon desktop app native trigger poller desynced/not polling triggers.
+Evidence: runner intentionally stopped the bridge, so bridge daemon state cannot explain native trigger pickup; Pentagon.app process was present, Maya agent config remained canonical, trigger row existed for Maya and stayed claimed_at=null completed_at=null for the full 40-minute watch, while the runner restored bridge only after failure. This isolates failure to the native app/poller trigger-claim path rather than missing trigger creation, agent config drift, or bridge death.
+hypothesis=a: bridge daemon died silently -> unlikely for native run; bridge was intentionally stopped and later restored, and native trigger should be claimed by Pentagon.app.
+hypothesis=b: Pentagon desktop app desynced / not polling triggers -> most likely.
+hypothesis=c: trigger-table state machine stuck -> possible secondary, but new trigger row was ordinary pending state with null claimed/completed.
+hypothesis=d: Maya config drifted -> check agent row above; expected canonical config.
+diagnosis_verdict=CLEAR_ROOT_CAUSE_NATIVE_POLLER_DESYNC
+diagnosis_finished_utc=2026-05-23T21:57:02Z

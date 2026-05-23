@@ -1,0 +1,151 @@
+T6 activation fix 2026-05-23
+fix_started_utc=2026-05-23T21:57:23Z
+root_cause=CLEAR_ROOT_CAUSE_NATIVE_POLLER_DESYNC
+action=force_quit_and_relaunch_Pentagon.app
+
+== before ==
+11414 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+gui/501/run.pentagon.trigger-bridge = {
+	active count = 1
+	path = /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist
+	type = LaunchAgent
+	state = running
+
+	program = /opt/homebrew/bin/node
+	arguments = {
+		/opt/homebrew/bin/node
+		/Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs
+		--loop
+		--interval-ms
+		1000
+		--limit
+		8
+		--max-age-seconds
+		180
+		--codex-timeout-ms
+		180000
+	}
+
+	working directory = /Users/gaganarora/Desktop/my projects/active_graph
+
+	stdout path = /Users/gaganarora/.pentagon/trigger-bridge.out.log
+	stderr path = /Users/gaganarora/.pentagon/trigger-bridge.err.log
+	inherited environment = {
+		SSH_AUTH_SOCK => /private/tmp/com.apple.launchd.DFXPJtlDGd/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		PATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+		XPC_SERVICE_NAME => run.pentagon.trigger-bridge
+	}
+
+	domain = gui/501 [100003]
+	asid = 100003
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 2
+	pid = 95649
+	immediate reason = inefficient
+	forks = 5
+	execs = 1
+	initialized = 1
+	trampolined = 1
+	started suspended = 0
+	proxy started suspended = 0
+	last terminating signal = Terminated: 15
+
+	spawn type = daemon (3)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	probabilistic guard malloc policy = {
+		activation rate = 1/1000
+		sample rate = 1/0
+	}
+
+	properties = keepalive | runatload | inferred program
+}
+
+== quit Pentagon ==
+
+== force kill if still running ==
+
+== relaunch Pentagon ==
+96043 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+
+== bridge after relaunch ==
+gui/501/run.pentagon.trigger-bridge = {
+	active count = 1
+	path = /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist
+	type = LaunchAgent
+	state = running
+
+	program = /opt/homebrew/bin/node
+	arguments = {
+		/opt/homebrew/bin/node
+		/Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs
+		--loop
+		--interval-ms
+		1000
+		--limit
+		8
+		--max-age-seconds
+		180
+		--codex-timeout-ms
+		180000
+	}
+
+	working directory = /Users/gaganarora/Desktop/my projects/active_graph
+
+	stdout path = /Users/gaganarora/.pentagon/trigger-bridge.out.log
+	stderr path = /Users/gaganarora/.pentagon/trigger-bridge.err.log
+	inherited environment = {
+		SSH_AUTH_SOCK => /private/tmp/com.apple.launchd.DFXPJtlDGd/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		PATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+		XPC_SERVICE_NAME => run.pentagon.trigger-bridge
+	}
+
+	domain = gui/501 [100003]
+	asid = 100003
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 2
+	pid = 95649
+	immediate reason = inefficient
+	forks = 5
+	execs = 1
+	initialized = 1
+	trampolined = 1
+	started suspended = 0
+	proxy started suspended = 0
+	last terminating signal = Terminated: 15
+
+	spawn type = daemon (3)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	probabilistic guard malloc policy = {
+		activation rate = 1/1000
+		sample rate = 1/0
+	}
+
+	properties = keepalive | runatload | inferred program
+}
+fix_finished_utc=2026-05-23T21:57:40Z
