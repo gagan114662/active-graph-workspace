@@ -1,6 +1,6 @@
 status: incomplete_dirty_unpushed
 inner_head: bdc8919
-outer_head: 53fcebb
+outer_head: 2d8e252
 evaluated: 2026-05-23
 review: clean_for_inner_bdc8919_commit_scoped
 focused_tests: "provider parity 12 passed; focused replay regressions 3 passed"
@@ -22,8 +22,8 @@ autonomy:
   counts_as_pentagon_only_extra_hard_autonomy: false
 bottlenecks_open:
   - pushed-head closure is false: inner HEAD bdc8919 is one commit ahead of origin/main 62015ed
-  - dirty inner tree remains: CHANGELOG.md, CONTRACT.md, README.md, docs/concepts/provider-tool-parity.md, docs/reference/llm-providers.md plus untracked artifacts
-  - current dirty inner tree includes README.md and docs/reference/llm-providers.md, which are not listed in frame permissions
+  - dirty inner tree remains: CHANGELOG.md, CONTRACT.md, README.md, activegraph/llm/cache.py, activegraph/llm/recorded.py, docs/concepts/provider-tool-parity.md, docs/reference/llm-providers.md plus untracked artifacts
+  - no_changes_outside_permissions remains false: activegraph/llm/cache.py and activegraph/llm/recorded.py are changed while only covered by activegraph/activegraph/**/*.py:ro
   - Pentagon handoff message does not auto-activate Code Owner
 untracked_not_claimed:
   inner:

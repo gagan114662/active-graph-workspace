@@ -83,6 +83,169 @@ $ ../venv/bin/pytest -q
 690 passed, 15 skipped in 17.96s
 ~~~
 
+~~~
+Heartbeat Goal Reaper audit 2026-05-23: Rowan corrected outer-head state
+
+Verdict: goal.incomplete / incomplete_dirty_unpushed
+
+Predicate: interpreter_smoke_ok
+Expected: INTERPRETER_OK Goal Reaper /Users/gaganarora/Desktop/my projects/active_graph 2d8e252
+Actual: true
+
+$ pwd && git log -1 --oneline && git rev-parse --short HEAD
+/Users/gaganarora/Desktop/my projects/active_graph
+2d8e252 Update T4 scope amendment evaluation
+2d8e252
+
+$ git status --short && git rev-parse --short HEAD && git log -1 --oneline
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+ M frames/t4-openai-tool-shape-translation.status
+?? .review-worktrees/
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+2d8e252
+2d8e252 Update T4 scope amendment evaluation
+
+Predicate: inner_head_matches_reviewed_commit
+Expected: bdc8919
+Actual: bdc8919
+
+Predicate: pushed_head_closure
+Expected: inner HEAD equals origin/main and origin/main...HEAD is 0 0
+Actual: false; inner HEAD=bdc8919, origin/main=62015ed, origin/main...HEAD=0 1
+
+Predicate: dirty_tree_clean_for_closure
+Expected: no dirty/untracked inner tree outside frame permissions
+Actual: false; dirty inner tree includes README.md and docs/reference/llm-providers.md outside T4 permissions, plus other dirty/untracked files
+
+$ git rev-parse --show-toplevel && git status --short && git rev-parse --short HEAD && git rev-parse --short origin/main && git rev-list --left-right --count origin/main...HEAD
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M activegraph/llm/cache.py
+ M activegraph/llm/recorded.py
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+bdc8919
+62015ed
+0	1
+
+Predicate: python_available
+Expected: Python available in frame venv
+Actual: true
+
+$ ../venv/bin/python --version
+Python 3.14.3
+
+Predicate: targeted_provider_tool_parity_green
+Expected: tests/test_provider_tool_parity.py passes
+Actual: true; 12 passed
+
+$ ../venv/bin/pytest tests/test_provider_tool_parity.py -q
+............                                                             [100%]
+12 passed in 0.03s
+
+Predicate: dirty_tree_file_list
+Expected: no dirty/untracked closure blockers
+Actual: false; file list below includes out-of-permission README.md and docs/reference/llm-providers.md
+
+$ git diff --name-only && git ls-files --others --exclude-standard
+CHANGELOG.md
+CONTRACT.md
+README.md
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+GAUNTLET.md
+frames/t4-invalid-marker-internal-7886d71.adversary.log
+frames/t4-openai-invalid-marker-068cdc8.adversary.log
+frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+uv.lock
+~~~
+
+## Goal Reaper live predicate audit 2026-05-23T14:41:27Z
+
+Verdict: goal.incomplete
+
+Predicate actuals vs expected:
+- interpreter_smoke_outer: expected INTERPRETER_OK Goal Reaper /Users/gaganarora/Desktop/my projects/active_graph <head>; actual BLOCKED for bare `python` (`zsh:1: command not found: python`) but OK with frame venv: `../venv/bin/python --version` -> `Python 3.14.3`.
+- outer_head_current: expected current outer checkout recorded accurately; actual `2d8e252 Update T4 scope amendment evaluation`.
+- inner_head_current: expected `bdc8919`; actual `bdc8919 Preserve invalid tool arg replay metadata`.
+- pushed_head_closure: expected `origin/main...HEAD = 0 0`; actual `0 1`, with `HEAD=bdc8919` and `origin/main=62015ed`.
+- dirty_tree_clean_for_closure: expected clean inner tree; actual dirty tree includes `README.md` and `docs/reference/llm-providers.md` outside T4 permissions, plus other tracked dirt.
+- targeted_provider_tool_parity: expected pass; actual `12 passed in 0.03s`.
+
+Commands and full output:
+
+~~~text
+$ pwd
+/Users/gaganarora/Desktop/my projects/active_graph
+
+$ git rev-parse --short HEAD
+2d8e252
+
+$ git log -1 --oneline
+2d8e252 Update T4 scope amendment evaluation
+
+$ git status --short
+?? .review-worktrees/
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+
+$ python --version
+zsh:1: command not found: python
+
+$ cd activegraph && ../venv/bin/python --version
+Python 3.14.3
+
+$ git -C activegraph rev-parse --short HEAD
+bdc8919
+
+$ git -C activegraph log -1 --oneline
+bdc8919 Preserve invalid tool arg replay metadata
+
+$ git -C activegraph rev-parse --short origin/main
+62015ed
+
+$ git -C activegraph rev-list --left-right --count origin/main...HEAD
+0	1
+
+$ git -C activegraph status --short
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M activegraph/llm/cache.py
+ M activegraph/llm/recorded.py
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+
+$ git -C activegraph diff --name-only
+CHANGELOG.md
+CONTRACT.md
+README.md
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+
+$ cd activegraph && ../venv/bin/pytest tests/test_provider_tool_parity.py -q
+............                                                             [100%]
+12 passed in 0.03s
+~~~
+
 ## Goal Reaper heartbeat 2026-05-23T14:35:43Z
 
 Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
