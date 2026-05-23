@@ -216,7 +216,11 @@ function finalAgentMessage(stdout) {
 function isTerminalMessage(content) {
   const firstLine = String(content ?? "").trim().split(/\r?\n/, 1)[0] ?? "";
   const firstToken = firstLine.split(/\s+/, 1)[0] ?? "";
-  return /_(ACK|BLOCKED)$/.test(firstToken);
+  return (
+    /_(ACK|BLOCKED)$/.test(firstToken) ||
+    /^(ACK|BLOCKED)$/i.test(firstToken) ||
+    /^Posted the Pentagon response\b/.test(firstLine)
+  );
 }
 
 function summarizeTrigger(trigger) {

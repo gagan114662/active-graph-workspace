@@ -18,6 +18,7 @@ const REPO_ISOLATION_AUDIT = "frames/t5h-repo-isolation-audit-2026-05-23.md";
 const REPEATABLE_NATIVE_PROBE_LOG = "frames/t5i-repeatable-native-poller-probe-2026-05-23.log";
 const CURRENT_BRIDGE_FILE_TASK_LOG = "frames/t5j-current-bridge-file-task-2026-05-23.log";
 const CURRENT_BRIDGE_FILE_TASK_PROOF = "frames/t5j-current-bridge-easy-20260523T1330Z.proof";
+const NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG = "frames/t5k-native-probe-and-bridge-queue-hardening-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -35,6 +36,7 @@ const CRITICAL_PROOF_FILES = [
   REPEATABLE_NATIVE_PROBE_LOG,
   CURRENT_BRIDGE_FILE_TASK_LOG,
   CURRENT_BRIDGE_FILE_TASK_PROOF,
+  NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
   "scripts/probe-native-poller.mjs",
   "launchagents/run.pentagon.trigger-bridge.plist",
@@ -222,6 +224,16 @@ async function main() {
     requireText("bridge script", bridgeScript, "loop_error");
     requireText("bridge script", bridgeScript, "session_refreshed_after_loop_error");
     requireText("bridge script", bridgeScript, "session_refresh_failed_after_loop_error");
+    requireText("bridge script", bridgeScript, "Posted the Pentagon response");
+    requireText("bridge script", bridgeScript, "ACK|BLOCKED");
+  }
+  const nativeProbeScript = repoFile("scripts/probe-native-poller.mjs");
+  must("native poller probe script exists", nativeProbeScript);
+  if (nativeProbeScript) {
+    requireText("native poller probe script", nativeProbeScript, "stopForProbe");
+    requireText("native poller probe script", nativeProbeScript, "bridge_mode");
+    requireText("native poller probe script", nativeProbeScript, "bridge_assisted_pass");
+    requireText("native poller probe script", nativeProbeScript, "bridge_assisted_poller_passed_native_unproven");
   }
 
   const plistCheck = command("plutil", ["-lint", "launchagents/run.pentagon.trigger-bridge.plist"]);
@@ -377,6 +389,19 @@ async function main() {
     requireText("current bridge file task proof", currentBridgeFileTaskProof, "agent: Maya (Code Owner)");
     requireText("current bridge file task proof", currentBridgeFileTaskProof, "task_class: easy");
     requireText("current bridge file task proof", currentBridgeFileTaskProof, "evidence: current bridge-backed Pentagon target turn created this file");
+  }
+
+  const nativeProbeBridgeQueueHardeningLog = repoFile(NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG);
+  must("native probe bridge queue hardening log exists", nativeProbeBridgeQueueHardeningLog, NATIVE_PROBE_BRIDGE_QUEUE_HARDENING_LOG);
+  if (nativeProbeBridgeQueueHardeningLog) {
+    requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "INTERPRETER_OK Codex");
+    requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "T5I_NATIVE_POLLER_PROBE_20260523T133456Z");
+    requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "bridge_mode=kept_running_bridge_assisted_probe");
+    requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "T5K_KEEP_RUNNING_CLASSIFICATION_20260523T1342Z");
+    requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "T5K_NATIVE_RECHECK_20260523T1345Z");
+    requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "native_pass=false");
+    requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "status=idle");
+    requireText("native probe bridge queue hardening log", nativeProbeBridgeQueueHardeningLog, "Native Pentagon handoff activation remains red.");
   }
 
   if (requireNative) {

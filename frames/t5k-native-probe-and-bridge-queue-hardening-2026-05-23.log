@@ -1,0 +1,156 @@
+# T5K Native Probe And Bridge Queue Hardening
+
+Date: 2026-05-23
+Repo: /Users/gaganarora/Desktop/my projects/active_graph
+Head before change: f6dd28c
+
+## Interpreter Smoke
+
+INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph f6dd28c
+
+Commands:
+
+git rev-parse --short HEAD
+f6dd28c
+
+python3 --version
+Python 3.14.3
+
+node --version
+v25.8.2
+
+## Fresh Native Gap Reproduction
+
+Command:
+
+node scripts/probe-native-poller.mjs --watch-seconds 45
+
+Result:
+
+exit=2
+hash=T5I_NATIVE_POLLER_PROBE_20260523T133456Z
+conversation_id=0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+message=d8b936f7-2102-404d-aa31-e23abb2b8616
+trigger=c4cdbfc7-b8a8-42fb-b7b3-d7f2c5f24f28
+final_claimed_at=null
+final_completed_at=null
+ack_rows=[]
+native_pass=false
+verdict=native_poller_still_blocked
+
+This reproduces the native activation gap from current state: with the bridge stopped, the Pentagon trigger is created but no native worker claims or completes it.
+
+## Probe Classification Fix
+
+Problem found:
+
+scripts/probe-native-poller.mjs restored the bridge in the finally block even when called with --keep-bridge-running. It also could classify a bridge-assisted completion as native_pass because native_pass only checked completed trigger plus ACK rows.
+
+Change:
+
+- Introduced stopForProbe = !has("--keep-bridge-running").
+- Added bridge_mode to the JSON result.
+- Only restore the LaunchAgent when the probe actually stopped it.
+- Added bridge_assisted_pass.
+- native_pass is now true only when stopForProbe is true and the trigger completes with an ACK.
+- A bridge-running completion now reports bridge_assisted_poller_passed_native_unproven instead of native_poller_passed.
+
+Classification test:
+
+node scripts/probe-native-poller.mjs --keep-bridge-running --watch-seconds 25 --hash T5K_KEEP_RUNNING_CLASSIFICATION_20260523T1342Z
+
+Result:
+
+exit=2
+bridge_mode=kept_running_bridge_assisted_probe
+message=06ec20a8-81a0-456b-beb0-2781b6324504
+trigger=abb346e3-7d1a-4eec-8675-7b74962d9c48
+bridge_assisted_pass=false
+native_pass=false
+verdict=native_poller_still_blocked
+
+The important evidence is that --keep-bridge-running no longer performs a bridge stop/restore, and cannot produce native_pass unless the bridge was intentionally stopped for a native-only probe.
+
+## Bridge Queue Hardening
+
+Problem found:
+
+The bridge was spending agent turns on response messages such as plain "ACK trigger ..." and "Posted the Pentagon response ...". Those are terminal status responses, not new work instructions. Treating them as normal work can create noisy reply loops and delay fresh repo-specific tasks.
+
+Change:
+
+scripts/pentagon-trigger-bridge.mjs now classifies terminal messages when the first token is:
+
+- *_ACK
+- *_BLOCKED
+- ACK
+- BLOCKED
+
+It also classifies first lines starting with "Posted the Pentagon response" as terminal.
+
+Dry-run evidence after restart:
+
+Command:
+
+node scripts/pentagon-trigger-bridge.mjs --dry-run --limit 12 --max-age-seconds 900
+
+Result:
+
+The first twelve inspected pending triggers included stale ACK/status responses and were classified as would_complete_terminal, including:
+
+- 2e62ab65-f2f9-4046-ad5c-6e1cd0df0fe2 content_preview="MAYA_NATIVE_POLLER_ACK T5I_NATIVE_POLLER_PROBE_20260523T132044Z"
+- ede4fcf6-4d96-4e67-b62b-845359056e65 content_preview="ACK trigger d65b0240..."
+- fc5c4149-29b8-40ca-a821-5e04b5dc8572 content_preview="Posted the Pentagon response for trigger 931a7cb9..."
+- 9c28a7f4-5176-4258-8996-102872a6923a content_preview="ACK trigger 7df6855a-b8fb-4ba8-b453-c0ee2a5ccc3e..."
+
+LaunchAgent was restarted with:
+
+launchctl kickstart -k gui/$(id -u)/run.pentagon.trigger-bridge
+
+## Native Recheck After Probe Fix
+
+Command:
+
+node scripts/probe-native-poller.mjs --watch-seconds 20 --hash T5K_NATIVE_RECHECK_20260523T1345Z
+
+Result:
+
+exit=2
+bridge_mode=stopped_for_native_probe
+message=fc530da8-99d4-4be9-bd4d-612137097a09
+trigger=9f50822d-0253-44b2-95a2-d408f3565949
+final_claimed_at=null
+final_completed_at=null
+ack_rows=[]
+bridge_assisted_pass=false
+native_pass=false
+verdict=native_poller_still_blocked
+
+This confirms the native Pentagon activation gap remains open.
+
+## Queue Drain Check
+
+Command:
+
+sleep 12; node scripts/pentagon-trigger-bridge.mjs --dry-run --limit 8 --max-age-seconds 180
+
+Result:
+
+exit=0
+status=idle
+processed=0
+
+The current-age queue was idle after bridge restoration and terminal-message hardening.
+
+## Verdict
+
+Reliability improved:
+
+- Probe output now separates native-only and bridge-assisted evidence.
+- The probe no longer restarts the bridge when --keep-bridge-running is used.
+- The bridge skips common ACK/status response loops as terminal messages.
+- Current-age queue drain was verified.
+
+Still not complete:
+
+Native Pentagon handoff activation remains red. T5K does not close the full goal; it makes the audit and bridge mitigation harder to misread while preserving the native blocker.

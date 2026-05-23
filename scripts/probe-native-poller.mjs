@@ -168,6 +168,7 @@ async function sleep(ms) {
 async function main() {
   const watchSeconds = Number(arg("--watch-seconds", "90"));
   const restore = !has("--no-restore");
+  const stopForProbe = !has("--keep-bridge-running");
   const hash = arg("--hash", "T5I_NATIVE_POLLER_PROBE_" + new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15) + "Z");
   const theo = await findAgent("Theo (Test Owner)");
   const maya = await findAgent("Maya (Code Owner)");
@@ -179,11 +180,12 @@ async function main() {
     theo,
     maya,
     conversation_id: conversationId,
+    bridge_mode: stopForProbe ? "stopped_for_native_probe" : "kept_running_bridge_assisted_probe",
     bridge_before: { ok: beforeBridge.ok, summary: beforeBridge.ok ? "running" : beforeBridge.stderr.trim() },
   };
 
   try {
-    if (!has("--keep-bridge-running")) {
+    if (stopForProbe) {
       result.bridge_stop = stopBridge();
       await sleep(1500);
       result.bridge_after_stop = bridgeState();
@@ -201,6 +203,7 @@ async function main() {
     if (!trigger) {
       result.final_trigger = null;
       result.ack_rows = await ackRows(conversationId, maya, hash, message.created_at);
+      result.bridge_assisted_pass = false;
       result.native_pass = false;
       result.verdict = "native_poller_no_trigger_created";
       return;
@@ -217,10 +220,18 @@ async function main() {
     }
     result.final_trigger = finalTrigger;
     result.ack_rows = finalAcks;
-    result.native_pass = Boolean(finalTrigger?.claimed_at && finalTrigger?.completed_at && finalAcks.length);
-    result.verdict = result.native_pass ? "native_poller_passed" : "native_poller_still_blocked";
+    const completedWithAck = Boolean(finalTrigger?.claimed_at && finalTrigger?.completed_at && finalAcks.length);
+    result.bridge_assisted_pass = !stopForProbe && completedWithAck;
+    result.native_pass = stopForProbe && completedWithAck;
+    if (result.native_pass) {
+      result.verdict = "native_poller_passed";
+    } else if (result.bridge_assisted_pass) {
+      result.verdict = "bridge_assisted_poller_passed_native_unproven";
+    } else {
+      result.verdict = "native_poller_still_blocked";
+    }
   } finally {
-    if (restore) {
+    if (restore && stopForProbe) {
       result.bridge_restore = restoreBridge();
     }
   }
