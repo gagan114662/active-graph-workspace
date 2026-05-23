@@ -1,6 +1,7 @@
 status: incomplete_dirty_unpushed
 inner_head: 5c2cd8e
-outer_head: 89c3498
+outer_head: 900b742
+outer_evidence_head: 900b742
 evaluated: 2026-05-23
 review: clean_for_inner_5c2cd8e_commit_scoped_only
 focused_tests: "provider parity + llm replay 19 passed"

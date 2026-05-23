@@ -83,6 +83,133 @@ $ ../venv/bin/pytest -q
 690 passed, 15 skipped in 17.96s
 ~~~
 
+## Frame Architect closure disposition intake 2026-05-23T19:28:50Z
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Accepted CLOSURE_DISPOSITION_T4: do not close T4. Do not amend T4 to add
+`:rw` for `activegraph/behaviors/base.py`, `activegraph/llm/cache.py`, or
+`activegraph/llm/recorded.py`.
+
+Literal command output:
+
+~~~text
+$ git status -sb && git log -1 --oneline && git rev-parse --short origin/main && git -C activegraph rev-parse --short HEAD && git -C activegraph rev-parse --short origin/main && git -C activegraph status -sb && git -C activegraph diff --name-status origin/main..HEAD
+## main...origin/main
+ M frames/t4-openai-tool-shape-translation.evaluation.log
+?? .review-worktrees/
+?? frames/t13-and-beyond-factory-survivability-2026-05-23.md
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+?? frames/t6-native-easy-run-20260523.log
+?? frames/t6-real-autonomy-gauntlet-2026-05-23.md
+?? frames/t7-t12-scale-reliability-gauntlet-2026-05-23.md
+900b742 Update T4 heartbeat for inner 5c2cd8e
+900b742
+5c2cd8e
+62015ed
+## main...origin/main [ahead 3]
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? frames/t6-native-gauntlet-easy-20260523.proof
+?? uv.lock
+M	activegraph/behaviors/base.py
+M	activegraph/llm/cache.py
+M	activegraph/llm/recorded.py
+M	activegraph/llm/types.py
+M	activegraph/runtime/runtime.py
+M	tests/test_provider_tool_parity.py
+
+$ python3 - <<'PY'
+import yaml
+from pathlib import Path
+p=Path('frames/t4-openai-tool-shape-translation.yaml')
+data=yaml.safe_load(p.read_text())
+print('id=', data.get('id'))
+print('predicate_count=', len(data.get('success_criteria', [])))
+print('permissions:')
+for item in data.get('permissions', []):
+    print(item)
+PY
+id= t4-openai-tool-shape-translation
+predicate_count= 25
+permissions:
+activegraph/activegraph/tools/base.py:rw
+activegraph/activegraph/llm/openai.py:rw
+activegraph/activegraph/llm/anthropic.py:rw
+activegraph/activegraph/llm/types.py:rw
+activegraph/activegraph/llm/provider.py:rw
+activegraph/activegraph/runtime/runtime.py:rw
+activegraph/tests/test_openai_tool_shape.py:rw
+activegraph/tests/test_provider_tool_parity.py:rw
+activegraph/tests/test_llm_openai.py:rw
+activegraph/tests/test_llm_anthropic.py:rw
+activegraph/tests/test_tool_replay.py:rw
+activegraph/tests/fixtures/**:rw
+activegraph/README.md:rw
+activegraph/docs/concepts/provider-tool-parity.md:rw
+activegraph/docs/reference/llm-providers.md:rw
+activegraph/CHANGELOG.md:rw
+activegraph/CONTRACT.md:rw
+activegraph/activegraph/**/*.py:ro
+activegraph/tests/**/*.py:ro
+
+$ python3 - <<'PY'
+import fnmatch, subprocess, yaml
+from pathlib import Path
+outer=Path('/Users/gaganarora/Desktop/my projects/active_graph')
+frame=yaml.safe_load((outer/'frames/t4-openai-tool-shape-translation.yaml').read_text())
+perms=[]
+for item in frame['permissions']:
+    path, mode = item.rsplit(':',1)
+    perms.append((path,mode,item))
+def matches(pattern, path):
+    return fnmatch.fnmatchcase(path, pattern)
+def classify(inner_path):
+    full='activegraph/'+inner_path
+    rwm=[item for pat,mode,item in perms if mode=='rw' and matches(pat, full)]
+    rom=[item for pat,mode,item in perms if mode=='ro' and matches(pat, full)]
+    if rwm: return 'IN_SCOPE_RW', ';'.join(rwm)
+    if rom: return 'OUT_OF_SCOPE_RO_CHANGED', ';'.join(rom)
+    return 'OUT_OF_SCOPE_NO_MATCH', '-'
+print('id=', frame.get('id'))
+print('predicate_count=', len(frame.get('success_criteria', [])))
+print('py_ro_permission=')
+for item in frame['permissions']:
+    if item.endswith(':ro') and 'activegraph/**/*.py' in item:
+        print(item)
+print('committed_range_62015ed..HEAD')
+out=subprocess.check_output(['git','-C',str(outer/'activegraph'),'diff','--name-only','62015ed..HEAD'], text=True).splitlines()
+for p in out:
+    status, pats=classify(p)
+    print(f'{p}\t{status}\t{pats}')
+PY
+id= t4-openai-tool-shape-translation
+predicate_count= 25
+py_ro_permission=
+activegraph/activegraph/**/*.py:ro
+committed_range_62015ed..HEAD
+activegraph/behaviors/base.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py:ro
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py:ro
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py:ro
+activegraph/llm/types.py	IN_SCOPE_RW	activegraph/activegraph/llm/types.py:rw
+activegraph/runtime/runtime.py	IN_SCOPE_RW	activegraph/activegraph/runtime/runtime.py:rw
+tests/test_provider_tool_parity.py	IN_SCOPE_RW	activegraph/tests/test_provider_tool_parity.py:rw
+~~~
+
+Predicate actuals vs expected:
+
+- `no_changes_outside_permissions`: expected no changed files outside `:rw`; actual RED. `activegraph/behaviors/base.py`, `activegraph/llm/cache.py`, and `activegraph/llm/recorded.py` are changed in `62015ed..HEAD` while only covered by `activegraph/activegraph/**/*.py:ro`.
+- `pushed_head_closure`: expected inner `HEAD == origin/main`; actual RED. `inner:5c2cd8e`, `origin/main:62015ed`, status `[ahead 3]`.
+- Closure verdict: `goal.incomplete` until those paths leave the T4 evaluation set or land under a proper code-scoped frame, and inner is no longer `[ahead 3]`.
+
 ## Goal Reaper heartbeat 2026-05-23T19:26:25Z
 
 Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
@@ -2161,6 +2288,181 @@ CONTRACT.md	IN_SCOPE_RW	activegraph/CONTRACT.md
 README.md	IN_SCOPE_RW	activegraph/README.md
 activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
 activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+docs/concepts/provider-tool-parity.md	IN_SCOPE_RW	activegraph/docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md	IN_SCOPE_RW	activegraph/docs/reference/llm-providers.md
+~~~
+
+## Goal Reaper review-clean intake 2026-05-23T19:27:28Z
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Accepted Rowan's `review.clean` only as commit-scoped review evidence for inner
+`5c2cd8e`. No T4 closure: pushed-head and permission predicates remain RED.
+
+Predicate actuals vs expected:
+
+- `review_clean_for_current_inner_head`: expected commit-scoped clean review; actual Rowan review.clean for `inner:5c2cd8e` plus Goal Reaper focused recheck `19 passed`.
+- `focused_provider_replay_gate_passes`: expected pass; actual `19 passed`.
+- `diff_check_selected_t4_files`: expected exit 0; actual exit 0 with empty output.
+- `pushed_head_closure`: expected `origin/main...HEAD = 0 0`; actual `0 3`, with `HEAD=5c2cd8e` and `origin/main=62015ed`.
+- `dirty_tree_clean_for_closure`: expected clean; actual dirty working tree with modified CHANGELOG.md, CONTRACT.md, README.md, docs/concepts/provider-tool-parity.md, docs/reference/llm-providers.md and untracked GAUNTLET.md, frame artifacts, uv.lock.
+- `no_changes_outside_permissions`: expected no committed files outside `:rw`; actual RED. `HEAD^..HEAD` changes `activegraph/llm/cache.py` and `activegraph/llm/recorded.py`; committed range `62015ed..HEAD` also changes `activegraph/behaviors/base.py`. These are only covered by `activegraph/activegraph/**/*.py:ro`.
+
+Literal command output:
+
+~~~text
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git rev-parse --show-toplevel && git rev-parse --short HEAD && git status --short --branch && ../venv/bin/python --version
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+5c2cd8e
+## main...origin/main [ahead 3]
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? frames/t6-native-gauntlet-easy-20260523.proof
+?? uv.lock
+Python 3.14.3
+
+INTERPRETER_OK Goal Reaper /Users/gaganarora/Desktop/my projects/active_graph/activegraph 5c2cd8e
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && ../venv/bin/pytest tests/test_provider_tool_parity.py tests/test_llm_replay.py -q
+...................                                                      [100%]
+19 passed in 0.06s
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git diff --check -- CONTRACT.md activegraph/llm/types.py activegraph/llm/cache.py activegraph/llm/recorded.py activegraph/runtime/runtime.py tests/test_provider_tool_parity.py tests/test_llm_replay.py
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git rev-parse --short HEAD && git rev-parse --short origin/main && git rev-list --left-right --count origin/main...HEAD && git status --short --branch && git diff --name-only origin/main...HEAD && git diff --name-only
+5c2cd8e
+62015ed
+0	3
+## main...origin/main [ahead 3]
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? frames/t6-native-gauntlet-easy-20260523.proof
+?? uv.lock
+activegraph/behaviors/base.py
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+CHANGELOG.md
+CONTRACT.md
+README.md
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && git show --stat --oneline --decorate --no-renames HEAD -- && git diff --name-only HEAD^ HEAD
+5c2cd8e (HEAD -> main) Keep invalid marker out of durable metadata
+ activegraph/llm/cache.py           | 47 ++++++++++++++++++++--
+ activegraph/llm/recorded.py        | 18 +++++++--
+ activegraph/llm/types.py           | 18 ++++-----
+ activegraph/runtime/runtime.py     | 39 +------------------
+ tests/test_provider_tool_parity.py | 80 ++++++++++++++++++++++++++------------
+ 5 files changed, 125 insertions(+), 77 deletions(-)
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph/activegraph && rg -n "invalid_tool_args|invalid_args_error|def to_dict|provider_meta" activegraph/llm/types.py activegraph/runtime/runtime.py activegraph/llm/cache.py activegraph/llm/recorded.py tests/test_provider_tool_parity.py tests/test_llm_replay.py
+activegraph/llm/recorded.py:34:        "seed": null, "provider_meta": {}
+activegraph/llm/recorded.py:222:        provider_meta=_public_provider_meta(rdata.get("provider_meta", {}) or {}),
+activegraph/llm/recorded.py:227:def _public_provider_meta(provider_meta: dict) -> dict:
+activegraph/llm/recorded.py:230:        for key, value in provider_meta.items()
+activegraph/llm/cache.py:73:            provider_meta=dict(r.provider_meta),
+activegraph/llm/cache.py:111:            provider_meta=_public_provider_meta(response.provider_meta),
+activegraph/llm/cache.py:185:        provider_meta=_public_provider_meta(payload.get("provider_meta", {}) or {}),
+activegraph/llm/cache.py:192:        getattr(call, "invalid_args_error", None) is not None
+activegraph/llm/cache.py:197:def _public_provider_meta(provider_meta: dict) -> dict:
+activegraph/llm/cache.py:200:        for key, value in provider_meta.items()
+tests/test_provider_tool_parity.py:467:        assert "invalid_args_error" not in llm_responded.payload["tool_calls"][0]
+tests/test_provider_tool_parity.py:491:        assert "invalid_args_error" not in llm_responded.payload["tool_calls"][0]
+tests/test_provider_tool_parity.py:519:                invalid_args_error="OpenAI tool arguments must decode to a JSON object.",
+tests/test_provider_tool_parity.py:527:    assert INVALID_TOOL_ARGS_PROVIDER_META_KEY not in response_dict["provider_meta"]
+tests/test_provider_tool_parity.py:555:            "provider_meta": {
+tests/test_provider_tool_parity.py:574:    assert response.tool_calls[0].invalid_args_error is None
+tests/test_provider_tool_parity.py:575:    assert INVALID_TOOL_ARGS_PROVIDER_META_KEY not in response.provider_meta
+tests/test_provider_tool_parity.py:651:        assert "invalid_args_error" not in llm_responded.payload["tool_calls"][0]
+tests/test_provider_tool_parity.py:701:        assert "invalid_args_error" not in fork_llm_responded.payload["tool_calls"][0]
+activegraph/runtime/runtime.py:1324:            if call.invalid_args_error is not None:
+activegraph/runtime/runtime.py:1325:                raise ValueError(call.invalid_args_error)
+activegraph/llm/types.py:17:seconds, etc.) goes into the `provider_meta` dict so the contract
+activegraph/llm/types.py:27:INVALID_TOOL_ARGS_PROVIDER_META_KEY = "activegraph.invalid_tool_args"
+activegraph/llm/types.py:63:    def to_dict(self) -> dict[str, Any]:
+activegraph/llm/types.py:90:    invalid_args_error: Optional[str] = None
+activegraph/llm/types.py:92:    def to_dict(self) -> dict[str, Any]:
+activegraph/llm/types.py:108:    provider_meta: dict[str, Any] = field(default_factory=dict)
+activegraph/llm/types.py:114:    def to_dict(self) -> dict[str, Any]:
+activegraph/llm/types.py:126:            "provider_meta": _public_provider_meta(self.provider_meta),
+activegraph/llm/types.py:135:def _public_provider_meta(provider_meta: dict[str, Any]) -> dict[str, Any]:
+activegraph/llm/types.py:138:        for key, value in provider_meta.items()
+
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && python3 - <<'PY'
+import fnmatch, subprocess, yaml
+from pathlib import Path
+outer=Path('/Users/gaganarora/Desktop/my projects/active_graph')
+frame=yaml.safe_load((outer/'frames/t4-openai-tool-shape-translation.yaml').read_text())
+rw=[]; ro=[]
+for item in frame['permissions']:
+    path, mode = item.rsplit(':',1)
+    (rw if mode=='rw' else ro).append(path)
+def matches(pattern, path):
+    return fnmatch.fnmatchcase(path, pattern)
+def classify(inner_path):
+    full='activegraph/'+inner_path
+    rwm=[p for p in rw if matches(p, full)]
+    rom=[p for p in ro if matches(p, full)]
+    if rwm: return 'IN_SCOPE_RW', rwm[0]
+    if rom: return 'OUT_OF_SCOPE_RO_CHANGED', rom[0]
+    return 'OUT_OF_SCOPE_NO_MATCH', '-'
+for label, rev in [('head_commit_HEAD^..HEAD','HEAD^..HEAD'),('committed_range_62015ed..HEAD','62015ed..HEAD')]:
+    print(label)
+    out=subprocess.check_output(['git','-C',str(outer/'activegraph'),'diff','--name-only',rev], text=True).splitlines()
+    for p in out:
+        status, pat=classify(p)
+        print(f'{p}\t{status}\t{pat}')
+    print()
+print('dirty_tree')
+out=subprocess.check_output(['git','-C',str(outer/'activegraph'),'diff','--name-only'], text=True).splitlines()
+for p in out:
+    status, pat=classify(p)
+    print(f'{p}\t{status}\t{pat}')
+PY
+head_commit_HEAD^..HEAD
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/types.py	IN_SCOPE_RW	activegraph/activegraph/llm/types.py
+activegraph/runtime/runtime.py	IN_SCOPE_RW	activegraph/activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py	IN_SCOPE_RW	activegraph/tests/test_provider_tool_parity.py
+
+committed_range_62015ed..HEAD
+activegraph/behaviors/base.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/types.py	IN_SCOPE_RW	activegraph/activegraph/llm/types.py
+activegraph/runtime/runtime.py	IN_SCOPE_RW	activegraph/activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py	IN_SCOPE_RW	activegraph/tests/test_provider_tool_parity.py
+
+dirty_tree
+CHANGELOG.md	IN_SCOPE_RW	activegraph/CHANGELOG.md
+CONTRACT.md	IN_SCOPE_RW	activegraph/CONTRACT.md
+README.md	IN_SCOPE_RW	activegraph/README.md
 docs/concepts/provider-tool-parity.md	IN_SCOPE_RW	activegraph/docs/concepts/provider-tool-parity.md
 docs/reference/llm-providers.md	IN_SCOPE_RW	activegraph/docs/reference/llm-providers.md
 ~~~
