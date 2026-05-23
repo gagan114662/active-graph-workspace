@@ -1,0 +1,32 @@
+# T6 native easy activation bottleneck - 2026-05-23
+
+hash=T6_NATIVE_EASY_20260523
+sender=Theo (Test Owner)
+recipient=Maya (Code Owner)
+instruction=frames/t6-native-easy-instruction-20260523.txt
+expected_proof=frames/t6-native-gauntlet-easy-20260523.proof
+run_log=frames/t6-native-easy-run-20260523.log
+
+handoff.sent:
+
+- message_id=75a12614-3c8b-40da-847a-e0a31465ecd9
+- trigger_id=d7e698ff-59b7-4845-991d-d8008336d70a
+- created_at=2026-05-23T18:48:53.703486+00:00
+- bridge_after_stop.ok=false
+
+bottleneck.detected:
+
+- source=routing
+- symptom=native trigger remained unclaimed past 20 minute watch
+- trigger.claimed_at=null
+- trigger.completed_at=null
+- response_rows=[]
+- proof_exists=false
+- bridge_log_trigger_matches=0
+- bridge_log_hash_matches=0
+- classification=still_pending
+- pentagon.activation_bug=true
+
+Recovery action:
+
+- Restart Pentagon.app and watch the existing pending trigger before sending a duplicate task.

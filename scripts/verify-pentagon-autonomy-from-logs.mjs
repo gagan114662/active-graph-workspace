@@ -198,15 +198,17 @@ function parseInteger(value) {
 function resolveTargetFile(targetFile) {
   const [relativePath, lineText] = String(targetFile ?? "").split(":");
   const line = parseInteger(lineText);
-  if (!relativePath || !line) return { relativePath, line: null, fullPath: null };
-  return { relativePath, line, fullPath: ROOT + "/" + relativePath };
+  if (!relativePath || !line) return { relativePath, line: null, fullPath: null, astPath: null };
+  const candidates = [ROOT + "/" + relativePath, ROOT + "/activegraph/" + relativePath];
+  const fullPath = candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+  return { relativePath, line, fullPath, astPath: fullPath };
 }
 
 function pathExistsAtHead(relativePath) {
   if (!relativePath) return false;
   if (command("git", ["cat-file", "-e", "HEAD:" + relativePath]).status === 0) return true;
   if (relativePath.startsWith("activegraph/")) {
-    const innerPath = relativePath.slice("activegraph/".length);
+    const innerPath = innerRepoPath(relativePath);
     const res = spawnSync("git", ["cat-file", "-e", "HEAD:" + innerPath], {
       cwd: ROOT + "/activegraph",
       encoding: "utf8",
@@ -218,7 +220,9 @@ function pathExistsAtHead(relativePath) {
 }
 
 function innerRepoPath(relativePath) {
-  return relativePath?.startsWith("activegraph/") ? relativePath.slice("activegraph/".length) : relativePath;
+  return relativePath?.startsWith("activegraph/activegraph/")
+    ? relativePath.slice("activegraph/".length)
+    : relativePath;
 }
 
 function gitShowForTarget(commitSha, relativePath) {
@@ -269,6 +273,8 @@ function verifyAgentCommitTouchesTarget(proof) {
 }
 
 function pythonAstInspect(relativePath, symbol) {
+  const target = resolveTargetFile(relativePath + ":1");
+  const astPath = target.astPath ?? ROOT + "/" + relativePath;
   const code = [
     "import ast",
     "import json",
@@ -278,7 +284,9 @@ function pythonAstInspect(relativePath, symbol) {
     "path = pathlib.Path(sys.argv[1])",
     "symbol = sys.argv[2]",
     "relative_path = pathlib.Path(sys.argv[3])",
-    "module = \".\".join(relative_path.with_suffix(\"\").parts[1:])",
+    "parts = relative_path.with_suffix(\"\").parts",
+    "module_parts = parts[1:] if len(parts) > 1 and parts[0] == \"activegraph\" and parts[1] == \"activegraph\" else parts",
+    "module = \".\".join(module_parts)",
     "tree = ast.parse(path.read_text(), filename=str(path))",
     "",
     "class StackVisitor(ast.NodeVisitor):",
@@ -325,7 +333,7 @@ function pythonAstInspect(relativePath, symbol) {
     "visitor.visit(tree)",
     "print(json.dumps(visitor.match or {\"missing\": True, \"module\": module}))",
   ].join("\n");
-  const res = spawnSync("python3", ["-c", code, ROOT + "/" + relativePath, symbol, relativePath], {
+  const res = spawnSync("python3", ["-c", code, astPath, symbol, relativePath], {
     cwd: ROOT,
     encoding: "utf8",
     maxBuffer: 1024 * 1024,
