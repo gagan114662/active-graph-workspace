@@ -104,8 +104,9 @@ current_evidence:
   - frames/t5d-skill-load-clean-proof-2026-05-22.log records the local activegraph skill frontmatter repair, direct Codex skill-load smoke with empty stderr, and a fresh LaunchAgent bridge proof T5D_LAUNCHD_SKILL_CLEAN_20260522T225528Z whose bridge result had stderr_tail empty.
   - frames/pentagon-model-live-readback-2026-05-22.log records defaults read returning gpt-5.5 and live agents-table readback finding 20 active_graph agents with zero non-gpt-5.5 model rows.
   - frames/t5d-file-backed-gauntlet-2026-05-22.log records a file-backed bridge gauntlet across easy, medium, hard, and extra-hard tasks. Maya and Ravi created four proof files, emitted visible ACKs, and the bridge completed all terminal reverse triggers.
+  - frames/t5e-native-poller-blocker-2026-05-22.log records a fresh native-only probe with the external bridge stopped. The trigger row dd8b2c63-72bc-4088-88c0-48e8a7f99f56 was created, but native polling left claimed_at and completed_at null for about 133 seconds and produced no Maya ACK. The restored bridge then processed the same pending trigger, proving the remaining blocker is native polling, not trigger creation or target-agent execution.
 
-verdict: operational-via-persistent-bridge
+verdict: blocked-native-poller
 reason: >
   Pentagon does have an internal target-trigger queue: Theo's T5d message
   created a Maya agent_triggers row, the app claimed it, executeAgentTurn
@@ -122,7 +123,8 @@ reason: >
   one visible Maya ACK, duplicate-persist guard coverage, and terminal reverse
   trigger completion. A follow-up proof shows the bridged Codex child now loads
   activegraph skills without startup stderr noise. It is still not a native
-  Pentagon app poller repair.
+  Pentagon app poller repair. A fresh native-only probe with the bridge stopped
+  left a new Maya trigger unclaimed for about 133 seconds.
   The public MCP wrapper also still lacks an explicit target-agent trigger_turn
   or routed scheduled-action primitive with schema/readback, so native product
   repair remains open even though the workspace autonomy bridge is operational.

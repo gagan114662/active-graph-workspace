@@ -1,0 +1,134 @@
+# T5e native Pentagon poller blocker - 2026-05-22
+
+Purpose: correct the autonomy claim boundary and record fresh evidence that the
+native Pentagon app poller is still not fixed.
+
+## Source availability
+
+```text
+find /Users/gaganarora -maxdepth 4 ... -iname "*pentagon*" -o -iname "*agent_triggers*"
+```
+
+Found only:
+
+```text
+/Users/gaganarora/Desktop/my projects/active_graph/...
+/Users/gaganarora/.pentagon
+/Users/gaganarora/Documents/Playground/PENTAGON_CONFIG_AUDIT_2026-05-22.md
+```
+
+The installed app bundle contains a compiled binary and static resources only:
+
+```text
+/Applications/Pentagon.app/Contents/MacOS/Pentagon
+/Applications/Pentagon.app/Contents/Resources/chat.html
+/Applications/Pentagon.app/Contents/Resources/editor.html
+/Applications/Pentagon.app/Contents/Resources/editor.js
+```
+
+No editable native poller source was found in this workspace.
+
+## Binary/runtime clues
+
+```text
+strings /Applications/Pentagon.app/Contents/MacOS/Pentagon | rg -i
+  "agent_triggers|handleAgentTrigger|executeAgentTurn|claim_agent_trigger|poller"
+```
+
+Relevant strings exist in the binary:
+
+```text
+Pentagon/MessagePoller.swift
+_TtC8Pentagon13TriggerPoller
+[handleAgentTrigger] START
+claim_agent_trigger
+messaging.claim-trigger
+[handleAgentTrigger] Completed
+Trigger catch-up: found %{public}ld pending trigger(s)
+Trigger catch-up: no pending triggers
+```
+
+This proves the native poller/catch-up logic exists in the compiled app, but
+not that it is editable or working.
+
+## Backend catch-up probe
+
+Candidate Edge Function names visible or inferred from strings were probed:
+
+```text
+cloud.trigger-catchup      404 NOT_FOUND
+trigger-catchup            404 NOT_FOUND
+cloud-trigger-catchup      404 NOT_FOUND
+trigger_catchup            404 NOT_FOUND
+cloud.heartbeat-catchup    404 NOT_FOUND
+heartbeat-catchup          404 NOT_FOUND
+```
+
+No callable backend catch-up endpoint was found from this client surface.
+
+## Native-only probe
+
+The bridge service was stopped:
+
+```text
+launchctl bootout gui/501 /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist
+launchctl print gui/501/run.pentagon.trigger-bridge
+Could not find service "run.pentagon.trigger-bridge" in domain for user gui: 501
+```
+
+Then a fresh Theo-to-Maya message was inserted:
+
+```text
+hash: T5D_NATIVE_ONLY_PROBE_20260523T003620Z
+message_id: df1bcb56-2eb6-470f-942d-266eb1abeb87
+message_created_at: 2026-05-23T00:36:21.068588+00:00
+trigger_id: dd8b2c63-72bc-4088-88c0-48e8a7f99f56
+target_agent: Maya 7b8c44b7-ddeb-4a35-87e4-2ae502fe9001
+```
+
+After about 133 seconds with only native Pentagon app polling available:
+
+```text
+trigger_claimed_at: null
+trigger_completed_at: null
+maya_ack_count: 0
+```
+
+This is the key negative proof: message-to-trigger creation works, but native
+claim/execution did not happen inside the bounded window.
+
+## Bridge restoration
+
+The bridge was restored so the workspace was not left degraded:
+
+```text
+launchctl bootstrap gui/501 /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist
+launchctl kickstart -k gui/501/run.pentagon.trigger-bridge
+launchctl print gui/501/run.pentagon.trigger-bridge
+state = running
+program = /opt/homebrew/bin/node
+runs = 2
+pid = 75193
+```
+
+After bridge restoration, the same pending trigger was processed:
+
+```text
+trigger_id: dd8b2c63-72bc-4088-88c0-48e8a7f99f56
+trigger_claimed_at: 2026-05-23T00:39:04.439623+00:00
+trigger_completed_at: 2026-05-23T00:39:25.214237+00:00
+bridge_ack_message_id: 0c3fdfa9-98af-4a91-8fb1-82956f1fa308
+bridge_ack: MAYA_NATIVE_ONLY_ACK T5D_NATIVE_ONLY_PROBE_20260523T003620Z evidence=native-poller
+```
+
+The ACK content followed the requested text, but the bridge runtime log proves
+it was produced by the external bridge after the native-only window, not by the
+native poller.
+
+## Verdict
+
+Native Pentagon autonomy is not fixed.
+
+Bridge autonomy is verified and useful, but the full goal remains open until
+the compiled app's TriggerPoller/catch-up path claims and completes fresh
+target triggers without the external LaunchAgent bridge.

@@ -28,6 +28,7 @@ medium, hard, and extra-hard tasks in an auditable, verifiable fashion.
 | live Pentagon work dispatch | MCP spawn_agent/send_message, ps, read_messages | created T5d Activation Engineer but did not prove execution; no codex exec process and no agent reply observed |
 | hidden target scheduling | MCP schedule_action with agent_id/target_agent_id/conversation_id, list_scheduled_actions, ps, read_messages | action was accepted and then cleared, but produced no visible target reply or worker process |
 | heartbeat catch-up / trigger catch-up | Pentagon UI active count, ps token-to-agent mapping, Theo-Maya readback, agent_triggers readback, local debug log, trigger bridge proof, bridge loop gauntlet, launchctl readback, skill-load clean proof, file-backed gauntlet | native trigger catch-up can eventually start Maya and produce ACK but is not bounded; persistent bridge claims, runs, persists, completes, closes terminal reverse triggers, and writes artifacts inside the watchdog window with clean Codex startup stderr after local skill frontmatter repair |
+| native-only trigger poller | stop external bridge, insert fresh Theo-to-Maya message, watch live trigger row and ACKs | frames/t5e-native-poller-blocker-2026-05-22.log records bridge stopped, trigger dd8b2c63 created, native poller left claimed_at/completed_at null for about 133s, no Maya ACK; after bridge restoration the same trigger completed | red |
 
 ## Completion Decision
 
@@ -51,5 +52,8 @@ file-backed gauntlet then produced concrete easy, medium, hard, and extra-hard
 artifacts through Maya and Ravi, with terminal reverse triggers completed.
 The installed bridge is a useful, auditable mitigation and its behavior is
 verified from logs and live rows, but it is not the native Pentagon app poller.
-The full goal remains open until the native public MCP/app path exposes or
-reliably runs a bounded target-turn primitive without this local bridge.
+Fresh native-only proof in frames/t5e-native-poller-blocker-2026-05-22.log
+shows the external bridge was stopped, a new native trigger was created, and
+the native app left it unclaimed for about 133 seconds with no Maya ACK. The
+full goal remains open until the native public MCP/app path exposes or reliably
+runs a bounded target-turn primitive without this local bridge.
