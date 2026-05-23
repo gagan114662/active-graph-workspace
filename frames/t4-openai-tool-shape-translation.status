@@ -1,9 +1,9 @@
 status: incomplete_dirty_unpushed
 inner_head: bdc8919
-outer_head: 2d8e252
+outer_head: 11e60ad
 evaluated: 2026-05-23
 review: clean_for_inner_bdc8919_commit_scoped
-focused_tests: "provider parity 12 passed; focused replay regressions 3 passed"
+focused_tests: "focused T4 shard 35 passed"
 adjacent_runtime_tests: 48 passed
 full_tests: 699 passed, 15 skipped
 mypy: success

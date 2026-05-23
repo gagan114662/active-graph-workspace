@@ -171,6 +171,86 @@ frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
 uv.lock
 ~~~
 
+## Goal Reaper heartbeat 2026-05-23T14:51:48Z
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Predicate actuals vs expected:
+
+- `outer_head_current`: expected current outer checkout recorded accurately; actual `11e60ad`.
+- `focused_t4_shard_passes`: expected focused T4 shard pass; actual `35 passed`.
+- `mypy_strict_passes_full_allowlist`: expected success; actual `Success: no issues found in 23 source files`.
+- `ring0_not_missing_pct_equals_100`: expected `102/102`; actual `102/102 documented (100.0%)`.
+- `ring1_not_missing_pct_ge_80`: expected >=80%; actual `103/120 not-missing (85.8%)`.
+- `pushed_head_closure`: expected `origin/main...HEAD = 0 0`; actual `0 1`, with `HEAD=bdc8919` and `origin/main=62015ed`.
+- `no_changes_outside_permissions`: expected no changed files covered only by read-only permissions; actual `activegraph/llm/cache.py` and `activegraph/llm/recorded.py` remain changed while only covered by `activegraph/activegraph/**/*.py:ro`.
+
+Literal command output:
+
+~~~text
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && pwd && git status --short --branch && git rev-parse --short HEAD && git rev-parse --short origin/main && git log -3 --oneline
+/Users/gaganarora/Desktop/my projects/active_graph
+## main...origin/main
+?? .review-worktrees/
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+11e60ad
+11e60ad
+11e60ad Update T4 live predicate audit
+2d8e252 Update T4 scope amendment evaluation
+aedb429 Verify native Pentagon repo gauntlet
+
+$ cd activegraph && git rev-parse --short HEAD && git rev-parse --short origin/main && git rev-list --left-right --count origin/main...HEAD && git status --short && git diff --name-only 62015ed..HEAD && echo '---dirty---' && git diff --name-only
+bdc8919
+62015ed
+0	1
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M activegraph/llm/cache.py
+ M activegraph/llm/recorded.py
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? uv.lock
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/runtime/runtime.py
+tests/test_provider_tool_parity.py
+---dirty---
+CHANGELOG.md
+CONTRACT.md
+README.md
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py
+...................................                                      [100%]
+35 passed in 0.47s
+
+---exit=0---
+
+$ cd activegraph && ../venv/bin/mypy
+Success: no issues found in 23 source files
+
+---exit=0---
+
+$ cd activegraph && ../venv/bin/python scripts/gate_docstrings.py
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+---exit=0---
+~~~
+
 ## Goal Reaper live predicate audit 2026-05-23T14:41:27Z
 
 Verdict: goal.incomplete
