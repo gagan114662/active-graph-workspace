@@ -217,6 +217,57 @@ function pathExistsAtHead(relativePath) {
   return false;
 }
 
+function innerRepoPath(relativePath) {
+  return relativePath?.startsWith("activegraph/") ? relativePath.slice("activegraph/".length) : relativePath;
+}
+
+function gitShowForTarget(commitSha, relativePath) {
+  const outerName = command("git", ["show", "--name-only", "--format=", commitSha]);
+  if (outerName.status === 0) {
+    const outerDiff = command("git", ["show", "--unified=0", "--format=", commitSha, "--", relativePath]);
+    return { ok: true, pathForCompare: relativePath, nameOnly: outerName.stdout, diff: outerDiff.stdout };
+  }
+  const innerPath = innerRepoPath(relativePath);
+  const innerName = spawnSync("git", ["show", "--name-only", "--format=", commitSha], {
+    cwd: ROOT + "/activegraph",
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  if (innerName.status !== 0) return { ok: false, error: outerName.stderr || innerName.stderr || "git show failed" };
+  const innerDiff = spawnSync("git", ["show", "--unified=0", "--format=", commitSha, "--", innerPath], {
+    cwd: ROOT + "/activegraph",
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  return { ok: true, pathForCompare: innerPath, nameOnly: innerName.stdout, diff: innerDiff.stdout };
+}
+
+function verifyAgentCommitTouchesTarget(proof) {
+  const commitSha = proof.agent_commit_sha;
+  const targetPath = String(proof.target_file ?? "").split(":")[0];
+  if (!commitSha) {
+    return {
+      ok: process.argv.includes("--allow-missing-commit"),
+      detail: "skipped (no agent_commit_sha provided)",
+    };
+  }
+  const shown = gitShowForTarget(commitSha, targetPath);
+  if (!shown.ok) return { ok: false, detail: shown.error };
+  const changedFiles = shown.nameOnly.split(/\r?\n/).filter(Boolean);
+  const touchesTarget = changedFiles.includes(targetPath) || changedFiles.includes(shown.pathForCompare);
+  const hasDocstringOrAnnotationAdd = /^\+\s*"""/m.test(shown.diff) || /^\+\s*[a-zA-Z_]+:\s*[A-Z]/m.test(shown.diff);
+  return {
+    ok: touchesTarget && hasDocstringOrAnnotationAdd,
+    detail: JSON.stringify({
+      commit: commitSha,
+      target_file: targetPath,
+      path_checked: shown.pathForCompare,
+      touches_target: touchesTarget,
+      has_docstring_or_annotation_add: hasDocstringOrAnnotationAdd,
+    }),
+  };
+}
+
 function pythonAstInspect(relativePath, symbol) {
   const code = [
     "import ast",
@@ -480,14 +531,17 @@ async function runT6EasyVerifier() {
     JSON.stringify(symbol)
   );
 
+  const commitCheck = verifyAgentCommitTouchesTarget(proof);
+  must("T6 easy agent committed target_file change", commitCheck.ok, commitCheck.detail);
+
   const pytestBefore = parseInteger(proof.pytest_before);
   const pytestAfter = parseInteger(proof.pytest_after);
   must(
-    "T6 easy pytest_before equals pytest_after",
-    pytestBefore !== null && pytestAfter !== null && pytestBefore === pytestAfter,
+    "T6 easy pytest_after did not regress",
+    pytestBefore !== null && pytestAfter !== null && pytestAfter >= pytestBefore,
     "before=" + String(proof.pytest_before) + " after=" + String(proof.pytest_after)
   );
-  must("T6 easy ruff_exit is 0", proof.ruff_exit === "0", proof.ruff_exit ?? "<missing>");
+  must("T6 easy target_file ruff check exits 0", proof.ruff_target_exit === "0", proof.ruff_target_exit ?? "<missing>");
 
   if (noDb) {
     record(true, "T6 easy event store has Maya agent_edit event", "skipped by --no-db");
@@ -507,7 +561,7 @@ async function runT6EasyVerifier() {
   console.log("");
   console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
   console.log("verdict: " + (failed.length ? "failed" : "t6_easy_verified"));
-  if (failed.length) process.exitCode = 1;
+  process.exit(failed.length ? 1 : 0);
 }
 
 async function main() {

@@ -1,0 +1,32 @@
+NATIVE_GAUNTLET EASY T6_NATIVE_EASY_20260523
+
+Maya, this is a native repo task for /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+
+1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.
+2. Run the full pytest suite and capture the baseline summary line:
+     uv run pytest -q --tb=no 2>&1 | tail -3
+   Record `pytest_before` as the integer count of passing tests.
+3. Pick ONE public function in activegraph/activegraph/ (not in tests/, not
+   private with leading underscore) that has BOTH:
+     (a) no docstring, and
+     (b) at least one parameter OR the return value missing a type hint.
+   Record file:line and the fully qualified symbol name.
+4. Add a docstring matching activegraph/CONTRACT.md's documented format
+   (Args / Returns / Raises sections as applicable) AND complete all missing
+   annotations on that function. Do NOT change runtime behavior.
+5. Re-run pytest. `pytest_after` MUST be greater than or equal to `pytest_before`.
+6. Run `uv run ruff check <target_file>` for the file you changed -- must exit 0.
+7. Create frames/t6-native-gauntlet-easy-20260523.proof with EXACTLY these
+   keys, in this order:
+     hash=T6_NATIVE_EASY_20260523
+     pwd=<pwd output>
+     head=<git short head>
+     target_file=<relative path>:<line number>
+     target_symbol=<fully.qualified.name>
+     agent_commit_sha=<sha that committed the target_file change>
+     pytest_before=<int>
+     pytest_after=<int>
+     ruff_target_exit=0
+     verdict=native_easy_done
+8. Reply exactly:
+   MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_EASY_20260523 EASY frames/t6-native-gauntlet-easy-20260523.proof
