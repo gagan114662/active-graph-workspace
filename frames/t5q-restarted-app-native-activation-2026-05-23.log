@@ -1,0 +1,147 @@
+# T5Q restarted app native activation - 2026-05-23
+
+Purpose: test whether the native Pentagon app trigger poller recovers after an app restart, then repair the native probe watcher so it does not report false red while completion is still in progress.
+
+## Interpreter smoke
+
+INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph 256c290
+git status --short --branch: ## main...origin/main; M frames/t4-openai-tool-shape-translation.evaluation.log; ?? .review-worktrees/
+python3 --version: Python 3.14.3
+node --version: v25.8.2
+node scripts/verify-pentagon-autonomy-from-logs.mjs: summary 256/256 checks passed; verdict bridge_autonomy_verified_native_blocked
+
+The dirty T4 evaluation log and untracked .review-worktrees/ are unrelated pre-existing work and were not edited for this frame.
+
+## Pre-restart state
+
+Command: node scripts/audit-pentagon-native-poller-surface.mjs
+
+Relevant output:
+- app.bundle_short_version: 1.7.3
+- defaults.sync_device_id: 44A67911-6A9B-441D-9F25-C2241A154691
+- defaults.codex_cli_path: /opt/homebrew/bin/codex
+- defaults.default_model: gpt-5.5
+- defaults.last_execution_mode: local
+- binary_surface.TriggerPoller: 7
+- live_agents.provider_model_harness_execution_counts.codex|gpt-5.5|codex|local: 20
+- trigger_queue.pending_count: 0
+- bridge.launchd.state: running
+
+## App restart
+
+Command: osascript quit Pentagon, sleep 5, open -a Pentagon, sleep 8, then ps readback.
+Relevant output: 26772 Sat 23 May 10:15:14 2026        00:08 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+
+The first log command used log without /usr/bin/log and hit zsh command name resolution. Re-running with /usr/bin/log showed old HeartbeatPoller failures and no explicit TriggerPoller startup line, but the probes below show native trigger behavior changed after restart.
+
+## Post-restart default-model drift
+
+The verifier caught a post-restart app default drift:
+
+- defaults read run.pentagon.app pentagon.defaultModel: claude-opus-4-7[1m]
+
+Corrected it back to the required default:
+
+- defaults write run.pentagon.app pentagon.defaultModel gpt-5.5
+- defaults read run.pentagon.app pentagon.defaultModel: gpt-5.5
+- audit-pentagon-native-poller-surface default_model: gpt-5.5
+
+Live active_graph agent rows remained aligned as codex|gpt-5.5|codex|local.
+
+## T5Q native probe after restart
+
+Command: node scripts/probe-native-app-poller.mjs --watch-seconds 45 --hash T5Q_RESTARTED_APP_NATIVE_PROBE_20260523
+
+Relevant output:
+- probe_exit: 2
+- app_process_before: 26772 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+- bridge_mode: stopped_for_native_probe
+- message_id: b233ef98-07cd-4c8a-aa8c-cf3f5f1c7667
+- trigger_id: a78e12f3-6c52-4864-a9f4-935d706cea20
+- final_claimed_at: 2026-05-23T14:15:44.937403+00:00
+- final_completed_at: null
+- ack_rows: []
+- native_pass: false
+
+Post-window attribution command: node scripts/audit-pentagon-trigger-attribution.mjs --trigger-id a78e12f3-6c52-4864-a9f4-935d706cea20 --hash T5Q_RESTARTED_APP_NATIVE_PROBE_20260523 --native-window-seconds 45
+Attribution output:
+- claimed_at: 2026-05-23T14:15:44.937403+00:00
+- completed_at: 2026-05-23T14:15:59.037+00:00
+- ack_id: 37311ac9-83eb-4b2a-a496-3ac4c4e1987b
+- ack_created_at: 2026-05-23T14:15:52.88443+00:00
+- bridge_log.trigger_id_matches: 0
+- bridge_log.hash_matches: 0
+- bridge_log.ack_message_id_matches: 0
+- classification: native_window_claim_possible
+
+Interpretation: after restart, the native app did claim and complete the trigger and Maya ACKed within 45 seconds, but the existing probe watcher stopped too early when it saw claim activity.
+
+## Probe watcher fix
+
+Changed scripts/probe-native-poller.mjs so the watch loop exits only after all native success signals are present: claimed_at, completed_at, and at least one ACK row.
+Syntax check: node --check scripts/probe-native-poller.mjs exited 0.
+
+## T5R corrected 45-second watcher
+
+Command: node scripts/probe-native-app-poller.mjs --watch-seconds 45 --hash T5R_FIXED_WATCH_NATIVE_PROBE_20260523
+
+Relevant output:
+- probe_exit: 2
+- trigger_id: 072cc383-3f36-408d-914f-026277de24fc
+- claimed_at: 2026-05-23T14:17:12.068877+00:00
+- ack_id: 0224ddce-21e8-4bce-8c8a-ae5fca34f2c0
+- ack_created_at: 2026-05-23T14:17:41.054065+00:00
+- completed_at at final read: null
+- native_pass: false
+
+Post-window attribution command: node scripts/audit-pentagon-trigger-attribution.mjs --trigger-id 072cc383-3f36-408d-914f-026277de24fc --hash T5R_FIXED_WATCH_NATIVE_PROBE_20260523 --native-window-seconds 45
+Attribution output:
+- claimed_at: 2026-05-23T14:17:12.068877+00:00
+- completed_at: 2026-05-23T14:18:22.268+00:00
+- ack_id: 0224ddce-21e8-4bce-8c8a-ae5fca34f2c0
+- ack_created_at: 2026-05-23T14:17:41.054065+00:00
+- bridge_log.trigger_id_matches: 0
+- classification: native_window_claim_possible
+
+Interpretation: native execution produced ACK within 45 seconds, but trigger completion landed after the 45-second window. A 45-second completion window is too narrow for this app path.
+
+## T5S corrected 90-second native pass
+
+Command: node scripts/probe-native-app-poller.mjs --watch-seconds 90 --hash T5S_RESTARTED_APP_NATIVE_90S_PROBE_20260523
+Exit code: 0
+
+Relevant output:
+- probe_exit: 0
+- app_process_before: 26772 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+- bridge_mode: stopped_for_native_probe
+- message_id: 71feb1f3-1ce5-4b67-9ce2-49f876a557e7
+- trigger_id: db725112-e6b1-4c77-abdc-12d83e1762a8
+- claimed_at: 2026-05-23T14:19:11.905623+00:00
+- ack_id: 874e6f8a-77ee-4ed6-92e0-e244ba60d4c6
+- ack_created_at: 2026-05-23T14:19:29.966091+00:00
+- completed_at: 2026-05-23T14:19:40.891+00:00
+- bridge_assisted_pass: false
+- native_pass: true
+- verdict: native_poller_passed
+
+Attribution command: node scripts/audit-pentagon-trigger-attribution.mjs --trigger-id db725112-e6b1-4c77-abdc-12d83e1762a8 --hash T5S_RESTARTED_APP_NATIVE_90S_PROBE_20260523 --native-window-seconds 90
+Attribution output:
+- bridge_log.trigger_id_matches: 0
+- bridge_log.hash_matches: 0
+- bridge_log.ack_message_id_matches: 0
+- classification: native_window_completed_with_ack
+- pending_unclaimed_triggers_in_conversation: []
+
+## Evidence audit
+
+| Predicate | Evidence | Status |
+| --- | --- | --- |
+| app restart changes native trigger behavior | T5Q/T5S use process 26772 and native claims trigger immediately | green |
+| native activation can work without bridge | T5S native_pass true, bridge stopped, bridge log matches 0 | green |
+| 45-second completion is reliable | T5R completed after 45 seconds | red |
+| 90-second native activation smoke is reliable enough for watchdog | T5S claimed, ACKed, completed within 90 seconds | green |
+| full native easy/medium/hard/extra-hard repo gauntlet is complete | not run natively yet | red |
+
+## Verdict
+
+The native activation blocker is no longer absolute after restarting Pentagon.app. A corrected 90-second native-only probe passed with no bridge attribution. The full goal remains open because this proves native activation smoke, not yet repo-specific easy, medium, hard, and extra-hard native task execution.

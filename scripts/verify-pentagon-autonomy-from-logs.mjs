@@ -24,6 +24,7 @@ const REPEATABLE_NATIVE_APP_POLLER_DIAGNOSTIC_LOG = "frames/t5m-repeatable-nativ
 const CODEX_HARNESS_NATIVE_RECHECK_LOG = "frames/t5n-codex-harness-native-recheck-2026-05-23.log";
 const CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG = "frames/t5o-cleared-queue-native-attribution-2026-05-23.log";
 const NATIVE_POLLER_SURFACE_AUDIT_LOG = "frames/t5p-native-poller-surface-audit-2026-05-23.log";
+const RESTARTED_APP_NATIVE_ACTIVATION_LOG = "frames/t5q-restarted-app-native-activation-2026-05-23.log";
 const CRITICAL_PROOF_FILES = [
   "frames/t5d-file-backed-gauntlet-2026-05-22.log",
   "frames/t5d-file-gauntlet-easy-20260522T230015Z.proof",
@@ -47,6 +48,7 @@ const CRITICAL_PROOF_FILES = [
   CODEX_HARNESS_NATIVE_RECHECK_LOG,
   CLEARED_QUEUE_NATIVE_ATTRIBUTION_LOG,
   NATIVE_POLLER_SURFACE_AUDIT_LOG,
+  RESTARTED_APP_NATIVE_ACTIVATION_LOG,
   "scripts/pentagon-trigger-bridge.mjs",
   "scripts/probe-native-poller.mjs",
   "scripts/probe-native-app-poller.mjs",
@@ -269,6 +271,7 @@ async function main() {
   must("trigger attribution diagnostic script exists", triggerAttributionScript);
   if (triggerAttributionScript) {
     requireText("trigger attribution diagnostic script", triggerAttributionScript, "bridge_catchup_after_native_window");
+    requireText("trigger attribution diagnostic script", triggerAttributionScript, "native_window_completed_with_ack");
     requireText("trigger attribution diagnostic script", triggerAttributionScript, "native_window_claim_possible");
     requireText("trigger attribution diagnostic script", triggerAttributionScript, "pending_unclaimed_triggers_in_conversation");
   }
@@ -524,10 +527,28 @@ async function main() {
     requireText("native poller surface audit log", nativePollerSurfaceAuditLog, "native app trigger polling still does not claim fresh target");
   }
 
+  const restartedAppNativeActivationLog = repoFile(RESTARTED_APP_NATIVE_ACTIVATION_LOG);
+  must("restarted app native activation log exists", restartedAppNativeActivationLog, RESTARTED_APP_NATIVE_ACTIVATION_LOG);
+  if (restartedAppNativeActivationLog) {
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "26772 Sat 23 May 10:15:14 2026");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "T5Q_RESTARTED_APP_NATIVE_PROBE_20260523");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "trigger_id: a78e12f3-6c52-4864-a9f4-935d706cea20");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "ack_id: 37311ac9-83eb-4b2a-a496-3ac4c4e1987b");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "Changed scripts/probe-native-poller.mjs");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "T5R_FIXED_WATCH_NATIVE_PROBE_20260523");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "completed_at: 2026-05-23T14:18:22.268+00:00");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "T5S_RESTARTED_APP_NATIVE_90S_PROBE_20260523");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "trigger_id: db725112-e6b1-4c77-abdc-12d83e1762a8");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "ack_id: 874e6f8a-77ee-4ed6-92e0-e244ba60d4c6");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "native_pass: true");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "classification: native_window_completed_with_ack");
+    requireText("restarted app native activation log", restartedAppNativeActivationLog, "full native easy/medium/hard/extra-hard repo gauntlet is complete | not run natively yet | red");
+  }
+
   if (requireNative) {
-    record(false, "native Pentagon autonomy completion", "native poller is still documented as blocked; rerun without --require-native to verify bridge-backed autonomy only");
+    record(false, "native Pentagon autonomy completion", "native activation smoke passed after app restart, but native easy/medium/hard/extra-hard repo gauntlet is not yet complete");
   } else {
-    record(true, "native Pentagon autonomy boundary", "native poller remains blocked; this run verifies bridge-backed autonomy and audit integrity");
+    record(true, "native Pentagon autonomy boundary", "native activation smoke passed after app restart; this run verifies bridge-backed autonomy, audit integrity, and remaining native gauntlet gap");
   }
 
   if (!noDb) {

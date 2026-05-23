@@ -213,7 +213,7 @@ async function main() {
       while (Date.now() < deadline) {
         finalTrigger = await triggerForMessage(message.id);
         finalAcks = await ackRows(conversationId, maya, hash, message.created_at);
-        if (finalTrigger?.claimed_at || finalTrigger?.completed_at || finalAcks.length) break;
+        if (finalTrigger?.claimed_at && finalTrigger?.completed_at && finalAcks.length) break;
         await sleep(5000);
       }
       result.final_trigger = finalTrigger;

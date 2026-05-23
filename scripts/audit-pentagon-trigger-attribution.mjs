@@ -91,12 +91,16 @@ async function main() {
   const bridge = bridgeEvidence(triggerId, hash, ack?.id);
 
   const claimedAt = trigger.claimed_at ? new Date(trigger.claimed_at).getTime() : null;
+  const completedAt = trigger.completed_at ? new Date(trigger.completed_at).getTime() : null;
+  const ackAt = ack?.created_at ? new Date(ack.created_at).getTime() : null;
   const nativeEnd = new Date(nativeWindowEndedAt).getTime();
   const bridgeAgeEnd = new Date(bridgeAgeWindowEndedAt).getTime();
   const hasBridgeProof = bridge.trigger_id_matches > 0 && (bridge.hash_matches > 0 || bridge.ack_message_id_matches > 0);
 
   let classification = "still_pending";
-  if (claimedAt && claimedAt <= nativeEnd) {
+  if (claimedAt && completedAt && ackAt && claimedAt <= nativeEnd && completedAt <= nativeEnd && ackAt <= nativeEnd && !hasBridgeProof) {
+    classification = "native_window_completed_with_ack";
+  } else if (claimedAt && claimedAt <= nativeEnd) {
     classification = hasBridgeProof ? "ambiguous_native_window_with_bridge_log" : "native_window_claim_possible";
   } else if (claimedAt && claimedAt <= bridgeAgeEnd && hasBridgeProof) {
     classification = "bridge_catchup_after_native_window";
