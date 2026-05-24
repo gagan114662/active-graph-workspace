@@ -1,0 +1,12 @@
+hash=T6_NATIVE_HARD_20260523
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=545889f
+bug_source=docstring:activegraph/core/graph.py:280
+bug_summary=Graph.attach_store rejected fresh graph store replacement despite only promising rejection after events exist.
+failing_test_commit=df06a9a65493d37254645b491b629d4f9290d2b5
+fix_commit=545889f5337661b3a2f3fcc9380486481e825c20
+test_file=activegraph/tests/test_attach_store_fresh_reattach_regression.py
+pytest_before=698
+pytest_after=699
+verdict=native_hard_done
+

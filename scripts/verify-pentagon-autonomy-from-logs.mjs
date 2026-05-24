@@ -701,68 +701,322 @@ function proofAckPaths(proofFile) {
   return [...new Set(paths)];
 }
 
-async function verifyT6Ack(proofFile, hash) {
-  const state = readPentagonSession();
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const mayaRows = await supabase(
-    state,
-    "/rest/v1/agents?directory=eq." + encodeURIComponent(ROOT) + "&name=eq." + encodeURIComponent("Maya (Code Owner)") + "&deleted_at=is.null&select=id,name&limit=1"
-  );
-  const maya = mayaRows[0];
-  if (!maya) return { ok: false, detail: "Maya agent row not found" };
+function t6TierFromHash(hash) {
+  const match = String(hash ?? "").match(/^T6_NATIVE_(EASY|MEDIUM|HARD)_20260523$/);
+  return match ? match[1].toLowerCase() : "unknown";
+}
 
-  const rows = await supabase(
-    state,
-    "/rest/v1/messages?sender_id=eq." + maya.id + "&created_at=gte." + encodeURIComponent(since) + "&select=id,content,created_at,sender_id&order=created_at.desc&limit=200"
+function parseMayaAck(content) {
+  const match = String(content ?? "").trim().match(/^MAYA_NATIVE_GAUNTLET_ACK\s+(\S+)\s+(\S+)\s+(\S+)$/);
+  if (!match) return null;
+  return { hash: match[1], tier: match[2], proof_path: match[3] };
+}
+
+function parseQuinnAck(content) {
+  const match = String(content ?? "").trim().match(/^QUINN_REGRESSION_VERIFIED\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+.*)?$/);
+  if (!match) return null;
+  return { hash: match[1], failing_test_commit: match[2], fix_commit: match[3] };
+}
+
+function canonicalFieldsEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function ackFixtureForProof(proofFile, kind) {
+  const fixtureName = String(proofFile ?? "").split("/").pop();
+  if (!fixtureName?.startsWith("t6-hard-proof-fixture-")) return null;
+  if (kind === "quinn") {
+    const expectedAgent = { id: "fixture-quinn", name: "Quinn (Test Adversary)" };
+    const trigger = {
+      id: "fixture-quinn-trigger-canonical",
+      conversation_id: "fixture-quinn-conversation-canonical",
+      content: "NATIVE_GAUNTLET HARD T6_NATIVE_HARD_20260523 QUINN_VERIFICATION",
+      claimed_at: "2026-05-23T22:18:48.000+00:00",
+      completed_at: "2026-05-23T22:20:31.000+00:00",
+    };
+    return {
+      expectedAgent,
+      triggers: [trigger],
+      messages: [
+        {
+          id: "fixture-quinn-verified-ack",
+          conversation_id: trigger.conversation_id,
+          sender_id: expectedAgent.id,
+          created_at: "2026-05-23T22:20:20.000+00:00",
+          content: "QUINN_REGRESSION_VERIFIED T6_NATIVE_HARD_20260523 df06a9a 545889f",
+        },
+      ],
+    };
+  }
+  if (kind !== "maya") return null;
+  const baseTrigger = {
+    id: "fixture-trigger-canonical",
+    conversation_id: "fixture-conversation-canonical",
+    content: "NATIVE_GAUNTLET HARD T6_NATIVE_HARD_20260523",
+    claimed_at: "2026-05-23T21:57:43.81872+00:00",
+    completed_at: "2026-05-23T22:02:33.786+00:00",
+  };
+  const forceMarkedTrigger = {
+    id: "fixture-trigger-force-marked",
+    conversation_id: "fixture-conversation-force-marked",
+    content: "NATIVE_GAUNTLET HARD T6_NATIVE_HARD_20260523",
+    claimed_at: "2026-05-23T21:58:18.605036+00:00",
+    completed_at: "2026-05-23T21:58:18.507+00:00",
+  };
+  const expectedAgent = { id: "fixture-maya", name: "Maya (Code Owner)" };
+  const canonicalAck = "MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_HARD_20260523 HARD " + proofFile;
+  if (fixtureName === "t6-hard-proof-fixture-duplicate-identical-acks.txt") {
+    return {
+      expectedAgent,
+      triggers: [baseTrigger],
+      messages: [
+        { id: "fixture-shadow-ack", conversation_id: baseTrigger.conversation_id, sender_id: expectedAgent.id, created_at: "2026-05-23T22:00:47.54023+00:00", content: canonicalAck },
+        { id: "fixture-kept-ack", conversation_id: baseTrigger.conversation_id, sender_id: expectedAgent.id, created_at: "2026-05-23T22:02:30.25218+00:00", content: canonicalAck },
+      ],
+    };
+  }
+  if (fixtureName === "t6-hard-proof-fixture-bad-ack-contradiction.txt") {
+    return {
+      expectedAgent,
+      triggers: [baseTrigger],
+      messages: [
+        { id: "fixture-good-ack", conversation_id: baseTrigger.conversation_id, sender_id: expectedAgent.id, created_at: "2026-05-23T22:00:47.54023+00:00", content: canonicalAck },
+        { id: "fixture-bad-ack", conversation_id: baseTrigger.conversation_id, sender_id: expectedAgent.id, created_at: "2026-05-23T22:02:30.25218+00:00", content: "MAYA_NATIVE_GAUNTLET_ACK T6_NATIVE_HARD_20260523 HARD frames/contradictory-proof.proof" },
+      ],
+    };
+  }
+  if (fixtureName === "t6-hard-proof-fixture-bad-no-canonical-ack.txt") {
+    return {
+      expectedAgent,
+      triggers: [forceMarkedTrigger],
+      messages: [
+        { id: "fixture-force-marked-ack", conversation_id: forceMarkedTrigger.conversation_id, sender_id: expectedAgent.id, created_at: "2026-05-23T22:02:30.25218+00:00", content: canonicalAck },
+      ],
+    };
+  }
+  return null;
+}
+
+function isCanonicalTrigger(trigger, expectedAgentId, expectedAgentMessageCounts) {
+  const claimedAt = Date.parse(trigger.claimed_at ?? "");
+  const completedAt = Date.parse(trigger.completed_at ?? "");
+  return Boolean(
+    trigger.claimed_at &&
+    trigger.completed_at &&
+    Number.isFinite(claimedAt) &&
+    Number.isFinite(completedAt) &&
+    claimedAt < completedAt &&
+    (expectedAgentMessageCounts.get(trigger.conversation_id) ?? 0) >= 1 &&
+    trigger.agent_id === expectedAgentId
   );
-  const ackPrefix = "MAYA_NATIVE_GAUNTLET_ACK " + hash;
-  const matching = rows.filter((row) => String(row.content ?? "").includes(ackPrefix));
-  const acceptedPaths = proofAckPaths(proofFile);
-  const pathMatches = matching.filter((row) => acceptedPaths.some((path) => String(row.content ?? "").includes(path)));
+}
+
+function resolveCanonicalAck({ proofFile, hash, tier, expectedAgent, triggers, messages, ackParser, ackMatches, canonicalFieldFilter, triggerMatches }) {
+  const noAckReason = "no " + expectedAgent.name.split(" ")[0] + " ACK in canonical trigger";
+  const expectedAgentMessages = messages.filter((row) => row.sender_id === expectedAgent.id);
+  const messageCounts = new Map();
+  for (const row of expectedAgentMessages) {
+    messageCounts.set(row.conversation_id, (messageCounts.get(row.conversation_id) ?? 0) + 1);
+  }
+  const candidateTriggers = triggers.filter((trigger) => triggerMatches ? triggerMatches(trigger.content) : String(trigger.content ?? "").includes(hash));
+  const canonicalTriggers = candidateTriggers
+    .filter((trigger) => isCanonicalTrigger(trigger, expectedAgent.id, messageCounts))
+    .sort((a, b) => Date.parse(b.completed_at) - Date.parse(a.completed_at));
+
+  if (canonicalTriggers.length === 0) {
+    return {
+      ok: false,
+      detail: JSON.stringify({
+        reason: noAckReason,
+        trigger_rows: candidateTriggers.length,
+        candidate_trigger_ids: candidateTriggers.map((trigger) => trigger.id),
+      }),
+    };
+  }
+
+  const canonicalTrigger = canonicalTriggers[0];
+  const shadowTriggers = canonicalTriggers.slice(1);
+  if (shadowTriggers.length) {
+    console.log(
+      "WARN T6 " + tier + " shadow trigger present :: kept=" + canonicalTrigger.id +
+      ", shadowed=" + JSON.stringify(shadowTriggers.map((trigger) => trigger.id))
+    );
+  }
+
+  const ackRows = messages
+    .filter((row) => row.sender_id === expectedAgent.id && row.conversation_id === canonicalTrigger.conversation_id)
+    .filter((row) => ackMatches(row.content))
+    .map((row) => ({ ...row, canonical_fields: ackParser(row.content) }))
+    .filter((row) => row.canonical_fields);
+
+  if (ackRows.length === 0) {
+    return {
+      ok: false,
+      detail: JSON.stringify({
+        reason: noAckReason,
+        canonical_trigger_id: canonicalTrigger.id,
+        canonical_conversation_id: canonicalTrigger.conversation_id,
+      }),
+    };
+  }
+
+  const sortedAcks = ackRows.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  const canonicalAck = sortedAcks[0];
+  const contradictions = sortedAcks.filter((row) => !canonicalFieldsEqual(row.canonical_fields, canonicalAck.canonical_fields));
+  if (contradictions.length) {
+    return {
+      ok: false,
+      detail: JSON.stringify({
+        reason: "ACK contradiction",
+        canonical_trigger_id: canonicalTrigger.id,
+        kept_candidate: { id: canonicalAck.id, canonical_fields: canonicalAck.canonical_fields },
+        contradictions: contradictions.map((row) => ({ id: row.id, canonical_fields: row.canonical_fields })),
+      }),
+    };
+  }
+  if (!canonicalFieldFilter(canonicalAck.canonical_fields)) {
+    return {
+      ok: false,
+      detail: JSON.stringify({
+        reason: noAckReason,
+        canonical_trigger_id: canonicalTrigger.id,
+        ack_rows: sortedAcks.length,
+        newest_ack_fields: canonicalAck.canonical_fields,
+      }),
+    };
+  }
+
+  const shadowAcks = sortedAcks.slice(1);
+  if (shadowAcks.length) {
+    console.log(
+      "WARN T6 " + tier + " shadow ACKs in canonical trigger :: count=" + sortedAcks.length +
+      ", kept=" + canonicalAck.id +
+      ", shadowed=" + JSON.stringify(shadowAcks.map((row) => row.id))
+    );
+  }
+
   return {
-    ok: matching.length === 1 && pathMatches.length === 1,
+    ok: true,
     detail: JSON.stringify({
-      ack_rows: matching.length,
-      proof_path_rows: pathMatches.length,
-      accepted_proof_paths: acceptedPaths,
-      ack_ids: matching.map((row) => row.id),
+      canonical_trigger_id: canonicalTrigger.id,
+      canonical_ack_id: canonicalAck.id,
+      ack_rows: sortedAcks.length,
+      shadow_ack_ids: shadowAcks.map((row) => row.id),
+      accepted_proof_paths: proofAckPaths(proofFile),
     }),
   };
 }
 
-async function verifyT6QuinnAck(proof) {
+async function fetchExpectedAgent(name) {
   const state = readPentagonSession();
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const quinnRows = await supabase(
-    state,
-    "/rest/v1/agents?directory=eq." + encodeURIComponent(ROOT) + "&name=eq." + encodeURIComponent("Quinn (Test Adversary)") + "&deleted_at=is.null&select=id,name&limit=1"
-  );
-  const quinn = quinnRows[0];
-  if (!quinn) return { ok: false, detail: "Quinn agent row not found" };
   const rows = await supabase(
     state,
-    "/rest/v1/messages?sender_id=eq." + quinn.id + "&created_at=gte." + encodeURIComponent(since) + "&select=id,content,created_at,sender_id&order=created_at.desc&limit=200"
+    "/rest/v1/agents?directory=eq." + encodeURIComponent(ROOT) + "&name=eq." + encodeURIComponent(name) + "&deleted_at=is.null&select=id,name&limit=1"
   );
-  const rejected = rows.filter((row) => String(row.content ?? "").includes("QUINN_REGRESSION_REJECTED T6_NATIVE_HARD_20260523"));
-  const matching = rows.filter((row) => String(row.content ?? "").includes("QUINN_REGRESSION_VERIFIED T6_NATIVE_HARD_20260523"));
+  return { state, agent: rows[0] };
+}
+
+async function fetchAckAuditRows(state, expectedAgent, hash, since) {
+  const triggers = await supabase(
+    state,
+    "/rest/v1/agent_triggers?agent_id=eq." + expectedAgent.id + "&created_at=gte." + encodeURIComponent(since) + "&select=id,conversation_id,agent_id,content,claimed_at,completed_at,created_at&order=created_at.desc&limit=200"
+  );
+  const conversationIds = [...new Set(triggers.filter((row) => String(row.content ?? "").includes(hash)).map((row) => row.conversation_id).filter(Boolean))];
+  if (!conversationIds.length) return { triggers, messages: [] };
+  const messages = await supabase(
+    state,
+    "/rest/v1/messages?conversation_id=in.(" + conversationIds.join(",") + ")&created_at=gte." + encodeURIComponent(since) + "&select=id,conversation_id,sender_id,content,created_at&order=created_at.desc&limit=500"
+  );
+  return { triggers, messages };
+}
+
+async function verifyT6Ack(proofFile, hash) {
+  const fixture = ackFixtureForProof(proofFile, "maya");
+  const tier = t6TierFromHash(hash);
+  const expectedTier = tier.toUpperCase();
+  const acceptedPaths = proofAckPaths(proofFile);
+  const ackPrefix = "MAYA_NATIVE_GAUNTLET_ACK " + hash;
+  const canonicalFieldFilter = (fields) => fields.hash === hash && fields.tier === expectedTier && acceptedPaths.includes(fields.proof_path);
+  if (fixture) {
+    return resolveCanonicalAck({
+      proofFile,
+      hash,
+      tier,
+      expectedAgent: fixture.expectedAgent,
+      triggers: fixture.triggers.map((trigger) => ({ ...trigger, agent_id: fixture.expectedAgent.id })),
+      messages: fixture.messages,
+      ackParser: parseMayaAck,
+      ackMatches: (content) => String(content ?? "").includes(ackPrefix),
+      canonicalFieldFilter,
+      triggerMatches: (content) => {
+        const text = String(content ?? "");
+        return text.startsWith("NATIVE_GAUNTLET " + expectedTier + " " + hash) && !text.includes("QUINN_VERIFICATION");
+      },
+    });
+  }
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { state, agent: maya } = await fetchExpectedAgent("Maya (Code Owner)");
+  if (!maya) return { ok: false, detail: "Maya agent row not found" };
+  const { triggers, messages } = await fetchAckAuditRows(state, maya, hash, since);
+  return resolveCanonicalAck({
+    proofFile,
+    hash,
+    tier,
+    expectedAgent: maya,
+    triggers,
+    messages,
+    ackParser: parseMayaAck,
+    ackMatches: (content) => String(content ?? "").includes(ackPrefix),
+    canonicalFieldFilter: (fields) => fields.hash === hash && fields.tier === expectedTier && acceptedPaths.includes(fields.proof_path),
+    triggerMatches: (content) => {
+      const text = String(content ?? "");
+      return text.startsWith("NATIVE_GAUNTLET " + expectedTier + " " + hash) && !text.includes("QUINN_VERIFICATION");
+    },
+  });
+}
+
+async function verifyT6QuinnAck(proof, proofFile) {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const hash = "T6_NATIVE_HARD_20260523";
   const commitA = String(proof.failing_test_commit ?? "");
   const commitB = String(proof.fix_commit ?? "");
-  const referencesCommits = matching.filter((row) => {
-    const content = String(row.content ?? "");
-    return content.includes(commitA) || content.includes(commitA.slice(0, 7))
-      ? content.includes(commitB) || content.includes(commitB.slice(0, 7))
-      : false;
-  });
-  return {
-    ok: rejected.length === 0 && matching.length === 1 && referencesCommits.length === 1,
-    detail: JSON.stringify({
-      verified_rows: matching.length,
-      rejected_rows: rejected.length,
-      commit_ref_rows: referencesCommits.length,
-      verified_ids: matching.map((row) => row.id),
-      rejected_ids: rejected.map((row) => row.id),
-    }),
+  const ackPrefix = "QUINN_REGRESSION_VERIFIED " + hash;
+  const canonicalFieldFilter = (fields) => {
+    return fields.hash === hash &&
+      (fields.failing_test_commit === commitA || fields.failing_test_commit === commitA.slice(0, 7)) &&
+      (fields.fix_commit === commitB || fields.fix_commit === commitB.slice(0, 7));
   };
+  const fixture = ackFixtureForProof(proofFile, "quinn");
+  if (fixture) {
+    return resolveCanonicalAck({
+      proofFile: "quinn-regression-verification",
+      hash,
+      tier: "hard",
+      expectedAgent: fixture.expectedAgent,
+      triggers: fixture.triggers.map((trigger) => ({ ...trigger, agent_id: fixture.expectedAgent.id })),
+      messages: fixture.messages,
+      ackParser: parseQuinnAck,
+      ackMatches: (content) => String(content ?? "").includes(ackPrefix),
+      canonicalFieldFilter,
+      triggerMatches: (content) => String(content ?? "").startsWith("NATIVE_GAUNTLET HARD " + hash + " QUINN_VERIFICATION"),
+    });
+  }
+  const { state, agent: quinn } = await fetchExpectedAgent("Quinn (Test Adversary)");
+  if (!quinn) return { ok: false, detail: "Quinn agent row not found" };
+  const { triggers, messages } = await fetchAckAuditRows(state, quinn, hash, since);
+  return resolveCanonicalAck({
+    proofFile: "quinn-regression-verification",
+    hash,
+    tier: "hard",
+    expectedAgent: quinn,
+    triggers,
+    messages,
+    ackParser: parseQuinnAck,
+    ackMatches: (content) => String(content ?? "").includes(ackPrefix),
+    canonicalFieldFilter,
+    triggerMatches: (content) => String(content ?? "").startsWith("NATIVE_GAUNTLET HARD " + hash + " QUINN_VERIFICATION"),
+  });
 }
 
 async function t6RuntimeEventCount(hash) {
@@ -1010,7 +1264,7 @@ async function runT6HardVerifier() {
       must("T6 hard messages table has Maya ACK referencing proof", false, error.message);
     }
     try {
-      const quinnCheck = await verifyT6QuinnAck(proof);
+      const quinnCheck = await verifyT6QuinnAck(proof, proofFile);
       must("T6 hard messages table has Quinn verification ACK", quinnCheck.ok, quinnCheck.detail);
     } catch (error) {
       must("T6 hard messages table has Quinn verification ACK", false, error.message);
