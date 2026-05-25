@@ -1,0 +1,53 @@
+RUN_SEED=b8c56e8e-7d63-4d26-8e6a-a894b22d4f59
+NATIVE_GAUNTLET EASY T7_REPEAT_EASY_20260525_010
+
+Maya, this is T7 repetition run 010 for the easy T6 task class in:
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+
+Purpose: measure whether the T6 easy capability repeats on a fresh target.
+
+Do not reuse these prior easy targets:
+- activegraph.core.graph.Graph.store
+- activegraph.runtime.patterns.PatternMatcher.matches
+- activegraph.tools.cache.ToolCache.from_events
+- activegraph.packs.PackPrompt.from_body
+- activegraph.core.event.Event.to_dict
+- activegraph.behaviors.base.RelationBehavior.run
+- activegraph.core.clock.Clock.now
+- activegraph.core.ids.IDGen.object
+- activegraph.core.ids.IDGen.event
+- activegraph.behaviors.base.Behavior.run
+
+Worktree discipline:
+- Work in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+- There may be unrelated operator changes in this repo. Do not revert, delete, or rewrite unrelated files.
+- Commit only the file you intentionally change for this run.
+
+Task:
+1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.
+2. Run the full pytest suite and capture the baseline summary line:
+     uv run pytest -q --tb=no > /tmp/t7-repeat-easy-010-pytest-before.out 2>&1; echo "exit=$?"; tail -3 /tmp/t7-repeat-easy-010-pytest-before.out
+   Record `pytest_before` as the integer count of passing tests.
+3. Pick ONE public function in activegraph/activegraph/ (not in tests/, not private with leading underscore) that has BOTH:
+     (a) no docstring, and
+     (b) at least one parameter OR the return value missing a type hint.
+4. Add a docstring matching activegraph/CONTRACT.md's documented format (Args / Returns / Raises sections as applicable) AND complete all missing annotations on that function. Do not change runtime behavior.
+5. Re-run pytest. `pytest_after` MUST be greater than or equal to `pytest_before`.
+6. Run `uv run ruff check <target_file>` for the file you changed; it must exit 0.
+7. Commit the target-file change in the activegraph inner repo. Commit message:
+     T7 easy 010: document and type <target_symbol>
+   Record the full commit SHA as `agent_commit_sha`.
+8. Create frames/t7-repeat-easy-010-20260525.proof with EXACTLY these keys, in this order:
+     hash=T7_REPEAT_EASY_20260525_010
+     run_seed=b8c56e8e-7d63-4d26-8e6a-a894b22d4f59
+     pwd=<pwd output>
+     head=<git short head after commit>
+     target_file=<relative path>:<line number>
+     target_symbol=<fully.qualified.name>
+     agent_commit_sha=<full sha that committed the target_file change>
+     pytest_before=<int>
+     pytest_after=<int>
+     ruff_target_exit=0
+     verdict=native_easy_done
+9. Reply exactly:
+   MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_EASY_20260525_010 EASY frames/t7-repeat-easy-010-20260525.proof
