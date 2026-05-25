@@ -1,6 +1,6 @@
 status: incomplete_dirty_unpushed
 inner_head: 545889f
-outer_head: a9b6054
+outer_head: c45b29c
 outer_evidence_head: latest committed revision of this status file
 evaluated: 2026-05-25
 review: clean_for_inner_5c2cd8e_commit_scoped_only_stale_for_current_545889f
@@ -37,12 +37,25 @@ untracked_not_claimed:
   outer:
     - .review-worktrees/
     - CLAUDE.md
+    - frames/codex-goals/
     - frames/pipeline-smoke-test-20260525.log
     - frames/pipeline-smoke-test-20260525.txt
     - frames/post-baseline-flywheel-roadmap-2026-05-23.md
     - frames/t13-and-beyond-factory-survivability-2026-05-23.md
     - frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+    - frames/t6-extra-hard-live-run-20260525.log
+    - frames/t6-extra-hard-self-audit-20260525.sqlite
+    - frames/t6-extra-hard-self-audit-20260525.sqlite-shm
+    - frames/t6-extra-hard-self-audit-20260525.sqlite-wal
     - frames/t6-native-easy-run-20260523.log
+    - frames/t6-native-extra-hard-1-sofia-20260525.txt
+    - frames/t6-native-extra-hard-2-maya-20260525.txt
+    - frames/t6-native-extra-hard-3-quinn-20260525.txt
+    - frames/t6-native-extra-hard-3b-quinn-ack-correction-20260525.txt
+    - frames/t6-native-extra-hard-3c-maya-fix-20260525.txt
+    - frames/t6-native-extra-hard-4-sam-20260525.txt
+    - frames/t6-native-extra-hard-5-riley-20260525.txt
+    - frames/t6-native-gauntlet-extra-hard-20260525.proof
     - frames/t6-native-hard-maya-run-RETRY-20260523.log
     - frames/t6-native-hard-quinn-run-20260523.log
     - frames/t6-native-hard-quinn-run-RETRY-20260523.log
