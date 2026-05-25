@@ -6,6 +6,10 @@ const WORKSPACE = "/Users/gaganarora/Desktop/my projects/active_graph";
 const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
 const PENTAGON_BIN = "/Applications/Pentagon.app/Contents/MacOS/Pentagon";
 const MCP_URL = "https://auth.pentagon.run/functions/v1/mcp";
+const PENTAGON_WATCHDOG_STUCK_AGE_SECONDS = 60;
+const PENTAGON_WATCHDOG_COOLDOWN_SECONDS = 300;
+const PENTAGON_WATCHDOG_AGENT_CACHE_MS = 60_000;
+const PENTAGON_WATCHDOG_NATIVE_CONTENT_FILTER = "or=(content.ilike.NATIVE*,content.ilike.PIPELINE_SMOKE_TEST*)";
 
 function arg(name, fallback = null) {
   const idx = process.argv.indexOf(name);
@@ -48,6 +52,10 @@ function refreshSession() {
   const currentAnonKey = state?.anonKey ?? readAnonKey();
   state = { ...readSession(), anonKey: currentAnonKey };
   return state;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isExpiredJwtResponse(status, parsed) {
@@ -239,10 +247,143 @@ function summarizeTrigger(trigger) {
   };
 }
 
+function commandResult(cmd, args) {
+  const result = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 1024 * 1024 });
+  return {
+    cmd,
+    args,
+    status: result.status,
+    signal: result.signal,
+    stdout: String(result.stdout ?? "").trim(),
+    stderr: String(result.stderr ?? "").trim(),
+  };
+}
+
+function pentagonProcesses() {
+  const result = commandResult("pgrep", ["-fl", PENTAGON_BIN]);
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error("pgrep Pentagon failed: " + JSON.stringify(result));
+  }
+  return result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^(\d+)\s+(.*)$/);
+      return match ? { pid: Number(match[1]), command: match[2] } : null;
+    })
+    .filter((row) => row && row.command.includes(PENTAGON_BIN));
+}
+
+async function activeGraphAgentIds() {
+  const now = Date.now();
+  if (agentIdCache.ids && now - agentIdCache.loadedAt < PENTAGON_WATCHDOG_AGENT_CACHE_MS) {
+    return agentIdCache.ids;
+  }
+  const rows = await request(
+    "/rest/v1/agents?directory=eq." + encodeURIComponent(WORKSPACE) +
+      "&deleted_at=is.null&select=id&limit=200"
+  );
+  agentIdCache = { ids: rows.map((row) => row.id), loadedAt: now };
+  return agentIdCache.ids;
+}
+
+function triggerAgeSeconds(trigger, nowMs = Date.now()) {
+  const createdAt = Date.parse(trigger.created_at ?? "");
+  if (!Number.isFinite(createdAt)) return null;
+  return Math.max(0, Math.floor((nowMs - createdAt) / 1000));
+}
+
+async function stuckNativeTriggers() {
+  const agentIds = await activeGraphAgentIds();
+  if (!agentIds.length) return [];
+  const cutoff = new Date(Date.now() - PENTAGON_WATCHDOG_STUCK_AGE_SECONDS * 1000).toISOString();
+  const rows = await request(
+    "/rest/v1/agent_triggers?claimed_at=is.null&completed_at=is.null" +
+      "&created_at=lt." + encodeURIComponent(cutoff) +
+      "&agent_id=in.(" + agentIds.join(",") + ")" +
+      "&" + PENTAGON_WATCHDOG_NATIVE_CONTENT_FILTER +
+      "&select=id,conversation_id,agent_id,sender_id,message_id,content,created_at&order=created_at.asc&limit=50"
+  );
+  return rows.filter((row) => /^(NATIVE|PIPELINE_SMOKE_TEST)/.test(String(row.content ?? "")));
+}
+
+async function restartPentagonForWatchdog(stuckTriggers, detectionTime, cooldownRemaining) {
+  const restartStartedAt = Date.now();
+  const previousRestartAt = lastPentagonWatchdogRestartAt;
+  lastPentagonWatchdogRestartAt = restartStartedAt;
+  const ages = stuckTriggers.map((trigger) => triggerAgeSeconds(trigger, restartStartedAt));
+  console.error(JSON.stringify({
+    event: "pentagon_watchdog_triggered",
+    detection_time: detectionTime,
+    num_stuck_triggers: stuckTriggers.length,
+    ages,
+    oldest_trigger_id: stuckTriggers[0]?.id ?? null,
+    last_restart_at: previousRestartAt ? new Date(previousRestartAt).toISOString() : null,
+    cooldown_remaining: cooldownRemaining,
+  }));
+
+  const quitResult = commandResult("osascript", ["-e", "quit app \"Pentagon\""]);
+  await sleep(2000);
+  const survivors = pentagonProcesses();
+  const killResults = [];
+  for (const proc of survivors) {
+    killResults.push(commandResult("kill", ["-9", String(proc.pid)]));
+  }
+  await sleep(3000);
+  const openResult = commandResult("open", ["-a", "Pentagon"]);
+  if (openResult.status !== 0) {
+    throw new Error("open -a Pentagon failed: " + JSON.stringify(openResult));
+  }
+  await sleep(2000);
+  const newProcesses = pentagonProcesses();
+  console.error(JSON.stringify({
+    event: "pentagon_restart_completed",
+    detection_time: detectionTime,
+    duration_ms: Date.now() - restartStartedAt,
+    new_pentagon_pid: newProcesses[0]?.pid ?? null,
+    quit_result: quitResult,
+    killed_survivor_pids: survivors.map((proc) => proc.pid),
+    kill_results: killResults,
+  }));
+}
+
+async function checkPentagonWatchdog() {
+  const stuck = await stuckNativeTriggers();
+  if (!stuck.length) return;
+
+  const now = Date.now();
+  const detectionTime = new Date(now).toISOString();
+  const elapsedSinceRestartSeconds = lastPentagonWatchdogRestartAt
+    ? Math.floor((now - lastPentagonWatchdogRestartAt) / 1000)
+    : null;
+  const cooldownRemaining = elapsedSinceRestartSeconds === null
+    ? 0
+    : Math.max(0, PENTAGON_WATCHDOG_COOLDOWN_SECONDS - elapsedSinceRestartSeconds);
+
+  if (cooldownRemaining > 0) {
+    console.error(JSON.stringify({
+      event: "pentagon_watchdog_suppressed",
+      detection_time: detectionTime,
+      reason: "cooldown_active",
+      num_stuck_triggers: stuck.length,
+      ages: stuck.map((trigger) => triggerAgeSeconds(trigger, now)),
+      oldest_trigger_id: stuck[0]?.id ?? null,
+      last_restart_at: new Date(lastPentagonWatchdogRestartAt).toISOString(),
+      cooldown_remaining: cooldownRemaining,
+    }));
+    return;
+  }
+
+  await restartPentagonForWatchdog(stuck, detectionTime, cooldownRemaining);
+}
+
 let state = {
   ...readSession(),
   anonKey: readAnonKey(),
 };
+let agentIdCache = { ids: null, loadedAt: 0 };
+let lastPentagonWatchdogRestartAt = null;
 
 const triggerId = arg("--trigger-id");
 const limit = Number(arg("--limit", "1"));
@@ -351,6 +492,15 @@ if (!loop) {
     max_age_seconds: Number(arg("--max-age-seconds", "0")),
   }));
   while (true) {
+    try {
+      await checkPentagonWatchdog();
+    } catch (error) {
+      console.error(JSON.stringify({
+        checked_at: new Date().toISOString(),
+        event: "pentagon_watchdog_error",
+        error: serializeError(error),
+      }));
+    }
     try {
       const result = await runOnce();
       if (result.processed) {

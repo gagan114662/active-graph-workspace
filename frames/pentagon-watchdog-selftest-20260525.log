@@ -1,0 +1,84 @@
+# Pentagon Watchdog Self-Test 2026-05-25
+
+workspace=/Users/gaganarora/Desktop/my projects/active_graph
+daemon=scripts/pentagon-trigger-bridge.mjs
+launch_agent=/Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist
+bridge_err_log=/Users/gaganarora/.pentagon/trigger-bridge.err.log
+final_pentagon_processes=98638 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+
+## Step 1 - Confirm Pentagon Running
+
+result=PASS
+initial_pentagon_pid=85615
+bridge_pid=96306
+notes=Pentagon.app was running before the controlled lifecycle test. Bridge was supervised by the LaunchAgent.
+
+## Step 2 - Force-Quit Pentagon
+
+result=PASS
+action=osascript -e 'quit app "Pentagon"', then pgrep/kill survivor check
+post_kill_pentagon_pids=(none)
+notes=Pentagon was dead before inserting the first synthetic stuck trigger.
+
+## Step 3 - Insert Synthetic Stuck Trigger
+
+result=PASS
+method=normal messages insertion path via scripts/run-native-pentagon-task.mjs while bridge/Pentagon were stopped
+message_id=3d681f10-6d93-4f7b-a81c-77d2839a21f7
+trigger_id=093ba41c-2a23-47e6-ab74-6b0a7d419ad2
+trigger_created_at=2026-05-25T14:24:40.419102+00:00
+target_agent=Maya (Code Owner)
+target_agent_id=7b8c44b7-ddeb-4a35-87e4-2ae502fe9001
+initial_claimed_at=null
+initial_completed_at=null
+
+## Step 4 - Watchdog Restart Event
+
+result=PASS
+observed_after_trigger_age_seconds=75
+event_1={"event":"pentagon_watchdog_triggered","detection_time":"2026-05-25T14:25:55.908Z","num_stuck_triggers":1,"ages":[75],"oldest_trigger_id":"093ba41c-2a23-47e6-ab74-6b0a7d419ad2","last_restart_at":null,"cooldown_remaining":0}
+event_2={"event":"pentagon_restart_completed","detection_time":"2026-05-25T14:25:55.908Z","duration_ms":7160,"new_pentagon_pid":96345,"quit_result":{"cmd":"osascript","args":["-e","quit app \"Pentagon\""],"status":0,"signal":null,"stdout":"","stderr":""},"killed_survivor_pids":[],"kill_results":[]}
+
+## Step 5 - Relaunch And Claim
+
+result=PASS
+new_pentagon_pid=96345
+trigger_id=093ba41c-2a23-47e6-ab74-6b0a7d419ad2
+claimed_after_restart=true
+notes=The stuck trigger row was claimed after the watchdog relaunched Pentagon and normal bridge processing resumed.
+
+## Step 6a - Cooldown Suppression
+
+result=PASS
+cooldown_trigger_message_id=622af128-34aa-4dd1-8f66-3820b34f2921
+cooldown_oldest_trigger_id=8c9f888e-eec3-4738-b9fb-bb1d1c656554
+pentagon_killed_again=true
+event={"event":"pentagon_watchdog_suppressed","detection_time":"2026-05-25T14:27:32.944Z","reason":"cooldown_active","num_stuck_triggers":4,"ages":[84,84,84,84],"oldest_trigger_id":"8c9f888e-eec3-4738-b9fb-bb1d1c656554","last_restart_at":"2026-05-25T14:25:55.908Z","cooldown_remaining":203}
+restart_during_cooldown=false
+notes=The bridge logged suppression and did not relaunch Pentagon inside the 300 second cooldown.
+
+## Step 6b - Post-Cooldown Restart
+
+result=PASS
+post_cooldown_target_agent=Sam (Docs Owner)
+post_cooldown_target_agent_id=04579801-e0a0-4474-a6e9-bedfcd7eebe9
+post_cooldown_message_id=b69520bb-c924-4ecb-b9af-08c1e1ca3b6a
+post_cooldown_oldest_trigger_id=286203f8-5c7c-46f3-bc99-31a93113ddaa
+event_1={"event":"pentagon_watchdog_triggered","detection_time":"2026-05-25T14:38:25.427Z","num_stuck_triggers":4,"ages":[65,65,65,65],"oldest_trigger_id":"286203f8-5c7c-46f3-bc99-31a93113ddaa","last_restart_at":"2026-05-25T14:25:55.908Z","cooldown_remaining":0}
+event_2={"event":"pentagon_restart_completed","detection_time":"2026-05-25T14:38:25.427Z","duration_ms":7184,"new_pentagon_pid":98638,"quit_result":{"cmd":"osascript","args":["-e","quit app \"Pentagon\""],"status":0,"signal":null,"stdout":"","stderr":""},"killed_survivor_pids":[],"kill_results":[]}
+claimed_after_post_cooldown_restart=true
+completed_after_post_cooldown_restart=true
+final_claimed_rows=4
+final_completed_rows=4
+
+## Verification
+
+node_check_exit=0
+command=node --check scripts/pentagon-trigger-bridge.mjs
+overall_verdict=PASS
+
+## Notes
+
+- Direct insertion into agent_triggers was rejected by Supabase RLS, so the self-test used the normal messages insertion path, which creates agent_triggers through the production DB path.
+- One post-cooldown attempt through scripts/run-native-pentagon-task.mjs failed because that harness read an expired JWT before Pentagon refreshed the preference plist. The successful post-cooldown proof used a fresh Supabase session for the message insert and did not require production-code changes.
+- The bridge was SIGSTOP/SIGCONT controlled during the test to preserve in-memory cooldown state and prevent normal relay work from claiming synthetic triggers before they crossed the 60 second stuck threshold.
