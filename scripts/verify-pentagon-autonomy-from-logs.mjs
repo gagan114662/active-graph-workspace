@@ -811,7 +811,13 @@ function isCanonicalTrigger(trigger, expectedAgentId, expectedAgentMessageCounts
   );
 }
 
-function resolveCanonicalAck({ proofFile, hash, tier, expectedAgent, triggers, messages, ackParser, ackMatches, canonicalFieldFilter, triggerMatches }) {
+function warnContext({ leg, expectedAgent }) {
+  const agentName = expectedAgent?.name ?? "n/a";
+  const agentId = expectedAgent?.id ?? "n/a";
+  return "[leg=" + JSON.stringify(leg) + ", agent=" + JSON.stringify(agentName) + ", agent_id=" + agentId + "]";
+}
+
+function resolveCanonicalAck({ proofFile, hash, tier, leg, expectedAgent, triggers, messages, ackParser, ackMatches, canonicalFieldFilter, triggerMatches }) {
   const noAckReason = "no " + expectedAgent.name.split(" ")[0] + " ACK in canonical trigger";
   const expectedAgentMessages = messages.filter((row) => row.sender_id === expectedAgent.id);
   const messageCounts = new Map();
@@ -838,7 +844,8 @@ function resolveCanonicalAck({ proofFile, hash, tier, expectedAgent, triggers, m
   const shadowTriggers = canonicalTriggers.slice(1);
   if (shadowTriggers.length) {
     console.log(
-      "WARN T6 " + tier + " shadow trigger present :: kept=" + canonicalTrigger.id +
+      "WARN T6 " + tier + " shadow trigger present " + warnContext({ leg, expectedAgent }) +
+      " :: kept=" + canonicalTrigger.id +
       ", shadowed=" + JSON.stringify(shadowTriggers.map((trigger) => trigger.id))
     );
   }
@@ -889,7 +896,8 @@ function resolveCanonicalAck({ proofFile, hash, tier, expectedAgent, triggers, m
   const shadowAcks = sortedAcks.slice(1);
   if (shadowAcks.length) {
     console.log(
-      "WARN T6 " + tier + " shadow ACKs in canonical trigger :: count=" + sortedAcks.length +
+      "WARN T6 " + tier + " shadow ACKs in canonical trigger " + warnContext({ leg, expectedAgent }) +
+      " :: count=" + sortedAcks.length +
       ", kept=" + canonicalAck.id +
       ", shadowed=" + JSON.stringify(shadowAcks.map((row) => row.id))
     );
@@ -916,16 +924,27 @@ async function fetchExpectedAgent(name) {
   return { state, agent: rows[0] };
 }
 
-async function fetchAckAuditRows(state, expectedAgent, hash, since) {
+function optionalSinceParam() {
+  return arg("--since", null);
+}
+
+async function fetchAckAuditRows(state, expectedAgent, hash, since = null) {
+  const sinceFilter = since ? "&created_at=gte." + encodeURIComponent(since) : "";
   const triggers = await supabase(
     state,
-    "/rest/v1/agent_triggers?agent_id=eq." + expectedAgent.id + "&created_at=gte." + encodeURIComponent(since) + "&select=id,conversation_id,agent_id,content,claimed_at,completed_at,created_at&order=created_at.desc&limit=200"
+    "/rest/v1/agent_triggers?agent_id=eq." + expectedAgent.id +
+      "&content=ilike.*" + encodeURIComponent(hash) + "*" +
+      sinceFilter +
+      "&select=id,conversation_id,agent_id,content,claimed_at,completed_at,created_at&order=created_at.desc&limit=200"
   );
   const conversationIds = [...new Set(triggers.filter((row) => String(row.content ?? "").includes(hash)).map((row) => row.conversation_id).filter(Boolean))];
   if (!conversationIds.length) return { triggers, messages: [] };
+  const messageSinceFilter = since ? "&created_at=gte." + encodeURIComponent(since) : "";
   const messages = await supabase(
     state,
-    "/rest/v1/messages?conversation_id=in.(" + conversationIds.join(",") + ")&created_at=gte." + encodeURIComponent(since) + "&select=id,conversation_id,sender_id,content,created_at&order=created_at.desc&limit=500"
+    "/rest/v1/messages?conversation_id=in.(" + conversationIds.join(",") + ")" +
+      messageSinceFilter +
+      "&select=id,conversation_id,sender_id,content,created_at&order=created_at.desc&limit=1000"
   );
   return { triggers, messages };
 }
@@ -942,6 +961,7 @@ async function verifyT6Ack(proofFile, hash) {
       proofFile,
       hash,
       tier,
+      leg: "Maya ACK",
       expectedAgent: fixture.expectedAgent,
       triggers: fixture.triggers.map((trigger) => ({ ...trigger, agent_id: fixture.expectedAgent.id })),
       messages: fixture.messages,
@@ -955,7 +975,7 @@ async function verifyT6Ack(proofFile, hash) {
     });
   }
 
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const since = optionalSinceParam();
   const { state, agent: maya } = await fetchExpectedAgent("Maya (Code Owner)");
   if (!maya) return { ok: false, detail: "Maya agent row not found" };
   const { triggers, messages } = await fetchAckAuditRows(state, maya, hash, since);
@@ -963,6 +983,7 @@ async function verifyT6Ack(proofFile, hash) {
     proofFile,
     hash,
     tier,
+    leg: "Maya ACK",
     expectedAgent: maya,
     triggers,
     messages,
@@ -977,7 +998,7 @@ async function verifyT6Ack(proofFile, hash) {
 }
 
 async function verifyT6QuinnAck(proof, proofFile) {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const since = optionalSinceParam();
   const hash = "T6_NATIVE_HARD_20260523";
   const commitA = String(proof.failing_test_commit ?? "");
   const commitB = String(proof.fix_commit ?? "");
@@ -993,6 +1014,7 @@ async function verifyT6QuinnAck(proof, proofFile) {
       proofFile: "quinn-regression-verification",
       hash,
       tier: "hard",
+      leg: "Quinn verification",
       expectedAgent: fixture.expectedAgent,
       triggers: fixture.triggers.map((trigger) => ({ ...trigger, agent_id: fixture.expectedAgent.id })),
       messages: fixture.messages,
@@ -1009,6 +1031,7 @@ async function verifyT6QuinnAck(proof, proofFile) {
     proofFile: "quinn-regression-verification",
     hash,
     tier: "hard",
+    leg: "Quinn verification",
     expectedAgent: quinn,
     triggers,
     messages,
@@ -1091,9 +1114,9 @@ async function runT6EasyVerifier() {
   if (!noDb) {
     try {
       const runtimeEventCount = await t6RuntimeEventCount("T6_NATIVE_EASY_20260523");
-      console.log("WARN T6 easy agent_runtime_events runtime event missing :: " + runtimeEventCount + " rows");
+      console.log("WARN T6 easy agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: " + runtimeEventCount + " rows");
     } catch (error) {
-      console.log("WARN T6 easy agent_runtime_events runtime event missing :: query failed: " + error.message);
+      console.log("WARN T6 easy agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: query failed: " + error.message);
     }
   }
   console.log("");
@@ -1170,9 +1193,9 @@ async function runT6MediumVerifier() {
   if (!noDb) {
     try {
       const runtimeEventCount = await t6RuntimeEventCount("T6_NATIVE_MEDIUM_20260523");
-      console.log("WARN T6 medium agent_runtime_events runtime event missing :: " + runtimeEventCount + " rows");
+      console.log("WARN T6 medium agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: " + runtimeEventCount + " rows");
     } catch (error) {
-      console.log("WARN T6 medium agent_runtime_events runtime event missing :: query failed: " + error.message);
+      console.log("WARN T6 medium agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: query failed: " + error.message);
     }
   }
   console.log("");
@@ -1278,9 +1301,9 @@ async function runT6HardVerifier() {
   if (!noDb) {
     try {
       const runtimeEventCount = await t6RuntimeEventCount("T6_NATIVE_HARD_20260523");
-      console.log("WARN T6 hard agent_runtime_events runtime event missing :: " + runtimeEventCount + " rows");
+      console.log("WARN T6 hard agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: " + runtimeEventCount + " rows");
     } catch (error) {
-      console.log("WARN T6 hard agent_runtime_events runtime event missing :: query failed: " + error.message);
+      console.log("WARN T6 hard agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: query failed: " + error.message);
     }
   }
   console.log("");
