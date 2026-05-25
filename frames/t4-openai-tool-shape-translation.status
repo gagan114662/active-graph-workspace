@@ -1,6 +1,6 @@
 status: incomplete_dirty_unpushed
-inner_head: 545889f
-outer_head_at_evaluation: 7846b88
+inner_head: 51caacd
+outer_head_at_evaluation: 9adadf6
 outer_evidence_head: latest committed revision of this status file
 evaluated: 2026-05-25
 review: clean_for_inner_5c2cd8e_commit_scoped_only_stale_for_current_545889f
@@ -22,9 +22,9 @@ autonomy:
   implementation_completed_by_codex_fallback: true
   counts_as_pentagon_only_extra_hard_autonomy: false
 bottlenecks_open:
-  - pushed-head closure is false: inner HEAD 545889f is six commits ahead of origin/main 62015ed
+  - pushed-head closure is false: inner HEAD 51caacd is nine commits ahead of origin/main 62015ed
   - dirty inner tree remains: CHANGELOG.md, CONTRACT.md, README.md, activegraph/core/graph.py, docs/concepts/provider-tool-parity.md, docs/reference/llm-providers.md plus untracked artifacts
-  - no_changes_outside_permissions remains false: activegraph/behaviors/base.py, activegraph/core/graph.py, activegraph/llm/cache.py, activegraph/llm/recorded.py, activegraph/tests/test_attach_store_fresh_reattach_regression.py, and activegraph/tests/test_policy_coverage.py are changed while only covered by activegraph/activegraph/**/*.py:ro
+  - no_changes_outside_permissions remains false: activegraph/behaviors/base.py, activegraph/core/graph.py, activegraph/llm/cache.py, activegraph/llm/recorded.py, activegraph/runtime/patterns.py, activegraph/tests/test_attach_store_fresh_reattach_regression.py, activegraph/tests/test_policy_coverage.py, and activegraph/tools/cache.py are changed while only covered by activegraph/activegraph/**/*.py:ro
   - frame architect explicitly declined :rw scope amendment for activegraph/behaviors/base.py, activegraph/llm/cache.py, and activegraph/llm/recorded.py
   - Pentagon handoff message does not auto-activate Code Owner
 untracked_not_claimed:
