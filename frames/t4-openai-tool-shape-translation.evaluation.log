@@ -3942,3 +3942,68 @@ $ cd activegraph && ../venv/bin/pytest -q; printf '\n---full_exit=%s---\n' "$?"
 
 ---full_exit=0---
 ~~~
+
+## Goal Reaper heartbeat 2026-05-25T17:31:00Z
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Current evidence:
+
+- outer HEAD at evaluation start: `13910a3`
+- inner HEAD: `d3f17e9`
+- inner origin/main: `62015ed`
+- pushed-head closure expected `0 0`, actual `0 14`.
+- focused T4 shard expected pass, actual `35 passed`.
+- full suite expected pass, actual `702 passed, 15 skipped, 1 warning`.
+- mypy expected success, actual `Success: no issues found in 23 source files`.
+- docstrings expected Ring 0 100% and Ring 1 >= 80%, actual `102/102` and `85.8%`.
+- no_changes_outside_permissions expected no read-only path changes, actual RED: committed range includes additional read-only `activegraph/core/ids.py`.
+
+Literal command output:
+
+~~~text
+$ cd activegraph && git rev-parse --short HEAD && git rev-parse --short origin/main && git rev-list --left-right --count origin/main...HEAD
+d3f17e9
+62015ed
+0	14
+
+$ cd activegraph && git diff --name-only 62015ed..HEAD
+activegraph/behaviors/base.py
+activegraph/core/clock.py
+activegraph/core/event.py
+activegraph/core/graph.py
+activegraph/core/ids.py
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/packs/__init__.py
+activegraph/runtime/patterns.py
+activegraph/runtime/runtime.py
+activegraph/tests/test_attach_store_fresh_reattach_regression.py
+activegraph/tests/test_policy_coverage.py
+activegraph/tools/cache.py
+tests/test_provider_tool_parity.py
+
+$ cd activegraph && ../venv/bin/mypy; printf '\n---mypy_exit=%s---\n' "$?"; ../venv/bin/python scripts/gate_docstrings.py; printf '\n---docstrings_exit=%s---\n' "$?"
+Success: no issues found in 23 source files
+
+---mypy_exit=0---
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+---docstrings_exit=0---
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py; printf '\n---focused_exit=%s---\n' "$?"
+...................................                                      [100%]
+35 passed in 0.45s
+
+---focused_exit=0---
+
+$ cd activegraph && ../venv/bin/pytest -q; printf '\n---full_exit=%s---\n' "$?"
+702 passed, 15 skipped, 1 warning in 18.36s
+
+---full_exit=0---
+~~~

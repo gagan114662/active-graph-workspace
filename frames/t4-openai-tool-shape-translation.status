@@ -1,6 +1,6 @@
 status: incomplete_dirty_unpushed
-inner_head: f36880a
-outer_head_at_evaluation: 22a1bde
+inner_head: d3f17e9
+outer_head_at_evaluation: 13910a3
 outer_evidence_head: latest committed revision of this status file
 evaluated: 2026-05-25
 review: clean_for_inner_5c2cd8e_commit_scoped_only_stale_for_current_545889f
@@ -22,9 +22,9 @@ autonomy:
   implementation_completed_by_codex_fallback: true
   counts_as_pentagon_only_extra_hard_autonomy: false
 bottlenecks_open:
-  - pushed-head closure is false: inner HEAD f36880a is thirteen commits ahead of origin/main 62015ed
+  - pushed-head closure is false: inner HEAD d3f17e9 is fourteen commits ahead of origin/main 62015ed
   - dirty inner tree remains: CHANGELOG.md, CONTRACT.md, README.md, docs/concepts/provider-tool-parity.md, docs/reference/llm-providers.md plus untracked artifacts
-  - no_changes_outside_permissions remains false: activegraph/behaviors/base.py, activegraph/core/clock.py, activegraph/core/event.py, activegraph/core/graph.py, activegraph/llm/cache.py, activegraph/llm/recorded.py, activegraph/packs/__init__.py, activegraph/runtime/patterns.py, activegraph/tests/test_attach_store_fresh_reattach_regression.py, activegraph/tests/test_policy_coverage.py, and activegraph/tools/cache.py are changed while only covered by activegraph/activegraph/**/*.py:ro
+  - no_changes_outside_permissions remains false: activegraph/behaviors/base.py, activegraph/core/clock.py, activegraph/core/event.py, activegraph/core/graph.py, activegraph/core/ids.py, activegraph/llm/cache.py, activegraph/llm/recorded.py, activegraph/packs/__init__.py, activegraph/runtime/patterns.py, activegraph/tests/test_attach_store_fresh_reattach_regression.py, activegraph/tests/test_policy_coverage.py, and activegraph/tools/cache.py are changed while only covered by activegraph/activegraph/**/*.py:ro
   - frame architect explicitly declined :rw scope amendment for activegraph/behaviors/base.py, activegraph/llm/cache.py, and activegraph/llm/recorded.py
   - Pentagon handoff message does not auto-activate Code Owner
 untracked_not_claimed:
