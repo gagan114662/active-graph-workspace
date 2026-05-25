@@ -1,0 +1,36 @@
+hash=T6_NATIVE_EXTRA_HARD_20260525
+verdict=native_extra_hard_done
+proof_path=frames/t6-native-gauntlet-extra-hard-20260525.proof
+pwd=/tmp/t6-extra-hard-live-run-activegraph
+head=18dce178bbf379c1c96ee9c74112ced650a64b86
+artifact_commit=18dce178bbf379c1c96ee9c74112ced650a64b86
+spec_path=docs/specs/events-tail.md
+impl_paths=activegraph/cli/events_tail.py,activegraph/cli/main.py
+test_path=activegraph/tests/test_cli_events_tail.py
+docs_how_to_path=activegraph/docs/how-to/tail-events.md
+new_test_count=7
+adversarial_finding_id=T6XH_QUINN_FINDING_EVENTS_TAIL_20260525
+sofia_commit=890c0e0359932ab477459aa0f329091fd16b03c9
+maya_implementation_commit=17b891fc3f2bbfcccafb36cf47a572ec228e9ddf
+quinn_test_commit=219526a0dd39717e0975f8968e1d1fd838bd5603
+maya_fix_commit=2e8baf6ed0d515dcaef4a6b133c2763e9ec5e604
+sam_artifact_commit=18dce178bbf379c1c96ee9c74112ced650a64b86
+pytest_collect=7
+pytest_after=7
+ruff_exit=0
+mkdocs_strict_exit=0
+self_audit_event_id=evt_001
+self_audit_event_kind=events_tail_invoked
+self_audit_store_url=sqlite:////Users/gaganarora/Desktop/my projects/active_graph/frames/t6-extra-hard-self-audit-20260525.sqlite
+self_audit_run_id=t6xh-self-audit-20260525
+causal_chain=sofia=007ae6a7-51d5-4ff9-903a-799c479ccc15,maya=44df2679-bb2d-47b7-a3fd-d8162cbd6def,quinn=282090a2-0b3e-4897-b462-8913d82e3b20,sam=3b4136df-05fa-4d05-b5ce-997a7d3efe17,riley=72a5a53b-bc0e-44fd-a610-751e752b0ab2
+ack_parent_ids=007ae6a7-51d5-4ff9-903a-799c479ccc15=ROOT,44df2679-bb2d-47b7-a3fd-d8162cbd6def=007ae6a7-51d5-4ff9-903a-799c479ccc15,282090a2-0b3e-4897-b462-8913d82e3b20=44df2679-bb2d-47b7-a3fd-d8162cbd6def,3b4136df-05fa-4d05-b5ce-997a7d3efe17=282090a2-0b3e-4897-b462-8913d82e3b20,72a5a53b-bc0e-44fd-a610-751e752b0ab2=3b4136df-05fa-4d05-b5ce-997a7d3efe17
+sofia_ack_id=007ae6a7-51d5-4ff9-903a-799c479ccc15
+maya_ack_id=44df2679-bb2d-47b7-a3fd-d8162cbd6def
+quinn_ack_id=282090a2-0b3e-4897-b462-8913d82e3b20
+sam_ack_id=3b4136df-05fa-4d05-b5ce-997a7d3efe17
+inspection_inner_status=## t6-extra-hard-live-run-20260525; ?? uv.lock
+inspection_outer_head=c45b29c
+inspection_required_files=present
+inspection_self_audit_row=evt_001|events_tail_invoked|t6xh-self-audit-20260525
+interpreter_smoke=INTERPRETER_OK Riley /tmp/t6-extra-hard-live-run-activegraph 18dce178bbf379c1c96ee9c74112ced650a64b86

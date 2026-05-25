@@ -1,0 +1,236 @@
+# T6 Extra-Hard Live Run Log - 2026-05-25
+
+## Bootstrap
+
+INTERPRETER_OK Codex /Users/gaganarora/Desktop/my projects/active_graph 0d9a68a
+
+Relevant checks:
+- node --check scripts/run-native-pentagon-task.mjs exit=0
+- node --check scripts/verify-pentagon-autonomy-from-logs.mjs exit=0
+- Pentagon.app running before handoff: pid 98638
+- Bridge LaunchAgent running before handoff: pid 96306
+
+Inner repo state:
+- Main inner worktree has unrelated dirty T4/provider-doc changes.
+- Created clean inner worktree for this run:
+  /tmp/t6-extra-hard-live-run-activegraph
+- Branch: t6-extra-hard-live-run-20260525
+- Start head: 545889f5337661b3a2f3fcc9380486481e825c20
+
+## Sofia Handoff Attempt 1
+
+handoff.sent
+- sender: Theo (Test Owner)
+- intended recipient: Sofia (Spec Owner)
+- artifact path: frames/t6-native-extra-hard-1-sofia-20260525.txt
+- hash: T6_NATIVE_EXTRA_HARD_20260525
+- command: node scripts/run-native-pentagon-task.mjs --hash T6_NATIVE_EXTRA_HARD_20260525 --level extra-hard-sofia --target "Sofia (Spec Owner)" --instruction-file frames/t6-native-extra-hard-1-sofia-20260525.txt --watch-seconds 900
+
+## Routing Fault
+
+bottleneck.detected source=routing
+
+The runner selected group conversation 06c47896-db6b-4107-91f1-6f6441f9ece0 instead of the Theo/Sofia 1:1 conversation. That group has participants:
+- Carmen (Contract Owner)
+- Maya (Code Owner)
+- Sam (Docs Owner)
+- Sofia (Spec Owner)
+- Theo (Test Owner)
+
+This created four unclaimed triggers from the Sofia instruction:
+- 5c4fac93-f370-45dd-93e7-f6489476cc19 -> Sam (Docs Owner)
+- 64e94ca2-a116-4beb-a2dc-aabb614a49e5 -> Sofia (Spec Owner)
+- 9f63c86f-0a9b-4da7-8fc2-29dcf29dff70 -> Carmen (Contract Owner)
+- a46123b4-92ac-4a38-b301-5234437a1466 -> Maya (Code Owner)
+
+All four rows were still claimed_at=null and completed_at=null when detected.
+
+The runner was terminated before it could restore the bridge and process the fanout. Current bridge state after termination:
+- launchctl print gui/$(id -u)/run.pentagon.trigger-bridge exit=113
+- service not loaded
+
+Safe rerun candidate found:
+- Theo/Sofia 1:1 conversation: 37faf8dc-3e86-4fbf-84ee-4ffa1fb81fe1
+
+## Stop Point
+
+Stopped before cleanup because clearing or force-completing the four mistaken Supabase trigger rows is a database state mutation requiring explicit operator approval.
+
+## Approved Recovery
+
+operator_approval=go ahead
+recovery_time=2026-05-25T15:13:25.226Z
+action=claim_agent_trigger then complete_agent_trigger for mistaken fanout rows
+before=[{"id":"5c4fac93-f370-45dd-93e7-f6489476cc19","agent_id":"04579801-e0a0-4474-a6e9-bedfcd7eebe9","claimed_at":null,"completed_at":null,"message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","created_at":"2026-05-25T15:04:57.894471+00:00"},{"id":"64e94ca2-a116-4beb-a2dc-aabb614a49e5","agent_id":"ab752676-b8e9-4bf0-8f0f-6101933177a3","claimed_at":null,"completed_at":null,"message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","created_at":"2026-05-25T15:04:57.894471+00:00"},{"id":"9f63c86f-0a9b-4da7-8fc2-29dcf29dff70","agent_id":"9ce67d98-bc38-404b-a979-8db00379fbda","claimed_at":null,"completed_at":null,"message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","created_at":"2026-05-25T15:04:57.894471+00:00"},{"id":"a46123b4-92ac-4a38-b301-5234437a1466","agent_id":"7b8c44b7-ddeb-4a35-87e4-2ae502fe9001","claimed_at":null,"completed_at":null,"message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","created_at":"2026-05-25T15:04:57.894471+00:00"}]
+actions=[{"id":"5c4fac93-f370-45dd-93e7-f6489476cc19","claim":[{"id":"5c4fac93-f370-45dd-93e7-f6489476cc19","conversation_id":"06c47896-db6b-4107-91f1-6f6441f9ece0","agent_id":"04579801-e0a0-4474-a6e9-bedfcd7eebe9","sender_id":"1343cc84-5a06-44b7-88f7-f2c3e82d7e1c","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","content":"NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP1 SOFIA_SPEC\n\nSofia, you are Spec Owner for the T6 extra-hard feature: activegraph events tail.\n\nIMPORTANT WORKTREE BOUNDARY:\n- Work ONLY in this clean inner-repo worktree:\n  /tmp/t6-extra-hard-live-run-activegraph\n- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.\n- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.\n- Do NOT trigger any other agent. The operator will hand off to Maya after your ACK.\n\nFeature scope:\nImplement the T6 EXTRA-HARD spec's activegraph events tail CLI subcommand. It prints the last N events from the active event store as newline-delimited JSON. Flags: --n <int> default 20, --since <iso-timestamp>, --filter <substring>, and --json. Each output row must include id, ts, kind, payload, parent_id. The command itself must emit an events_tail_invoked audit event when invoked.\n\nDeliverables:\n1. In /tmp/t6-extra-hard-live-run-activegraph, write:\n   docs/specs/events-tail.md\n2. The spec must include:\n   - CLI contract\n   - exact output schema\n   - error modes: no store, empty store, malformed flags, unknown filter\n   - auditability claim that the command itself emits events_tail_invoked\n3. Commit only the spec file. Commit message:\n   T6 extra-hard: Sofia spec events tail\n4. Do not implement code. Do not write tests. Do not edit docs outside the spec.\n\nACK:\nReply exactly after committing the spec:\nSOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT\n","owner_id":"8e327bb0-4cbc-4162-a539-d2584db6d559","created_at":"2026-05-25T15:04:57.894471+00:00","claimed_at":"2026-05-25T15:13:24.487566+00:00","completed_at":null}],"complete":[{"id":"5c4fac93-f370-45dd-93e7-f6489476cc19","conversation_id":"06c47896-db6b-4107-91f1-6f6441f9ece0","agent_id":"04579801-e0a0-4474-a6e9-bedfcd7eebe9","sender_id":"1343cc84-5a06-44b7-88f7-f2c3e82d7e1c","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","content":"NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP1 SOFIA_SPEC\n\nSofia, you are Spec Owner for the T6 extra-hard feature: activegraph events tail.\n\nIMPORTANT WORKTREE BOUNDARY:\n- Work ONLY in this clean inner-repo worktree:\n  /tmp/t6-extra-hard-live-run-activegraph\n- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.\n- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.\n- Do NOT trigger any other agent. The operator will hand off to Maya after your ACK.\n\nFeature scope:\nImplement the T6 EXTRA-HARD spec's activegraph events tail CLI subcommand. It prints the last N events from the active event store as newline-delimited JSON. Flags: --n <int> default 20, --since <iso-timestamp>, --filter <substring>, and --json. Each output row must include id, ts, kind, payload, parent_id. The command itself must emit an events_tail_invoked audit event when invoked.\n\nDeliverables:\n1. In /tmp/t6-extra-hard-live-run-activegraph, write:\n   docs/specs/events-tail.md\n2. The spec must include:\n   - CLI contract\n   - exact output schema\n   - error modes: no store, empty store, malformed flags, unknown filter\n   - auditability claim that the command itself emits events_tail_invoked\n3. Commit only the spec file. Commit message:\n   T6 extra-hard: Sofia spec events tail\n4. Do not implement code. Do not write tests. Do not edit docs outside the spec.\n\nACK:\nReply exactly after committing the spec:\nSOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT\n","owner_id":"8e327bb0-4cbc-4162-a539-d2584db6d559","created_at":"2026-05-25T15:04:57.894471+00:00","claimed_at":"2026-05-25T15:13:24.487566+00:00","completed_at":"2026-05-25T15:13:24.585146+00:00"}],"error":null},{"id":"64e94ca2-a116-4beb-a2dc-aabb614a49e5","claim":[{"id":"64e94ca2-a116-4beb-a2dc-aabb614a49e5","conversation_id":"06c47896-db6b-4107-91f1-6f6441f9ece0","agent_id":"ab752676-b8e9-4bf0-8f0f-6101933177a3","sender_id":"1343cc84-5a06-44b7-88f7-f2c3e82d7e1c","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","content":"NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP1 SOFIA_SPEC\n\nSofia, you are Spec Owner for the T6 extra-hard feature: activegraph events tail.\n\nIMPORTANT WORKTREE BOUNDARY:\n- Work ONLY in this clean inner-repo worktree:\n  /tmp/t6-extra-hard-live-run-activegraph\n- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.\n- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.\n- Do NOT trigger any other agent. The operator will hand off to Maya after your ACK.\n\nFeature scope:\nImplement the T6 EXTRA-HARD spec's activegraph events tail CLI subcommand. It prints the last N events from the active event store as newline-delimited JSON. Flags: --n <int> default 20, --since <iso-timestamp>, --filter <substring>, and --json. Each output row must include id, ts, kind, payload, parent_id. The command itself must emit an events_tail_invoked audit event when invoked.\n\nDeliverables:\n1. In /tmp/t6-extra-hard-live-run-activegraph, write:\n   docs/specs/events-tail.md\n2. The spec must include:\n   - CLI contract\n   - exact output schema\n   - error modes: no store, empty store, malformed flags, unknown filter\n   - auditability claim that the command itself emits events_tail_invoked\n3. Commit only the spec file. Commit message:\n   T6 extra-hard: Sofia spec events tail\n4. Do not implement code. Do not write tests. Do not edit docs outside the spec.\n\nACK:\nReply exactly after committing the spec:\nSOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT\n","owner_id":"8e327bb0-4cbc-4162-a539-d2584db6d559","created_at":"2026-05-25T15:04:57.894471+00:00","claimed_at":"2026-05-25T15:13:24.676227+00:00","completed_at":null}],"complete":[{"id":"64e94ca2-a116-4beb-a2dc-aabb614a49e5","conversation_id":"06c47896-db6b-4107-91f1-6f6441f9ece0","agent_id":"ab752676-b8e9-4bf0-8f0f-6101933177a3","sender_id":"1343cc84-5a06-44b7-88f7-f2c3e82d7e1c","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","content":"NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP1 SOFIA_SPEC\n\nSofia, you are Spec Owner for the T6 extra-hard feature: activegraph events tail.\n\nIMPORTANT WORKTREE BOUNDARY:\n- Work ONLY in this clean inner-repo worktree:\n  /tmp/t6-extra-hard-live-run-activegraph\n- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.\n- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.\n- Do NOT trigger any other agent. The operator will hand off to Maya after your ACK.\n\nFeature scope:\nImplement the T6 EXTRA-HARD spec's activegraph events tail CLI subcommand. It prints the last N events from the active event store as newline-delimited JSON. Flags: --n <int> default 20, --since <iso-timestamp>, --filter <substring>, and --json. Each output row must include id, ts, kind, payload, parent_id. The command itself must emit an events_tail_invoked audit event when invoked.\n\nDeliverables:\n1. In /tmp/t6-extra-hard-live-run-activegraph, write:\n   docs/specs/events-tail.md\n2. The spec must include:\n   - CLI contract\n   - exact output schema\n   - error modes: no store, empty store, malformed flags, unknown filter\n   - auditability claim that the command itself emits events_tail_invoked\n3. Commit only the spec file. Commit message:\n   T6 extra-hard: Sofia spec events tail\n4. Do not implement code. Do not write tests. Do not edit docs outside the spec.\n\nACK:\nReply exactly after committing the spec:\nSOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT\n","owner_id":"8e327bb0-4cbc-4162-a539-d2584db6d559","created_at":"2026-05-25T15:04:57.894471+00:00","claimed_at":"2026-05-25T15:13:24.676227+00:00","completed_at":"2026-05-25T15:13:24.764475+00:00"}],"error":null},{"id":"9f63c86f-0a9b-4da7-8fc2-29dcf29dff70","claim":[{"id":"9f63c86f-0a9b-4da7-8fc2-29dcf29dff70","conversation_id":"06c47896-db6b-4107-91f1-6f6441f9ece0","agent_id":"9ce67d98-bc38-404b-a979-8db00379fbda","sender_id":"1343cc84-5a06-44b7-88f7-f2c3e82d7e1c","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","content":"NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP1 SOFIA_SPEC\n\nSofia, you are Spec Owner for the T6 extra-hard feature: activegraph events tail.\n\nIMPORTANT WORKTREE BOUNDARY:\n- Work ONLY in this clean inner-repo worktree:\n  /tmp/t6-extra-hard-live-run-activegraph\n- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.\n- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.\n- Do NOT trigger any other agent. The operator will hand off to Maya after your ACK.\n\nFeature scope:\nImplement the T6 EXTRA-HARD spec's activegraph events tail CLI subcommand. It prints the last N events from the active event store as newline-delimited JSON. Flags: --n <int> default 20, --since <iso-timestamp>, --filter <substring>, and --json. Each output row must include id, ts, kind, payload, parent_id. The command itself must emit an events_tail_invoked audit event when invoked.\n\nDeliverables:\n1. In /tmp/t6-extra-hard-live-run-activegraph, write:\n   docs/specs/events-tail.md\n2. The spec must include:\n   - CLI contract\n   - exact output schema\n   - error modes: no store, empty store, malformed flags, unknown filter\n   - auditability claim that the command itself emits events_tail_invoked\n3. Commit only the spec file. Commit message:\n   T6 extra-hard: Sofia spec events tail\n4. Do not implement code. Do not write tests. Do not edit docs outside the spec.\n\nACK:\nReply exactly after committing the spec:\nSOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT\n","owner_id":"8e327bb0-4cbc-4162-a539-d2584db6d559","created_at":"2026-05-25T15:04:57.894471+00:00","claimed_at":"2026-05-25T15:13:24.851416+00:00","completed_at":null}],"complete":[{"id":"9f63c86f-0a9b-4da7-8fc2-29dcf29dff70","conversation_id":"06c47896-db6b-4107-91f1-6f6441f9ece0","agent_id":"9ce67d98-bc38-404b-a979-8db00379fbda","sender_id":"1343cc84-5a06-44b7-88f7-f2c3e82d7e1c","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","content":"NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP1 SOFIA_SPEC\n\nSofia, you are Spec Owner for the T6 extra-hard feature: activegraph events tail.\n\nIMPORTANT WORKTREE BOUNDARY:\n- Work ONLY in this clean inner-repo worktree:\n  /tmp/t6-extra-hard-live-run-activegraph\n- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.\n- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.\n- Do NOT trigger any other agent. The operator will hand off to Maya after your ACK.\n\nFeature scope:\nImplement the T6 EXTRA-HARD spec's activegraph events tail CLI subcommand. It prints the last N events from the active event store as newline-delimited JSON. Flags: --n <int> default 20, --since <iso-timestamp>, --filter <substring>, and --json. Each output row must include id, ts, kind, payload, parent_id. The command itself must emit an events_tail_invoked audit event when invoked.\n\nDeliverables:\n1. In /tmp/t6-extra-hard-live-run-activegraph, write:\n   docs/specs/events-tail.md\n2. The spec must include:\n   - CLI contract\n   - exact output schema\n   - error modes: no store, empty store, malformed flags, unknown filter\n   - auditability claim that the command itself emits events_tail_invoked\n3. Commit only the spec file. Commit message:\n   T6 extra-hard: Sofia spec events tail\n4. Do not implement code. Do not write tests. Do not edit docs outside the spec.\n\nACK:\nReply exactly after committing the spec:\nSOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT\n","owner_id":"8e327bb0-4cbc-4162-a539-d2584db6d559","created_at":"2026-05-25T15:04:57.894471+00:00","claimed_at":"2026-05-25T15:13:24.851416+00:00","completed_at":"2026-05-25T15:13:24.940682+00:00"}],"error":null},{"id":"a46123b4-92ac-4a38-b301-5234437a1466","claim":[{"id":"a46123b4-92ac-4a38-b301-5234437a1466","conversation_id":"06c47896-db6b-4107-91f1-6f6441f9ece0","agent_id":"7b8c44b7-ddeb-4a35-87e4-2ae502fe9001","sender_id":"1343cc84-5a06-44b7-88f7-f2c3e82d7e1c","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","content":"NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP1 SOFIA_SPEC\n\nSofia, you are Spec Owner for the T6 extra-hard feature: activegraph events tail.\n\nIMPORTANT WORKTREE BOUNDARY:\n- Work ONLY in this clean inner-repo worktree:\n  /tmp/t6-extra-hard-live-run-activegraph\n- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.\n- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.\n- Do NOT trigger any other agent. The operator will hand off to Maya after your ACK.\n\nFeature scope:\nImplement the T6 EXTRA-HARD spec's activegraph events tail CLI subcommand. It prints the last N events from the active event store as newline-delimited JSON. Flags: --n <int> default 20, --since <iso-timestamp>, --filter <substring>, and --json. Each output row must include id, ts, kind, payload, parent_id. The command itself must emit an events_tail_invoked audit event when invoked.\n\nDeliverables:\n1. In /tmp/t6-extra-hard-live-run-activegraph, write:\n   docs/specs/events-tail.md\n2. The spec must include:\n   - CLI contract\n   - exact output schema\n   - error modes: no store, empty store, malformed flags, unknown filter\n   - auditability claim that the command itself emits events_tail_invoked\n3. Commit only the spec file. Commit message:\n   T6 extra-hard: Sofia spec events tail\n4. Do not implement code. Do not write tests. Do not edit docs outside the spec.\n\nACK:\nReply exactly after committing the spec:\nSOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT\n","owner_id":"8e327bb0-4cbc-4162-a539-d2584db6d559","created_at":"2026-05-25T15:04:57.894471+00:00","claimed_at":"2026-05-25T15:13:25.036352+00:00","completed_at":null}],"complete":[{"id":"a46123b4-92ac-4a38-b301-5234437a1466","conversation_id":"06c47896-db6b-4107-91f1-6f6441f9ece0","agent_id":"7b8c44b7-ddeb-4a35-87e4-2ae502fe9001","sender_id":"1343cc84-5a06-44b7-88f7-f2c3e82d7e1c","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","content":"NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP1 SOFIA_SPEC\n\nSofia, you are Spec Owner for the T6 extra-hard feature: activegraph events tail.\n\nIMPORTANT WORKTREE BOUNDARY:\n- Work ONLY in this clean inner-repo worktree:\n  /tmp/t6-extra-hard-live-run-activegraph\n- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.\n- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.\n- Do NOT trigger any other agent. The operator will hand off to Maya after your ACK.\n\nFeature scope:\nImplement the T6 EXTRA-HARD spec's activegraph events tail CLI subcommand. It prints the last N events from the active event store as newline-delimited JSON. Flags: --n <int> default 20, --since <iso-timestamp>, --filter <substring>, and --json. Each output row must include id, ts, kind, payload, parent_id. The command itself must emit an events_tail_invoked audit event when invoked.\n\nDeliverables:\n1. In /tmp/t6-extra-hard-live-run-activegraph, write:\n   docs/specs/events-tail.md\n2. The spec must include:\n   - CLI contract\n   - exact output schema\n   - error modes: no store, empty store, malformed flags, unknown filter\n   - auditability claim that the command itself emits events_tail_invoked\n3. Commit only the spec file. Commit message:\n   T6 extra-hard: Sofia spec events tail\n4. Do not implement code. Do not write tests. Do not edit docs outside the spec.\n\nACK:\nReply exactly after committing the spec:\nSOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT\n","owner_id":"8e327bb0-4cbc-4162-a539-d2584db6d559","created_at":"2026-05-25T15:04:57.894471+00:00","claimed_at":"2026-05-25T15:13:25.036352+00:00","completed_at":"2026-05-25T15:13:25.127971+00:00"}],"error":null}]
+after=[{"id":"5c4fac93-f370-45dd-93e7-f6489476cc19","agent_id":"04579801-e0a0-4474-a6e9-bedfcd7eebe9","claimed_at":"2026-05-25T15:13:24.487566+00:00","completed_at":"2026-05-25T15:13:24.585146+00:00","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","created_at":"2026-05-25T15:04:57.894471+00:00"},{"id":"64e94ca2-a116-4beb-a2dc-aabb614a49e5","agent_id":"ab752676-b8e9-4bf0-8f0f-6101933177a3","claimed_at":"2026-05-25T15:13:24.676227+00:00","completed_at":"2026-05-25T15:13:24.764475+00:00","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","created_at":"2026-05-25T15:04:57.894471+00:00"},{"id":"9f63c86f-0a9b-4da7-8fc2-29dcf29dff70","agent_id":"9ce67d98-bc38-404b-a979-8db00379fbda","claimed_at":"2026-05-25T15:13:24.851416+00:00","completed_at":"2026-05-25T15:13:24.940682+00:00","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","created_at":"2026-05-25T15:04:57.894471+00:00"},{"id":"a46123b4-92ac-4a38-b301-5234437a1466","agent_id":"7b8c44b7-ddeb-4a35-87e4-2ae502fe9001","claimed_at":"2026-05-25T15:13:25.036352+00:00","completed_at":"2026-05-25T15:13:25.127971+00:00","message_id":"337b2eed-2955-4e55-b8cd-1b40ec1431b5","created_at":"2026-05-25T15:04:57.894471+00:00"}]
+
+## Sofia Handoff Attempt 2
+
+handoff.sent
+- sender: Theo (Test Owner)
+- recipient: Sofia (Spec Owner)
+- conversation_id: 37faf8dc-3e86-4fbf-84ee-4ffa1fb81fe1
+- artifact path: frames/t6-native-extra-hard-1-sofia-20260525.txt
+- hash: T6_NATIVE_EXTRA_HARD_20260525
+- trigger_id: 4e1b882a-50d8-46e9-8e15-5e3190111f06
+- message_id: d660859e-31f2-4439-a1f8-7dad208ae3d2
+
+bottleneck.detected source=native_poller_desync
+- evidence: trigger 4e1b882a-50d8-46e9-8e15-5e3190111f06 remained claimed_at=null completed_at=null after >60s while Pentagon.app pid 98638 was running.
+- bridge state: intentionally unloaded by run-native-pentagon-task for native proof, so Phase F1 bridge watchdog cannot restart Pentagon during this native-only window.
+- recovery: manual Pentagon.app quit/relaunch while runner remains active.
+
+handoff.activation_proven
+- recipient: Sofia (Spec Owner)
+- trigger_id: 4e1b882a-50d8-46e9-8e15-5e3190111f06
+- claimed_at: 2026-05-25T15:15:36.568373+00:00
+- completed_at: 2026-05-25T15:17:22.788+00:00
+- ack_id: 007ae6a7-51d5-4ff9-903a-799c479ccc15
+- ack: SOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT
+- inner_commit: 890c0e0 T6 extra-hard: Sofia spec events tail
+
+## Maya Handoff
+
+handoff.sent
+- sender: Theo (Test Owner)
+- recipient: Maya (Code Owner)
+- parent_ack_id: 007ae6a7-51d5-4ff9-903a-799c479ccc15
+- artifact path: frames/t6-native-extra-hard-2-maya-20260525.txt
+- conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+
+handoff.activation_proven
+- recipient: Maya (Code Owner)
+- trigger_id: f0f6c5f6-7dcc-42f1-a533-9cd739cd9cba
+- claimed_at: 2026-05-25T15:18:23.501423+00:00
+- completed_at: 2026-05-25T15:21:07.873+00:00
+- ack_id: 44df2679-bb2d-47b7-a3fd-d8162cbd6def
+- ack: MAYA_IMPL_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP2 activegraph/cli/events_tail.py,activegraph/cli/main.py parent_ack_id=007ae6a7-51d5-4ff9-903a-799c479ccc15
+- inner_commit: 17b891f T6 extra-hard: Maya implement events tail
+
+## Conversation Routing Check
+
+creating_new_conversations=blocked_by_rls
+- POST /rest/v1/conversations returned 403 row-level security violation.
+
+safe_single_agent_conversations_selected
+- Quinn (Test Adversary): ff2b64b8-019a-4e88-b40e-c99457b325ab
+- Sam (Docs Owner): 0f8c4609-ee99-4695-9619-8ee4f06e88b6
+- Riley (Evidence Lead): dd4ee3ff-35c8-4995-9e41-cb280fe00d92
+
+These conversations have the target agent as the only active participant. The operator handoff sender remains Theo, and the single active participant is the only native claimant.
+
+## Quinn Handoff
+
+handoff.prepared
+- sender: Theo (Test Owner)
+- recipient: Quinn (Test Adversary)
+- parent_ack_id: 44df2679-bb2d-47b7-a3fd-d8162cbd6def
+- artifact path: frames/t6-native-extra-hard-3-quinn-20260525.txt
+- conversation_id: ff2b64b8-019a-4e88-b40e-c99457b325ab
+
+handoff.activation_recovery
+- trigger_id: 3992f7c2-1f4f-4267-b44b-d86866a0f1bd
+- evidence: trigger remained claimed_at=null completed_at=null after >60s while Pentagon.app was running.
+- recovery: manual Pentagon.app quit/relaunch while runner remained active.
+- new_pentagon_pid: 1311
+
+handoff.activation_proven
+- recipient: Quinn (Test Adversary)
+- trigger_id: 3992f7c2-1f4f-4267-b44b-d86866a0f1bd
+- claimed_at: 2026-05-25T15:29:43.988123+00:00
+- completed_at: 2026-05-25T15:33:28.679+00:00
+- response_id: e18a569d-8b46-45f1-a057-e635992669da
+- response_note: response contained explanatory text before the canonical ACK line, so it is not parser-canonical for the verifier.
+- inner_commit: 219526a T6 extra-hard: Quinn adversarial events tail tests
+- quinn_finding: date-only --since is accepted by parse validation then crashes during event comparison, appending events_tail_invoked before failing instead of rejecting as usage before audit append.
+
+## Quinn ACK Correction
+
+handoff.prepared
+- sender: Theo (Test Owner)
+- recipient: Quinn (Test Adversary)
+- parent_ack_id: 44df2679-bb2d-47b7-a3fd-d8162cbd6def
+- artifact path: frames/t6-native-extra-hard-3b-quinn-ack-correction-20260525.txt
+- conversation_id: ff2b64b8-019a-4e88-b40e-c99457b325ab
+
+handoff.activation_proven
+- recipient: Quinn (Test Adversary)
+- trigger_id: 98b5c250-49c6-48dd-b55f-818688166acb
+- claimed_at: 2026-05-25T15:34:20.300017+00:00
+- completed_at: 2026-05-25T15:34:31.459+00:00
+- ack_id: 282090a2-0b3e-4897-b462-8913d82e3b20
+- ack: QUINN_TESTS_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP3 activegraph/tests/test_cli_events_tail.py T6XH_QUINN_FINDING_EVENTS_TAIL_20260525 parent_ack_id=44df2679-bb2d-47b7-a3fd-d8162cbd6def
+
+## Maya Fix After Quinn
+
+handoff.prepared
+- sender: Theo (Test Owner)
+- recipient: Maya (Code Owner)
+- parent_ack_id: 282090a2-0b3e-4897-b462-8913d82e3b20
+- artifact path: frames/t6-native-extra-hard-3c-maya-fix-20260525.txt
+- conversation_id: 0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+
+handoff.activation_proven
+- recipient: Maya (Code Owner)
+- trigger_id: 9197c155-2681-4dcd-a883-3216fe9fe01a
+- claimed_at: 2026-05-25T15:35:21.560877+00:00
+- completed_at: 2026-05-25T15:37:12.749+00:00
+- ack_id: 656aba30-3d88-447a-a727-70d8f30012a5
+- ack: MAYA_FIX_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP3C activegraph/cli/events_tail.py parent_ack_id=282090a2-0b3e-4897-b462-8913d82e3b20
+- inner_commit: 2e8baf6 T6 extra-hard: Maya fix events tail after Quinn
+- post_fix_focused_test: uv run pytest tests/test_cli_events_tail.py => 7 passed
+
+## Sam Handoff
+
+handoff.prepared
+- sender: Theo (Test Owner)
+- recipient: Sam (Docs Owner)
+- parent_ack_id: 282090a2-0b3e-4897-b462-8913d82e3b20
+- artifact path: frames/t6-native-extra-hard-4-sam-20260525.txt
+- conversation_id: 0f8c4609-ee99-4695-9619-8ee4f06e88b6
+
+handoff.activation_proven
+- recipient: Sam (Docs Owner)
+- trigger_id: 7bf25979-dca3-46a2-b3d8-27f793b9e4be
+- claimed_at: 2026-05-25T15:38:08.908001+00:00
+- completed_at: 2026-05-25T15:40:46.31+00:00
+- ack_id: 3b4136df-05fa-4d05-b5ce-997a7d3efe17
+- ack: SAM_DOCS_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP4 activegraph/docs/how-to/tail-events.md parent_ack_id=282090a2-0b3e-4897-b462-8913d82e3b20
+- inner_commit: 18dce17 T6 extra-hard: Sam document events tail
+- mkdocs_strict: uv run mkdocs build --strict => exit 0
+
+## Self-Audit Event
+
+self_audit_store=frames/t6-extra-hard-self-audit-20260525.sqlite
+self_audit_store_url=sqlite:////Users/gaganarora/Desktop/my projects/active_graph/frames/t6-extra-hard-self-audit-20260525.sqlite
+self_audit_run_id=t6xh-self-audit-20260525
+self_audit_event_id=evt_001
+self_audit_event_kind=events_tail_invoked
+self_audit_command=ACTIVEGRAPH_STORE_URL=<self_audit_store_url> ACTIVEGRAPH_RUN_ID=t6xh-self-audit-20260525 uv run activegraph events tail --n 5
+self_audit_exit=0
+
+## Riley Handoff
+
+handoff.prepared
+- sender: Theo (Test Owner)
+- recipient: Riley (Evidence Lead)
+- parent_ack_id: 3b4136df-05fa-4d05-b5ce-997a7d3efe17
+- artifact path: frames/t6-native-extra-hard-5-riley-20260525.txt
+- conversation_id: dd4ee3ff-35c8-4995-9e41-cb280fe00d92
+
+handoff.activation_recovery
+- trigger_id: 79a878f9-559c-4816-ba5b-a817a6905925
+- evidence: trigger remained claimed_at=null completed_at=null after >60s while Pentagon.app was running.
+- recovery: manual Pentagon.app quit/relaunch while runner remained active.
+- new_pentagon_pid: 26272
+
+handoff.activation_proven
+- recipient: Riley (Evidence Lead)
+- trigger_id: 79a878f9-559c-4816-ba5b-a817a6905925
+- claimed_at: 2026-05-25T15:45:28.0295+00:00
+- completed_at: 2026-05-25T15:46:53.354+00:00
+- ack_id: 72a5a53b-bc0e-44fd-a610-751e752b0ab2
+- ack: RILEY_EVIDENCE_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP5 frames/t6-native-gauntlet-extra-hard-20260525.proof parent_ack_id=3b4136df-05fa-4d05-b5ce-997a7d3efe17
+- proof_path: frames/t6-native-gauntlet-extra-hard-20260525.proof
+- proof_placeholder_resolved: PENDING_RILEY_ACK_ID => 72a5a53b-bc0e-44fd-a610-751e752b0ab2

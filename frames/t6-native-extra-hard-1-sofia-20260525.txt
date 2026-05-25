@@ -1,0 +1,29 @@
+NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP1 SOFIA_SPEC
+
+Sofia, you are Spec Owner for the T6 extra-hard feature: activegraph events tail.
+
+IMPORTANT WORKTREE BOUNDARY:
+- Work ONLY in this clean inner-repo worktree:
+  /tmp/t6-extra-hard-live-run-activegraph
+- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.
+- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.
+- Do NOT trigger any other agent. The operator will hand off to Maya after your ACK.
+
+Feature scope:
+Implement the T6 EXTRA-HARD spec's activegraph events tail CLI subcommand. It prints the last N events from the active event store as newline-delimited JSON. Flags: --n <int> default 20, --since <iso-timestamp>, --filter <substring>, and --json. Each output row must include id, ts, kind, payload, parent_id. The command itself must emit an events_tail_invoked audit event when invoked.
+
+Deliverables:
+1. In /tmp/t6-extra-hard-live-run-activegraph, write:
+   docs/specs/events-tail.md
+2. The spec must include:
+   - CLI contract
+   - exact output schema
+   - error modes: no store, empty store, malformed flags, unknown filter
+   - auditability claim that the command itself emits events_tail_invoked
+3. Commit only the spec file. Commit message:
+   T6 extra-hard: Sofia spec events tail
+4. Do not implement code. Do not write tests. Do not edit docs outside the spec.
+
+ACK:
+Reply exactly after committing the spec:
+SOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP1 docs/specs/events-tail.md parent_ack_id=ROOT

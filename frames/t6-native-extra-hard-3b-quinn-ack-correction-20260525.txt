@@ -1,0 +1,8 @@
+NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP3 QUINN_ACK_CORRECTION
+
+Quinn, your test commit landed correctly, but your prior reply included explanatory text before the required ACK line. The verifier for this gauntlet accepts only ACK messages whose content starts with the canonical ACK prefix.
+
+Do not edit files. Do not run tests. Do not commit.
+
+Reply with exactly this one line and no other text:
+QUINN_TESTS_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP3 activegraph/tests/test_cli_events_tail.py T6XH_QUINN_FINDING_EVENTS_TAIL_20260525 parent_ack_id=44df2679-bb2d-47b7-a3fd-d8162cbd6def

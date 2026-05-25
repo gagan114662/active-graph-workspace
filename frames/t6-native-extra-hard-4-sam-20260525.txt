@@ -1,0 +1,41 @@
+NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP4 SAM_DOCS
+
+Sam, you are Docs Owner for the T6 extra-hard feature: activegraph events tail.
+
+IMPORTANT WORKTREE BOUNDARY:
+- Work ONLY in this clean inner-repo worktree:
+  /tmp/t6-extra-hard-live-run-activegraph
+- Do NOT edit /Users/gaganarora/Desktop/my projects/active_graph/activegraph; it has unrelated dirty operator work.
+- Commit your changes in /tmp/t6-extra-hard-live-run-activegraph on branch t6-extra-hard-live-run-20260525.
+- Do NOT edit source or test files.
+- Do NOT trigger Riley or any other agent. The operator will hand off after your ACK.
+
+Prior output:
+- Sofia spec ACK id: 007ae6a7-51d5-4ff9-903a-799c479ccc15
+- Maya implementation ACK id: 44df2679-bb2d-47b7-a3fd-d8162cbd6def
+- Quinn canonical ACK id: 282090a2-0b3e-4897-b462-8913d82e3b20
+- Quinn test commit: 219526a
+- Quinn finding id: T6XH_QUINN_FINDING_EVENTS_TAIL_20260525
+- Maya fix ACK id: 656aba30-3d88-447a-a727-70d8f30012a5
+- Maya fix commit: 2e8baf6
+- Focused post-fix test: uv run pytest tests/test_cli_events_tail.py => 7 passed
+
+Deliverables:
+1. Read docs/specs/events-tail.md, activegraph/cli/events_tail.py, and tests/test_cli_events_tail.py.
+2. Write operator-facing how-to docs at:
+   docs/how-to/tail-events.md
+3. Include:
+   - command synopsis
+   - environment variables ACTIVEGRAPH_STORE_URL / ACTIVEGRAPH_RUN_ID
+   - examples for default tail, --n, --since, --filter, and --json
+   - note that each successful invocation appends events_tail_invoked
+   - failure/usage notes for no active store and malformed flags
+4. Ensure mkdocs can include the page. If mkdocs navigation requires adding the page, update only the minimal docs navigation file.
+5. Run:
+   uv run mkdocs build --strict
+6. Commit only documentation files. Commit message:
+   T6 extra-hard: Sam document events tail
+
+ACK:
+Reply exactly after committing docs:
+SAM_DOCS_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP4 activegraph/docs/how-to/tail-events.md parent_ack_id=282090a2-0b3e-4897-b462-8913d82e3b20

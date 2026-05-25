@@ -1165,6 +1165,12 @@ function parseCommaList(text) {
   return String(text ?? "").split(",").map((part) => part.trim()).filter(Boolean);
 }
 
+function commaListSubset(left, right) {
+  const leftItems = parseCommaList(left);
+  const rightItems = parseCommaList(right);
+  return leftItems.length > 0 && leftItems.every((item) => rightItems.includes(item));
+}
+
 function xhardArtifactCommit(proof) {
   return proof.artifact_commit || proof.head || "HEAD";
 }
@@ -1230,7 +1236,7 @@ async function verifyT6ExtraHardAckChainRealDb(proof) {
   };
   const primaryPathFilters = {
     sofia: (fields) => fields.primary_path === proof.spec_path,
-    maya: (fields) => parseCommaList(proof.impl_paths).includes(fields.primary_path),
+    maya: (fields) => commaListSubset(fields.primary_path, proof.impl_paths),
     quinn: (fields) => fields.primary_path === (proof.test_path || proof.test_file) && fields.adversarial_finding_id === proof.adversarial_finding_id,
     sam: (fields) => fields.primary_path === proof.docs_how_to_path,
     riley: (fields) => fields.primary_path === proof.proof_path || String(fields.primary_path ?? "").includes("t6-native-gauntlet-extra-hard"),
@@ -1338,6 +1344,42 @@ async function verifyT6ExtraHardSelfAudit(proof, noDb) {
     return {
       ok: Boolean(proof.self_audit_event_id && proof.self_audit_event_kind === "events_tail_invoked"),
       detail: JSON.stringify({ self_audit_event_id: proof.self_audit_event_id, self_audit_event_kind: proof.self_audit_event_kind }),
+    };
+  }
+  if (proof.self_audit_store_url) {
+    const script = [
+      "import json, sqlite3, sys, urllib.parse",
+      "url, run_id, event_id = sys.argv[1:4]",
+      "if not url.startswith('sqlite:'):",
+      "    raise SystemExit('unsupported self_audit_store_url: ' + url)",
+      "parsed = urllib.parse.urlparse(url)",
+      "path = parsed.path",
+      "leading = len(url[len(parsed.scheme) + 1:]) - len(url[len(parsed.scheme) + 1:].lstrip('/'))",
+      "if leading == 1:",
+      "    sqlite_path = path",
+      "elif path.startswith('/'):",
+      "    sqlite_path = path[1:]",
+      "else:",
+      "    sqlite_path = path",
+      "conn = sqlite3.connect(sqlite_path)",
+      "row = conn.execute('select id, type, payload, run_id from events where id = ? and run_id = ? limit 1', (event_id, run_id)).fetchone()",
+      "conn.close()",
+      "print(json.dumps({'row': None if row is None else {'id': row[0], 'type': row[1], 'payload': row[2], 'run_id': row[3]}, 'sqlite_path': sqlite_path}))",
+    ].join("\n");
+    const res = spawnSync("python3", ["-c", script, proof.self_audit_store_url, proof.self_audit_run_id ?? "", proof.self_audit_event_id ?? ""], {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 5 * 1024 * 1024,
+    });
+    if (res.status !== 0) {
+      return { ok: false, detail: ((res.stdout ?? "") + (res.stderr ?? "")).trim() };
+    }
+    let parsed = null;
+    try { parsed = JSON.parse(res.stdout); } catch {}
+    const row = parsed?.row;
+    return {
+      ok: Boolean(row && row.type === "events_tail_invoked"),
+      detail: JSON.stringify(parsed ?? { stdout: res.stdout.trim() }),
     };
   }
   const state = readPentagonSession();

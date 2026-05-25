@@ -1,0 +1,67 @@
+NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_20260525 STEP5 RILEY_EVIDENCE
+
+Riley, you are Evidence Lead for the T6 extra-hard feature: activegraph events tail.
+
+IMPORTANT WORKSPACE BOUNDARY:
+- The implementation artifact is in this clean inner-repo worktree:
+  /tmp/t6-extra-hard-live-run-activegraph
+- Do NOT edit source, tests, or docs in that inner worktree.
+- Write the proof file in the outer orchestration repo only:
+  /Users/gaganarora/Desktop/my projects/active_graph/frames/t6-native-gauntlet-extra-hard-20260525.proof
+- Do NOT trigger any other agent.
+
+Evidence already gathered:
+- Hash: T6_NATIVE_EXTRA_HARD_20260525
+- Sofia ACK id: 007ae6a7-51d5-4ff9-903a-799c479ccc15
+- Maya implementation ACK id: 44df2679-bb2d-47b7-a3fd-d8162cbd6def
+- Quinn canonical ACK id: 282090a2-0b3e-4897-b462-8913d82e3b20
+- Sam ACK id: 3b4136df-05fa-4d05-b5ce-997a7d3efe17
+- Quinn finding id: T6XH_QUINN_FINDING_EVENTS_TAIL_20260525
+- Sofia commit: 890c0e0359932ab477459aa0f329091fd16b03c9
+- Maya implementation commit: 17b891fc3f2bbfcccafb36cf47a572ec228e9ddf
+- Quinn test commit: 219526a0dd39717e0975f8968e1d1fd838bd5603
+- Maya fix commit: 2e8baf6ed0d515dcaef4a6b133c2763e9ec5e604
+- Sam artifact commit / final head: 18dce178bbf379c1c96ee9c74112ced650a64b86
+- Focused collect: uv run pytest --collect-only -q tests/test_cli_events_tail.py => 7 tests collected
+- Focused post-fix pytest: uv run pytest tests/test_cli_events_tail.py => 7 passed
+- Ruff: uv run ruff check activegraph/cli/events_tail.py activegraph/cli/main.py tests/test_cli_events_tail.py => exit 0
+- MkDocs: uv run mkdocs build --strict => exit 0
+- Self-audit store: frames/t6-extra-hard-self-audit-20260525.sqlite
+- Self-audit store URL: sqlite:////Users/gaganarora/Desktop/my projects/active_graph/frames/t6-extra-hard-self-audit-20260525.sqlite
+- Self-audit run id: t6xh-self-audit-20260525
+- Self-audit event id: evt_001
+- Self-audit event kind: events_tail_invoked
+
+Deliverables:
+1. Independently inspect the inner worktree state and the proof evidence above.
+2. Write /Users/gaganarora/Desktop/my projects/active_graph/frames/t6-native-gauntlet-extra-hard-20260525.proof as key=value lines.
+3. Include at least these fields:
+   hash=T6_NATIVE_EXTRA_HARD_20260525
+   verdict=native_extra_hard_done
+   proof_path=frames/t6-native-gauntlet-extra-hard-20260525.proof
+   pwd=/tmp/t6-extra-hard-live-run-activegraph
+   head=18dce178bbf379c1c96ee9c74112ced650a64b86
+   artifact_commit=18dce178bbf379c1c96ee9c74112ced650a64b86
+   spec_path=docs/specs/events-tail.md
+   impl_paths=activegraph/cli/events_tail.py,activegraph/cli/main.py
+   test_path=activegraph/tests/test_cli_events_tail.py
+   docs_how_to_path=activegraph/docs/how-to/tail-events.md
+   new_test_count=7
+   adversarial_finding_id=T6XH_QUINN_FINDING_EVENTS_TAIL_20260525
+   quinn_test_commit=219526a0dd39717e0975f8968e1d1fd838bd5603
+   maya_fix_commit=2e8baf6ed0d515dcaef4a6b133c2763e9ec5e604
+   pytest_after=7
+   ruff_exit=0
+   mkdocs_strict_exit=0
+   self_audit_event_id=evt_001
+   self_audit_event_kind=events_tail_invoked
+   self_audit_store_url=sqlite:////Users/gaganarora/Desktop/my projects/active_graph/frames/t6-extra-hard-self-audit-20260525.sqlite
+   self_audit_run_id=t6xh-self-audit-20260525
+   causal_chain=sofia=007ae6a7-51d5-4ff9-903a-799c479ccc15,maya=44df2679-bb2d-47b7-a3fd-d8162cbd6def,quinn=282090a2-0b3e-4897-b462-8913d82e3b20,sam=3b4136df-05fa-4d05-b5ce-997a7d3efe17,riley=PENDING_RILEY_ACK_ID
+   ack_parent_ids=007ae6a7-51d5-4ff9-903a-799c479ccc15=ROOT,44df2679-bb2d-47b7-a3fd-d8162cbd6def=007ae6a7-51d5-4ff9-903a-799c479ccc15,282090a2-0b3e-4897-b462-8913d82e3b20=44df2679-bb2d-47b7-a3fd-d8162cbd6def,3b4136df-05fa-4d05-b5ce-997a7d3efe17=282090a2-0b3e-4897-b462-8913d82e3b20,PENDING_RILEY_ACK_ID=3b4136df-05fa-4d05-b5ce-997a7d3efe17
+4. Leave PENDING_RILEY_ACK_ID as a placeholder. The operator will replace it with your DB message id after your ACK exists.
+5. Do not commit.
+
+ACK:
+Reply exactly after writing the proof:
+RILEY_EVIDENCE_DELIVERED T6_NATIVE_EXTRA_HARD_20260525 STEP5 frames/t6-native-gauntlet-extra-hard-20260525.proof parent_ack_id=3b4136df-05fa-4d05-b5ce-997a7d3efe17
