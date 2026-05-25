@@ -1,0 +1,632 @@
+T7 message_poller_no_trigger_row defect investigation
+date=2026-05-25
+workspace=/Users/gaganarora/Desktop/my projects/active_graph
+scope=diagnostic_only
+subject_run=T7 easy repetition run 014
+subject_hash=T7_REPEAT_EASY_20260525_014
+
+Summary verdict
+===============
+
+Run 014 is a real audit-chain failure. The original Theo -> Maya instruction
+message exists in Supabase messages, Maya produced exact ACK messages and the
+proof file, but no agent_triggers row exists for the original instruction
+message_id. The runner therefore classified the task as
+activation_path=message_poller_no_trigger_row, while the independent
+canonical-trigger verifier correctly failed the run because no canonical Maya
+trigger could anchor the ACK.
+
+Most likely root cause: (b) Pentagon bug. The trigger creation path silently
+skipped or failed for the original run-014 instruction even though the same
+conversation and same native T7-easy instruction shape produced trigger rows
+for runs 001-013, and later reverse/follow-up triggers were created normally in
+the same conversation minutes later.
+
+Recommended remediation category: Pentagon-side fix first. The correct
+invariant is that every native instruction message intended for an agent must
+create a durable agent_triggers row before any message-poller fallback can count
+as activation. A bridge-side synthesized trigger would be a workaround, and
+"known mode" should remain a verifier failure until the audit invariant is
+restored.
+
+T7 easy should not resume past this as green. Resume only if the operator either
+accepts this as a known failing sample for variance accounting or fixes the
+Pentagon trigger-creation invariant. The harness currently reports native_pass
+for message_poller_no_trigger_row, which is too weak for verifier-bound T7.
+
+
+Bootstrap and sources
+=====================
+
+Read:
+- CLAUDE.md in full.
+- frames/t7-native-repetition-progress-20260525.jsonl entries for runs 008,
+  011, 013, and 014.
+- scripts/run-native-pentagon-task.mjs.
+- scripts/pentagon-trigger-bridge.mjs.
+- scripts/verify-pentagon-autonomy-from-logs.mjs.
+- ~/.pentagon/trigger-bridge.err.log and ~/.pentagon/trigger-bridge.out.log
+  around the run-014 window.
+- Supabase REST tables: agents, messages, agent_triggers.
+
+Important correction to the prompt wording:
+- activation_path=message_poller_no_trigger_row is not set in
+  scripts/pentagon-trigger-bridge.mjs.
+- It is set in scripts/run-native-pentagon-task.mjs at the runner
+  classification stage after inserting a message, failing to find a trigger
+  row, observing target-agent responses containing the hash, and seeing the
+  expected proof file.
+- The bridge daemon consumes existing agent_triggers rows. It does not create
+  trigger rows for new messages, so there is no bridge trigger-insertion
+  try/catch to audit for this missing row.
+
+
+Predicate-to-evidence table
+===========================
+
+Predicate: Run 014 original instruction message exists.
+Evidence: messages id b826d01f-0252-4ae6-8c74-7fb12ace8b09, created_at
+2026-05-25T18:42:53.613551+00:00, sender Theo, conversation
+0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1.
+Result: true.
+
+Predicate: Run 014 original instruction has no trigger row.
+Evidence: /rest/v1/agent_triggers?message_id=eq.b826d01f-0252-4ae6-8c74-7fb12ace8b09
+returned [].
+Result: true.
+
+Predicate: Maya replied with exact ACK despite missing original trigger.
+Evidence: messages b6ffe48b-33f0-4e02-a753-c6629e3d95db and
+d5bf9e17-2f66-45a4-b622-3f21d8bb658b.
+Result: true.
+
+Predicate: Runner used message_poller_no_trigger_row.
+Evidence: frames/t7-repeat-easy-014-run-20260525.log has initial_trigger=null,
+final_trigger=null, response_rows populated, activation_path=message_poller_no_trigger_row,
+native_pass=true.
+Result: true.
+
+Predicate: Bridge has no insertion error for run 014.
+Evidence: err.log scan for 2026-05-25T18:42..18:59 found 0 rows; out.log only
+shows previous run-012 follow-up trigger at 18:42:48 and then bridge restart
+later.
+Result: no bridge-side insertion evidence.
+
+Predicate: Known-good runs 011 and 013 had normal original trigger rows.
+Evidence: run011 trigger 6a2f04b2-3f7a-4c54-8782-e74b9be49a3f, run013 trigger
+2cb871e9-cdd7-44f9-a947-d04670cd8e6b, both agent=Maya, sender=Theo, claimed
+and completed.
+Result: true.
+
+Predicate: Broader native instruction pattern is rare in this T7-easy sample.
+Evidence: 14 native T7-easy original instruction messages since 16:20Z; only
+run 014 has trigger_count=0.
+Result: 1/14 missing.
+
+Predicate: Broad 24h messages-without-trigger count is high but noisy.
+Evidence: 500 recent messages sampled; 387 have no matching
+agent_triggers.message_id; replies and heartbeats are not all expected to spawn
+triggers.
+Result: not directly diagnostic.
+
+Predicate: Canonical-trigger verifier rejection is principled.
+Evidence: isCanonicalTrigger requires claimed_at, completed_at,
+claimed_at < completed_at, expected-agent message in conversation, and
+trigger.agent_id === expectedAgent.id; run 014 had candidate trigger count 0
+for the original hash.
+Result: true.
+
+
+Command and evidence log
+========================
+
+Current repo state:
+  HEAD=63ee263 Update T4 heartbeat for outer 32eca85
+  origin/main=63ee263e1ea50e918fd8ca4c8ded0eb5c0e66eeb
+  Pre-existing dirty files before this investigation:
+    M scripts/pentagon-trigger-bridge.mjs
+    M scripts/run-native-pentagon-task.mjs
+    M scripts/verify-pentagon-autonomy-from-logs.mjs
+  This investigation did not edit those production scripts.
+
+Ledger entries:
+  run 008:
+    hash=T7_REPEAT_EASY_20260525_008
+    message_id=f322f87c-6ab1-407a-820e-67ed2cf4ee14
+    trigger_id=3a399354-e5b7-4bd2-9d92-490e95f8854b
+    verifier_exit=1
+    known mode=narrative text around ACK, no exact canonical ACK row accepted
+
+  run 011:
+    hash=T7_REPEAT_EASY_20260525_011
+    message_id=f253dfb0-069c-4d46-a509-35da95e11a4e
+    trigger_id=6a2f04b2-3f7a-4c54-8782-e74b9be49a3f
+    claimed_at=2026-05-25T18:28:18.764215+00:00
+    completed_at=2026-05-25T18:31:21.815+00:00
+    verifier_exit=0
+
+  run 013:
+    hash=T7_REPEAT_EASY_20260525_013
+    message_id=4a465d80-4160-4e68-94c9-166cc2a39ccc
+    trigger_id=2cb871e9-cdd7-44f9-a947-d04670cd8e6b
+    claimed_at=2026-05-25T18:38:15.556799+00:00
+    completed_at=2026-05-25T18:41:19.636+00:00
+    verifier_exit=0
+
+  run 014:
+    hash=T7_REPEAT_EASY_20260525_014
+    message_id=b826d01f-0252-4ae6-8c74-7fb12ace8b09
+    trigger_id=null
+    trigger_created_at=2026-05-25T18:42:53.613551+00:00
+    verifier_exit=1
+    verifier_summary=9/10
+    harness_exit=0
+    harness_native_pass=true
+    notes=activation_path=message_poller_no_trigger_row; exact Maya ACK
+      messages existed; trigger_rows=0.
+
+Runner code path:
+  scripts/run-native-pentagon-task.mjs:
+    insertMessage POSTs to /rest/v1/messages.
+    triggerForMessage GETs /rest/v1/agent_triggers?message_id=eq.<message_id>.
+    The runner waits up to 15 seconds for an initial trigger.
+    The runner then polls until watch deadline.
+    It only breaks early when finalTrigger has claimed_at and completed_at,
+      responses.length is nonzero, and the proof file contains the hash.
+    If the deadline arrives with finalTrigger still null but responses and proof
+      exist, it records activation_path=message_poller_no_trigger_row and
+      native_pass=true.
+
+Interpretation:
+  This is a deliberate runner fallback classification, not a bridge exception
+  handler. It proves target-agent messages and proof existed, but it does not
+  prove the audit-chain trigger row existed.
+
+
+Run 014 Supabase trace
+======================
+
+Agents:
+  Theo (Test Owner)=1343cc84-5a06-44b7-88f7-f2c3e82d7e1c
+  Maya (Code Owner)=7b8c44b7-ddeb-4a35-87e4-2ae502fe9001
+
+Original instruction:
+  query=/rest/v1/messages?id=eq.b826d01f-0252-4ae6-8c74-7fb12ace8b09
+  result_count=1
+  id=b826d01f-0252-4ae6-8c74-7fb12ace8b09
+  created_at=2026-05-25T18:42:53.613551+00:00
+  sender=Theo (Test Owner)
+  conversation_id=0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+  content_length=2950
+  content_prefix:
+    RUN_SEED=8bb7779d-aa05-43d8-b127-c2a69df27296
+    NATIVE_GAUNTLET EASY T7_REPEAT_EASY_20260525_014
+
+Trigger rows for original instruction:
+  query=/rest/v1/agent_triggers?message_id=eq.b826d01f-0252-4ae6-8c74-7fb12ace8b09
+  result=[]
+
+Maya messages in conversation after instruction that reference the hash:
+  id=b6ffe48b-33f0-4e02-a753-c6629e3d95db
+  created_at=2026-05-25T18:45:31.267912+00:00
+  author=Maya (Code Owner)
+  content_length=98
+  content=MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_EASY_20260525_014 EASY frames/t7-repeat-easy-014-20260525.proof
+
+  id=d5bf9e17-2f66-45a4-b622-3f21d8bb658b
+  created_at=2026-05-25T18:45:48.425581+00:00
+  author=Maya (Code Owner)
+  content_length=98
+  content=MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_EASY_20260525_014 EASY frames/t7-repeat-easy-014-20260525.proof
+
+  id=b79b43ff-1d88-4a6a-9f92-24c00b0465b9
+  created_at=2026-05-25T18:46:39.432891+00:00
+  author=Maya (Code Owner)
+  content_length=435
+  content_prefix=Ack. handoff.activation_proven accepted for T7_REPEAT_EASY_20260525_014.
+
+  id=26f723d9-c449-4ff3-938a-1bc04b7e0814
+  created_at=2026-05-25T18:47:29.852614+00:00
+  author=Maya (Code Owner)
+  content_length=432
+  content_prefix=Ack. T7_REPEAT_EASY_20260525_014 remains aligned: 83eaef0 is accepted...
+
+Same-conversation triggers during the run-014 window:
+  window=2026-05-25T18:42:00.000Z..2026-05-25T18:59:00.000Z
+  note=full unfiltered query hit limit 200 because unrelated systems were
+  active; narrowed same-conversation rows are below.
+
+  id=b9ef1acf-7262-44c4-a3ee-3b689e24d7bc
+  created_at=2026-05-25T18:42:48.32887+00:00
+  message_id=7bb497c9-655b-4872-aab6-5cce220bf0f6
+  agent=Maya (Code Owner)
+  sender=Theo (Test Owner)
+  content_prefix=Ack accepted. T7_REPEAT_EASY_20260525_012 boundary remains aligned.
+  interpretation=run-012 follow-up before run-014 original instruction.
+
+  id=247b08db-f384-4322-bdf4-9130bb3649f0
+  created_at=2026-05-25T18:43:29.584273+00:00
+  message_id=3a1d17ab-597e-4b18-9f8c-ea16c5612036
+  agent=Maya (Code Owner)
+  sender=Theo (Test Owner)
+  content_prefix=Ack accepted. T7_REPEAT_EASY_20260525_013 boundary remains aligned.
+  interpretation=run-013 follow-up after run-014 original message timestamp.
+
+  id=8d82a6a9-b4e0-4626-9451-60f5cbddd355
+  created_at=2026-05-25T18:44:12.566099+00:00
+  message_id=a968c7a3-8441-4d7c-8a1b-e9b614de7dfa
+  agent=Maya (Code Owner)
+  sender=Theo (Test Owner)
+  content_prefix=Ack accepted. T7_REPEAT_EASY_20260525_013 boundary remains aligned.
+  interpretation=duplicate run-013 follow-up.
+
+  id=80f97fdf-b40d-4db5-96e0-7fb66534e64f
+  created_at=2026-05-25T18:45:31.267912+00:00
+  message_id=b6ffe48b-33f0-4e02-a753-c6629e3d95db
+  agent=Theo (Test Owner)
+  sender=Maya (Code Owner)
+  content=MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_EASY_20260525_014 EASY frames/t7-repeat-easy-014-20260525.proof
+  interpretation=reverse trigger for Maya's ACK message to Theo; not the
+  missing original Theo -> Maya trigger.
+
+  id=f5c1cf08-d464-4689-a0cd-43eb6624d159
+  created_at=2026-05-25T18:46:31.513753+00:00
+  message_id=bdfbc995-d4a8-4914-90ad-0a93b41bbdda
+  agent=Maya (Code Owner)
+  sender=Theo (Test Owner)
+  content_prefix=Using activegraph-activation-watchdog, activegraph-evidence-audit, and activegraph-interpreter-smoke.
+  interpretation=operator/agent follow-up after the ACK, not original gauntlet trigger.
+
+  id=c41288d9-6da4-493d-b16f-c37e62fd2b0d
+  created_at=2026-05-25T18:46:39.432891+00:00
+  message_id=b79b43ff-1d88-4a6a-9f92-24c00b0465b9
+  agent=Theo (Test Owner)
+  sender=Maya (Code Owner)
+  content_prefix=Ack. handoff.activation_proven accepted for T7_REPEAT_EASY_20260525_014.
+  interpretation=reverse trigger for Maya narrative reply.
+
+  id=a70c46b4-8d34-4a8b-953e-3554bea47ba5
+  created_at=2026-05-25T18:47:17.80245+00:00
+  message_id=708fbe3c-d220-4fa9-ac99-dcc4ba96c543
+  agent=Maya (Code Owner)
+  sender=Theo (Test Owner)
+  content_prefix=Ack accepted. T7_REPEAT_EASY_20260525_014 boundary remains aligned.
+  interpretation=follow-up trigger after ACK.
+
+  id=80f83799-d492-4773-bfda-ddf4f5bedf23
+  created_at=2026-05-25T18:47:29.852614+00:00
+  message_id=26f723d9-c449-4ff3-938a-1bc04b7e0814
+  agent=Theo (Test Owner)
+  sender=Maya (Code Owner)
+  content_prefix=Ack. T7_REPEAT_EASY_20260525_014 remains aligned...
+  interpretation=reverse trigger for Maya narrative reply.
+
+  id=2c522747-2514-4e3c-af4c-83ac1d858377
+  created_at=2026-05-25T18:48:31.817241+00:00
+  message_id=3efa8405-7f91-4b7a-81e5-fbc6f9f3d249
+  agent=Maya (Code Owner)
+  sender=Theo (Test Owner)
+  content_prefix=Ack accepted. T7_REPEAT_EASY_20260525_014 boundary remains aligned.
+  interpretation=follow-up trigger after ACK.
+
+Key conclusion from same-conversation window:
+  The database was able to create triggers in the Theo/Maya conversation both
+  before and after the missing run-014 original instruction. The missing row is
+  specific to message_id=b826d01f-0252-4ae6-8c74-7fb12ace8b09.
+
+
+Runner log evidence
+===================
+
+Source: frames/t7-repeat-easy-014-run-20260525.log
+
+Relevant fields:
+  bridge_before.ok=true
+  bridge_stop.status=0
+  bridge_after_stop.ok=false
+  message.id=b826d01f-0252-4ae6-8c74-7fb12ace8b09
+  initial_trigger=null
+  final_trigger=null
+  response_rows=[
+    b6ffe48b-33f0-4e02-a753-c6629e3d95db,
+    d5bf9e17-2f66-45a4-b622-3f21d8bb658b,
+    b79b43ff-1d88-4a6a-9f92-24c00b0465b9,
+    26f723d9-c449-4ff3-938a-1bc04b7e0814
+  ]
+  expected_file.exists=true
+  expected_file.contains_hash=true
+  expected_file.content hash=T7_REPEAT_EASY_20260525_014
+  activation_path=message_poller_no_trigger_row
+  native_pass=true
+  verdict=native_task_passed
+  bridge_restore.state.ok=true
+
+Interpretation:
+  The runner intentionally stopped the bridge before inserting the message, so
+  bridge logs are not expected to show original-run processing. The native
+  Pentagon app still observed and processed the message through a message-poller
+  path. Because no agent_triggers row appeared within the runner's wait window
+  or later DB audit, the harness classified a noncanonical activation path as a
+  native pass. That is useful diagnostic signal, but insufficient for T7 audit
+  success.
+
+
+Bridge code and logs
+====================
+
+Bridge responsibilities observed in scripts/pentagon-trigger-bridge.mjs:
+  pendingTriggers() queries existing unclaimed/incomplete agent_triggers.
+  processCandidates() claims existing triggers, runs Codex, writes response
+    messages, and marks trigger complete.
+  checkPentagonWatchdog() detects stale existing native triggers and restarts
+    Pentagon.app.
+  The bridge does not insert agent_triggers rows for new messages.
+
+Run-014 bridge log scan:
+  ~/.pentagon/trigger-bridge.err.log rows=0 for 2026-05-25T18:42..18:59.
+  ~/.pentagon/trigger-bridge.out.log rows=2:
+    17394: checked_at=2026-05-25T18:42:48.453Z
+    17406: created_at=2026-05-25T18:42:48.32887+00:00
+
+Relevant out.log block:
+  status=loop_started interval_ms=1000 limit=8 max_age_seconds=180
+  checked_at=2026-05-25T18:42:48.453Z
+  status=ok
+  processed=1
+  trigger.id=b9ef1acf-7262-44c4-a3ee-3b689e24d7bc
+  trigger.message_id=7bb497c9-655b-4872-aab6-5cce220bf0f6
+  trigger.created_at=2026-05-25T18:42:48.32887+00:00
+  content_preview=Ack accepted. T7_REPEAT_EASY_20260525_012 boundary remains aligned.
+
+Interpretation:
+  No bridge error was observed for the missing trigger. The only bridge work in
+  the immediate window was a prior follow-up trigger from run 012, five seconds
+  before the run-014 instruction. The bridge cannot swallow an insertion error
+  for the run-014 original trigger because that insertion is not in this daemon.
+
+
+Known-good comparison
+=====================
+
+Run 011:
+  original message id=f253dfb0-069c-4d46-a509-35da95e11a4e
+  original trigger id=6a2f04b2-3f7a-4c54-8782-e74b9be49a3f
+  conversation_id=0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+  agent=Maya (Code Owner)
+  sender=Theo (Test Owner)
+  created_at=2026-05-25T18:28:18.622789+00:00
+  claimed_at=2026-05-25T18:28:18.764215+00:00
+  completed_at=2026-05-25T18:31:21.815+00:00
+  verifier_exit=0
+  harness_native_pass=true
+
+Run 013:
+  original message id=4a465d80-4160-4e68-94c9-166cc2a39ccc
+  original trigger id=2cb871e9-cdd7-44f9-a947-d04670cd8e6b
+  conversation_id=0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+  agent=Maya (Code Owner)
+  sender=Theo (Test Owner)
+  created_at=2026-05-25T18:38:15.426205+00:00
+  claimed_at=2026-05-25T18:38:15.556799+00:00
+  completed_at=2026-05-25T18:41:19.636+00:00
+  verifier_exit=0
+  harness_native_pass=true
+
+Run 014:
+  original message id=b826d01f-0252-4ae6-8c74-7fb12ace8b09
+  original trigger id=null
+  conversation_id=0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1
+  original message created_at=2026-05-25T18:42:53.613551+00:00
+  exact ACK messages at 2026-05-25T18:45:31.267912+00:00 and
+    2026-05-25T18:45:48.425581+00:00
+  verifier_exit=1
+  harness_native_pass=true
+  activation_path=message_poller_no_trigger_row
+
+Difference:
+  Runs 011 and 013 took the normal durable trigger path. Run 014 did not create
+  the original trigger row but still received native app/agent response traffic.
+  The difference is behavioral in Pentagon trigger creation, not explained by a
+  persistent schema/RLS outage or a bridge processing failure.
+
+
+Broader pattern check
+=====================
+
+Broad 24h query:
+  since=2026-05-24T19:17:51.323Z
+  recent_message_count=500
+  matching_trigger_rows_for_those_messages=224
+  messages_without_trigger_count=387
+  messages_without_trigger_by_sender:
+    Maya (Code Owner): 60
+    Blake (Budget Marshal): 121
+    Sam (Docs Owner): 46
+    Theo (Test Owner): 34
+    Grace (Gate Sentinel): 56
+    Priya (Goal Reaper): 44
+    Ravi (Replay Validator): 26
+
+Caveat:
+  This broad count is intentionally noisy. Many messages are replies, ACKs,
+  heartbeat/status notes, or reverse-direction messages, and not every message
+  should spawn an outgoing agent_triggers row. It is useful only as evidence
+  that "message without trigger" is common at the table level, not as a native
+  instruction failure rate.
+
+Native T7-easy instruction query:
+  since=2026-05-25T16:20:00.000Z
+  filter=messages containing T7_REPEAT_EASY_20260525_ and RUN_SEED plus
+    NATIVE_GAUNTLET EASY
+  native_instruction_count=14
+  missing_trigger_count=1
+  missing_trigger_runs=[14]
+
+Rows:
+  run 001 message_id=49f02797-5705-4858-880f-5373d3591fc2 trigger_count=1 trigger_id=900220bf-c8ef-45c9-ab44-c7063f391a76
+  run 002 message_id=c223605e-43b6-4707-98ae-f79d90bab733 trigger_count=1 trigger_id=1a4c70af-3661-4bde-b483-4a9f9265bf99
+  run 003 message_id=35246fa7-3904-44ec-83fe-f8a146091962 trigger_count=1 trigger_id=3aa62b2d-544e-42a5-a233-73886f3abec7
+  run 004 message_id=5f24e9dd-eef2-4846-8260-82d2cbd1ce4a trigger_count=1 trigger_id=f0154e1f-82bf-4a17-ba11-541a39b626a1
+  run 005 message_id=6164cdd0-8c70-44f7-80ed-35661c86b9bb trigger_count=1 trigger_id=a14b2a9a-963c-4db8-8a2f-a4f3fd3cb369
+  run 006 message_id=2ce7a290-846d-453f-b7d4-6e298e1225c2 trigger_count=1 trigger_id=75df0f2b-5c6c-40b5-b09d-a1e177e9bd00
+  run 007 message_id=f7794222-85ec-48b0-8878-7b60000d4e48 trigger_count=1 trigger_id=f3115c1b-22c1-4e08-a4fb-c1e855f54d38
+  run 008 message_id=f322f87c-6ab1-407a-820e-67ed2cf4ee14 trigger_count=1 trigger_id=3a399354-e5b7-4bd2-9d92-490e95f8854b
+  run 009 message_id=2477a396-9544-4397-9e77-fd93ce04600c trigger_count=1 trigger_id=e00e6b73-0c15-430b-b86c-1d406d97c357
+  run 010 message_id=0d81bacc-617c-44bb-b53d-51a479093d99 trigger_count=1 trigger_id=11c5645c-1c48-4fcf-a069-c01adec5ac46
+  run 011 message_id=f253dfb0-069c-4d46-a509-35da95e11a4e trigger_count=1 trigger_id=6a2f04b2-3f7a-4c54-8782-e74b9be49a3f
+  run 012 message_id=b85a7873-edc9-452c-bfea-9f28a9636400 trigger_count=1 trigger_id=99b6a56f-aa49-4cde-b3f7-f1c92318c167
+  run 013 message_id=4a465d80-4160-4e68-94c9-166cc2a39ccc trigger_count=1 trigger_id=2cb871e9-cdd7-44f9-a947-d04670cd8e6b
+  run 014 message_id=b826d01f-0252-4ae6-8c74-7fb12ace8b09 trigger_count=0 trigger_id=(none)
+
+Observed native-instruction missing-trigger rate in the precise T7-easy sample:
+  1/14 = 7.1%
+
+This is too small a sample to estimate reliability, but it is enough to show a
+new failure mode distinct from run 008's narrative-wrapped ACK failure.
+
+
+Canonical-trigger rule
+======================
+
+Relevant verifier rule from scripts/verify-pentagon-autonomy-from-logs.mjs:
+  isCanonicalTrigger(trigger, expectedAgentId, expectedAgentMessageCounts)
+  requires:
+    trigger.claimed_at
+    trigger.completed_at
+    both timestamps parse
+    claimed_at < completed_at
+    at least one expected-agent message in the same conversation
+    trigger.agent_id === expectedAgentId
+
+resolveCanonicalAck then filters triggers by hash/tier/proof path and selects
+the most recent canonical trigger by completed_at. If no canonical trigger
+exists, it returns a failure detail with reason "no Maya ACK in canonical
+trigger", trigger_rows, and candidate_trigger_ids.
+
+Run 014 has exact ACK messages, but no original Maya-target trigger row for the
+hash. Therefore the verifier rejection is correct. Loosening this rule would
+hide the audit-chain defect.
+
+
+Root-cause analysis
+===================
+
+Candidate a: Race condition where message arrives before trigger row commit.
+  Possible but not the best fit. The missing row still did not exist after the
+  full harness window and later audit. A commit-lag race should normally resolve
+  into a durable row eventually.
+
+Candidate b: Pentagon bug, trigger creation silently fails for certain inputs or timing.
+  Best fit. Equivalent native instruction messages in the same conversation
+  created triggers for runs 001-013. During run 014, later reverse and follow-up
+  triggers were created normally in the same conversation. The only missing
+  artifact is the original Theo -> Maya run-014 trigger row. Pentagon still
+  processed the message through an alternate message-poller path and Maya
+  replied, so the app saw the work but failed the durable trigger invariant.
+
+Candidate c: Bridge race condition where the bridge created the trigger but it was deleted/moved.
+  Not supported. The bridge does not create original trigger rows and existing
+  trigger rows are durable in this schema; later queries show other rows remain.
+  The runner had deliberately stopped the bridge for native activation probing.
+
+Candidate d: Schema/permissions rejected the insert.
+  Not strongly supported. It could be a hidden Pentagon-side insertion failure,
+  but the same session/conversation created adjacent triggers before and after
+  run 014. No broad RLS/schema outage is visible.
+
+Candidate e: Something else.
+  No stronger alternate mechanism was found. One environmental oddity is that
+  the runner stops the bridge to force native activation, so the native app's
+  message-poller path can do work without a bridge trigger. That explains why
+  the ACK existed, but not why the original trigger row was never created.
+
+
+Bottleneck feedback event
+=========================
+
+event: bottleneck.detected
+frame: T7 easy repetition
+complexity: easy
+source: db/log/verifier
+symptom: Run 014 original instruction message b826d01f-0252-4ae6-8c74-7fb12ace8b09 had 0 agent_triggers rows; harness reported activation_path=message_poller_no_trigger_row and native_pass=true, but verifier failed no Maya ACK in canonical trigger with trigger_rows=0.
+owner: Pentagon trigger-creation path
+feedback_action: Add a gate/invariant that native instruction messages must create durable agent_triggers rows before verifier-bound gauntlets can count activation; consider changing the runner so message_poller_no_trigger_row is diagnostic, not native_pass, for T7.
+evidence:
+  - frames/t7-native-repetition-progress-20260525.jsonl run_idx=14
+  - frames/t7-repeat-easy-014-run-20260525.log activation_path=message_poller_no_trigger_row
+  - Supabase messages id=b826d01f-0252-4ae6-8c74-7fb12ace8b09
+  - Supabase agent_triggers?message_id=eq.b826d01f-0252-4ae6-8c74-7fb12ace8b09 result=[]
+  - Supabase exact ACK messages b6ffe48b-33f0-4e02-a753-c6629e3d95db and d5bf9e17-2f66-45a4-b622-3f21d8bb658b
+
+
+Remediation proposal, no implementation
+=======================================
+
+1. Preferred: Pentagon-side fix.
+   Ensure the native app creates a durable agent_triggers row for every
+   agent-addressed instruction message before it processes the message through
+   any message-poller fallback. Add local/remote logging for trigger creation
+   failures so future rows are explainable.
+
+2. Secondary guard: runner/verifier-bound harness fix.
+   Treat message_poller_no_trigger_row as a diagnostic incomplete/fail state for
+   verifier-bound T7 gauntlets, or at least record native_pass=false while still
+   preserving the response/proof evidence. The current harness native_pass=true
+   is misleading because the independent verifier must fail without a canonical
+   trigger.
+
+3. Workaround only: bridge-side synthesis.
+   The bridge could detect a message-poller response with no original trigger
+   and synthesize/repair a trigger row, but this muddies provenance unless the
+   row is explicitly marked as reconstructed. This should not be the first fix.
+
+4. Known mode only if intentionally accepted.
+   Document this as a T7 fail mode next to run 008's narrative-wrapped ACK, keep
+   verifier failure unchanged, and resume only if the operator wants variance
+   measurement to include this known audit-gap failure.
+
+
+Unresolved gaps
+===============
+
+- Pentagon.app internal trigger-creation logs were not available in this repo.
+  The DB proves the missing row, but not the exact internal exception/branch.
+- The broad 24h no-trigger count is not a native-instruction failure rate. The
+  precise native-instruction rate from this sample is 1/14.
+- The current worktree had pre-existing modifications in production scripts.
+  This investigation did not edit those scripts.
+
+
+Final classification
+====================
+
+message_poller_no_trigger_row semantics:
+  Runner-level fallback: no agent_triggers row was found for the original
+  instruction message, but target-agent messages containing the hash and the
+  expected proof file were observed.
+
+Run 014 trace:
+  instruction_sent=yes
+  instruction_message_id=b826d01f-0252-4ae6-8c74-7fb12ace8b09
+  instruction_created_at=2026-05-25T18:42:53.613551+00:00
+  original_trigger_created=no
+  trigger_rows_for_original_message=0
+  runner_activation_path=message_poller_no_trigger_row
+  maya_exact_ack_1=b6ffe48b-33f0-4e02-a753-c6629e3d95db at 2026-05-25T18:45:31.267912+00:00
+  maya_exact_ack_2=d5bf9e17-2f66-45a4-b622-3f21d8bb658b at 2026-05-25T18:45:48.425581+00:00
+  verifier_result=fail, no Maya ACK in canonical trigger, trigger_rows=0
+
+Pattern frequency:
+  broad_24h_messages_without_matching_trigger=387/500, noisy
+  precise_native_t7_easy_original_instruction_missing_trigger=1/14
+
+Most likely root cause:
+  (b) Pentagon bug.
+
+Recommended remediation:
+  Pentagon-side fix, with runner guard as a secondary hardening step.
+
+T7 easy resume recommendation:
+  Stop pending a fix if the goal is clean audit-chain reliability. If the
+  operator chooses to keep measuring variance, resume only with run 014 counted
+  as a known audit-gap failure, not as a pass.
