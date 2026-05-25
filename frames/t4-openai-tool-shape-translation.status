@@ -1,7 +1,7 @@
 status: incomplete_dirty_unpushed
 inner_head: 545889f
-outer_head: b6c774c
-outer_evidence_head: pending_commit
+outer_head: 6fcc85e
+outer_evidence_head: 6fcc85e
 evaluated: 2026-05-25
 review: clean_for_inner_5c2cd8e_commit_scoped_only_stale_for_current_545889f
 focused_tests: "focused T4 shard 35 passed"
