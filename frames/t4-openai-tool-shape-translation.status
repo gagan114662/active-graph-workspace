@@ -1,12 +1,12 @@
 status: incomplete_dirty_unpushed
-inner_head: 5c2cd8e
-outer_head: 8522367
-outer_evidence_head: 8522367
-evaluated: 2026-05-23
-review: clean_for_inner_5c2cd8e_commit_scoped_only
-focused_tests: "provider parity + llm replay 19 passed"
+inner_head: 545889f
+outer_head: b6c774c
+outer_evidence_head: pending_commit
+evaluated: 2026-05-25
+review: clean_for_inner_5c2cd8e_commit_scoped_only_stale_for_current_545889f
+focused_tests: "focused T4 shard 35 passed"
 adjacent_runtime_tests: 48 passed
-full_tests: 699 passed, 15 skipped
+full_tests: 702 passed, 15 skipped, 1 warning
 mypy: success
 docstrings: Ring 0 102/102, Ring 1 103/120
 cli_flag_drift: OK
@@ -22,21 +22,32 @@ autonomy:
   implementation_completed_by_codex_fallback: true
   counts_as_pentagon_only_extra_hard_autonomy: false
 bottlenecks_open:
-  - pushed-head closure is false: inner HEAD 5c2cd8e is three commits ahead of origin/main 62015ed
+  - pushed-head closure is false: inner HEAD 545889f is six commits ahead of origin/main 62015ed
   - dirty inner tree remains: CHANGELOG.md, CONTRACT.md, README.md, docs/concepts/provider-tool-parity.md, docs/reference/llm-providers.md plus untracked artifacts
-  - no_changes_outside_permissions remains false: activegraph/behaviors/base.py, activegraph/llm/cache.py, and activegraph/llm/recorded.py are changed while only covered by activegraph/activegraph/**/*.py:ro
+  - no_changes_outside_permissions remains false: activegraph/behaviors/base.py, activegraph/core/graph.py, activegraph/llm/cache.py, activegraph/llm/recorded.py, activegraph/tests/test_attach_store_fresh_reattach_regression.py, and activegraph/tests/test_policy_coverage.py are changed while only covered by activegraph/activegraph/**/*.py:ro
   - frame architect explicitly declined :rw scope amendment for activegraph/behaviors/base.py, activegraph/llm/cache.py, and activegraph/llm/recorded.py
   - Pentagon handoff message does not auto-activate Code Owner
 untracked_not_claimed:
   inner:
     - GAUNTLET.md
     - frames/t6-native-gauntlet-easy-20260523.proof
+    - frames/t6-native-gauntlet-hard-20260523.proof
+    - frames/t6-native-gauntlet-medium-20260523.proof
     - uv.lock
   outer:
     - .review-worktrees/
+    - CLAUDE.md
+    - frames/pipeline-smoke-test-20260525.log
+    - frames/pipeline-smoke-test-20260525.txt
+    - frames/post-baseline-flywheel-roadmap-2026-05-23.md
     - frames/t13-and-beyond-factory-survivability-2026-05-23.md
     - frames/t4-invalid-marker-internal-7886d71.bottleneck.log
     - frames/t6-native-easy-run-20260523.log
+    - frames/t6-native-hard-maya-run-RETRY-20260523.log
+    - frames/t6-native-hard-quinn-run-20260523.log
+    - frames/t6-native-hard-quinn-run-RETRY-20260523.log
+    - frames/t6-quinn-activation-retry-20260523.log
     - frames/t6-real-autonomy-gauntlet-2026-05-23.md
+    - frames/t6-shadow-trigger-investigation-20260525.log
     - frames/t7-t12-scale-reliability-gauntlet-2026-05-23.md
 next_unlock: system-level Pentagon activation repair
