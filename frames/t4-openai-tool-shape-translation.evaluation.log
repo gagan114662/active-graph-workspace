@@ -3542,3 +3542,188 @@ README.md	IN_SCOPE_RW	activegraph/README.md
 docs/concepts/provider-tool-parity.md	IN_SCOPE_RW	activegraph/docs/concepts/provider-tool-parity.md
 docs/reference/llm-providers.md	IN_SCOPE_RW	activegraph/docs/reference/llm-providers.md
 ~~~
+
+## Goal Reaper heartbeat 2026-05-25T17:15:40Z
+
+Verdict: `goal.incomplete` / `incomplete_dirty_unpushed`.
+
+Predicate actuals vs expected:
+
+- `outer_head_current`: expected current outer checkout recorded accurately; actual `ea44aeb Update T4 heartbeat for inner 51caacd` at start of evaluation.
+- `inner_head_current`: expected current inner checkout recorded accurately; actual `9a065bc T7 easy 005: document and type activegraph.core.event.Event.to_dict`.
+- `pushed_head_closure`: expected `origin/main...HEAD = 0 0`; actual `0 11`; RED.
+- `dirty_tree_clean_for_closure`: expected clean inner tree; actual dirty tree includes `CHANGELOG.md`, `CONTRACT.md`, `README.md`, `docs/concepts/provider-tool-parity.md`, `docs/reference/llm-providers.md`; RED.
+- `no_changes_outside_permissions`: expected no committed changes under read-only permissions; actual ten committed paths are changed while only covered by `activegraph/activegraph/**/*.py:ro`; RED.
+- `mypy_strict_passes_full_allowlist`: expected success; actual success; GREEN.
+- `gate_docstrings_script_exits_zero`: expected exit 0; actual exit 0; GREEN.
+- `focused_t4_shard_passes`: expected pass; actual `35 passed`; GREEN.
+- `cli_flag_drift_passes`: expected OK; actual OK; GREEN.
+- `doc_links_pass`: expected pass; actual `3 passed`; GREEN.
+- `wheel_completeness_passes`: expected pass; actual `1 passed`; GREEN.
+- `pytest_full_suite_passes`: expected pass; actual `702 passed, 15 skipped, 1 warning`; GREEN.
+
+Literal command output:
+
+~~~text
+$ cd /Users/gaganarora/Desktop/my projects/active_graph && pwd && git status --short --branch && git rev-parse --short HEAD && git rev-parse --short origin/main && git log --oneline -5
+/Users/gaganarora/Desktop/my projects/active_graph
+## main...origin/main
+ M scripts/pentagon-trigger-bridge.mjs
+ M scripts/run-native-pentagon-task.mjs
+ M scripts/verify-pentagon-autonomy-from-logs.mjs
+?? .review-worktrees/
+?? CLAUDE.md
+?? frames/codex-goals/
+?? frames/pipeline-smoke-test-20260525.log
+?? frames/pipeline-smoke-test-20260525.txt
+?? frames/post-baseline-flywheel-roadmap-2026-05-23.md
+?? frames/t13-and-beyond-factory-survivability-2026-05-23.md
+?? frames/t4-invalid-marker-internal-7886d71.bottleneck.log
+?? frames/t6-native-easy-run-20260523.log
+?? frames/t6-native-hard-maya-run-RETRY-20260523.log
+?? frames/t6-native-hard-quinn-run-20260523.log
+?? frames/t6-native-hard-quinn-run-RETRY-20260523.log
+?? frames/t6-quinn-activation-retry-20260523.log
+?? frames/t6-real-autonomy-gauntlet-2026-05-23.md
+?? frames/t6-shadow-trigger-investigation-20260525.log
+?? frames/t7-native-repetition-progress-20260525.jsonl
+?? frames/t7-native-repetition-progress-20260525.md
+?? frames/t7-repeat-easy-001-instruction-20260525.txt
+?? frames/t7-repeat-easy-001-run-20260525.log
+?? frames/t7-repeat-easy-002-instruction-20260525.txt
+?? frames/t7-repeat-easy-002-run-20260525.log
+?? frames/t7-repeat-easy-003-instruction-20260525.txt
+?? frames/t7-repeat-easy-003-run-20260525.log
+?? frames/t7-repeat-easy-004-instruction-20260525.txt
+?? frames/t7-repeat-easy-004-run-20260525.log
+?? frames/t7-repeat-easy-005-instruction-20260525.txt
+?? frames/t7-repeat-easy-005-run-20260525.log
+?? frames/t7-t12-scale-reliability-gauntlet-2026-05-23.md
+?? frames/t7-t6-regrade-25x-20260525.jsonl
+?? frames/t7-t6-regrade-25x-20260525.md
+?? frames/t7-t6-regrade-25x-after-duplicate-ack-fix-20260525.jsonl
+?? frames/t7-t6-regrade-25x-after-duplicate-ack-fix-20260525.md
+ea44aeb
+ea44aeb
+ea44aeb Update T4 heartbeat for inner 51caacd
+9adadf6 Update T4 heartbeat current evidence
+7846b88 T6 extra-hard: complete native 5-agent run with audited proof
+2501600 Update T4 heartbeat evidence
+c45b29c Avoid self-referential T4 evidence hash
+
+$ cd activegraph && git status --short --branch && git rev-parse --short HEAD && git rev-parse --short origin/main && git log --oneline -8
+## main...origin/main [ahead 11]
+ M CHANGELOG.md
+ M CONTRACT.md
+ M README.md
+ M docs/concepts/provider-tool-parity.md
+ M docs/reference/llm-providers.md
+?? GAUNTLET.md
+?? frames/t4-invalid-marker-internal-7886d71.adversary.log
+?? frames/t4-openai-invalid-marker-068cdc8.adversary.log
+?? frames/t4-openai-tool-argument-normalization-7a975cd.adversary.log
+?? frames/t4-openai-tool-argument-normalization-fce0cab.adversary.log
+?? frames/t6-native-gauntlet-easy-20260523.proof
+?? frames/t6-native-gauntlet-hard-20260523.proof
+?? frames/t6-native-gauntlet-medium-20260523.proof
+?? frames/t7-repeat-easy-001-20260525.proof
+?? frames/t7-repeat-easy-002-20260525.proof
+?? frames/t7-repeat-easy-003-20260525.proof
+?? frames/t7-repeat-easy-004-20260525.proof
+?? frames/t7-repeat-easy-005-20260525.proof
+?? uv.lock
+9a065bc
+62015ed
+9a065bc T7 easy 005: document and type activegraph.core.event.Event.to_dict
+7ea36a2 T7 easy 004: document and type activegraph.packs.PackPrompt.from_body
+51caacd T7 easy 003: document and type activegraph.tools.cache.ToolCache.from_events
+7bb4edc T7 easy 002: document and type activegraph.runtime.patterns.PatternMatcher.matches
+488401c T7 easy 001: document and type activegraph.core.graph.Graph.store
+545889f Fix attach_store: allow fresh graph store replacement
+df06a9a Reproduce bug: allow fresh graph store replacement
+37f413c T6 medium: cover activegraph.policy.Policy
+
+$ cd activegraph && git diff --name-only 62015ed..HEAD && echo '---dirty---' && git diff --name-only && echo '---ahead---' && git rev-list --left-right --count origin/main...HEAD
+activegraph/behaviors/base.py
+activegraph/core/event.py
+activegraph/core/graph.py
+activegraph/llm/cache.py
+activegraph/llm/recorded.py
+activegraph/llm/types.py
+activegraph/packs/__init__.py
+activegraph/runtime/patterns.py
+activegraph/runtime/runtime.py
+activegraph/tests/test_attach_store_fresh_reattach_regression.py
+activegraph/tests/test_policy_coverage.py
+activegraph/tools/cache.py
+tests/test_provider_tool_parity.py
+---dirty---
+CHANGELOG.md
+CONTRACT.md
+README.md
+docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md
+---ahead---
+0	11
+
+$ python3 permission-classifier-for-t4
+committed_range_62015ed..HEAD
+activegraph/behaviors/base.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/core/event.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/core/graph.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/recorded.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/llm/types.py	IN_SCOPE_RW	activegraph/activegraph/llm/types.py
+activegraph/packs/__init__.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/runtime/patterns.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/runtime/runtime.py	IN_SCOPE_RW	activegraph/activegraph/runtime/runtime.py
+activegraph/tests/test_attach_store_fresh_reattach_regression.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/tests/test_policy_coverage.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+activegraph/tools/cache.py	OUT_OF_SCOPE_RO_CHANGED	activegraph/activegraph/**/*.py
+tests/test_provider_tool_parity.py	IN_SCOPE_RW	activegraph/tests/test_provider_tool_parity.py
+
+dirty_tree
+CHANGELOG.md	IN_SCOPE_RW	activegraph/CHANGELOG.md
+CONTRACT.md	IN_SCOPE_RW	activegraph/CONTRACT.md
+README.md	IN_SCOPE_RW	activegraph/README.md
+docs/concepts/provider-tool-parity.md	IN_SCOPE_RW	activegraph/docs/concepts/provider-tool-parity.md
+docs/reference/llm-providers.md	IN_SCOPE_RW	activegraph/docs/reference/llm-providers.md
+
+$ cd activegraph && ../venv/bin/mypy; printf '\n---mypy_exit=%s---\n' "$?"; ../venv/bin/python scripts/gate_docstrings.py; printf '\n---docstrings_exit=%s---\n' "$?"
+Success: no issues found in 23 source files
+
+---mypy_exit=0---
+Ring 0: 102/102 documented (100.0%)
+Ring 0 exemptions in docstring_gaps.toml: 0
+Ring 1: 103/120 not-missing (85.8%); floor=80.0%
+
+OK — docstring gate passes.
+
+---docstrings_exit=0---
+
+$ cd activegraph && ../venv/bin/python scripts/gate_cli_flag_drift.py; printf '\n---cli_exit=%s---\n' "$?"; ../venv/bin/pytest -q tests/test_doc_links.py; printf '\n---doc_links_exit=%s---\n' "$?"
+OK — cli flag drift gate passes. CLI flags: 21; doc flags: 35; allowlisted: 15.
+
+---cli_exit=0---
+...                                                                      [100%]
+3 passed in 0.06s
+
+---doc_links_exit=0---
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_openai_tool_shape.py tests/test_provider_tool_parity.py tests/test_llm_openai.py tests/test_tool_replay.py; printf '\n---focused_exit=%s---\n' "$?"
+...................................                                      [100%]
+35 passed in 0.59s
+
+---focused_exit=0---
+
+$ cd activegraph && ../venv/bin/pytest -q tests/test_wheel_completeness.py; printf '\n---wheel_exit=%s---\n' "$?"
+.                                                                        [100%]
+1 passed in 5.92s
+
+---wheel_exit=0---
+
+$ cd activegraph && ../venv/bin/pytest -q; printf '\n---full_exit=%s---\n' "$?"
+702 passed, 15 skipped, 1 warning in 20.76s
+
+---full_exit=0---
+~~~
