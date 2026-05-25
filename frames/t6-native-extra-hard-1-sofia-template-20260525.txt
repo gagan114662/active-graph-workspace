@@ -1,0 +1,22 @@
+NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP1 SOFIA_SPEC
+
+Sofia, you are Spec Owner for <FEATURE_NAME> in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+
+Feature scope:
+<FEATURE_SCOPE>
+
+Deliverables:
+1. Write the feature contract at:
+   activegraph/docs/specs/<FEATURE_NAME>.md
+2. The spec must include the CLI/API contract, exact output schema, error modes, and the auditability claim required by the T6 EXTRA-HARD section.
+3. Do not implement code. Do not write tests. Do not edit docs outside the spec unless explicitly required by the operator.
+
+Runtime-filled references:
+- feature_name=<FEATURE_NAME>
+- hash_date=<HASH_DATE>
+
+ACK:
+Reply exactly after committing the spec:
+SOFIA_SPEC_DELIVERED T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP1 activegraph/docs/specs/<FEATURE_NAME>.md parent_ack_id=ROOT
+
+The operator records your ACK message id and passes it to Maya as <SOFIA_ACK_ID>.

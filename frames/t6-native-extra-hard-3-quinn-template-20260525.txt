@@ -1,0 +1,24 @@
+NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP3 QUINN_TESTS
+
+Quinn, you are Test Adversary for <FEATURE_NAME> in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+
+Feature scope:
+<FEATURE_SCOPE>
+
+Prior outputs:
+- Sofia spec path: activegraph/docs/specs/<FEATURE_NAME>.md
+- Maya implementation paths: <IMPL_PATHS>
+- Maya ACK id: <MAYA_ACK_ID>
+
+Deliverables:
+1. Write activegraph/tests/test_cli_events_tail.py, or the operator-provided test path for <FEATURE_NAME>.
+2. Include at least 4 spec tests: happy path, --since filter, --filter substring, empty store.
+3. Include at least 2 adversarial tests for Sofia's error modes.
+4. At least one adversarial test must fail against Maya's current implementation and force a Maya fix. Record the failing Quinn test commit as <QUINN_TEST_COMMIT>.
+5. Do not weaken Maya's implementation or alter Sofia's spec.
+
+ACK:
+Reply exactly after committing tests:
+QUINN_TESTS_DELIVERED T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP3 <TEST_PATH> <ADVERSARIAL_FINDING_ID> parent_ack_id=<MAYA_ACK_ID>
+
+The Pentagon message row for this ACK must have parent_id, caused_by, or equivalent causal link pointing to <MAYA_ACK_ID>.

@@ -1,0 +1,26 @@
+NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP5 RILEY_EVIDENCE
+
+Riley, you are Evidence Lead for <FEATURE_NAME> in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+
+Feature scope:
+<FEATURE_SCOPE>
+
+Prior outputs:
+- Sofia spec path: activegraph/docs/specs/<FEATURE_NAME>.md
+- Maya implementation paths: <IMPL_PATHS>
+- Quinn test path: <TEST_PATH>
+- Sam how-to path: activegraph/docs/how-to/<FEATURE_NAME>.md
+- Sam ACK id: <SAM_ACK_ID>
+
+Deliverables:
+1. Run the feature live. For events-tail, run:
+   uv run activegraph events tail --n 5 --json
+2. Capture the self_audit_event_id for the emitted events_tail_invoked event.
+3. Run the full suite, ruff, and mkdocs strict. All must pass.
+4. Assemble frames/t6-native-gauntlet-extra-hard-<HASH_DATE>.proof with the exact fields required by the T6 EXTRA-HARD spec, including causal_chain=sofia=<SOFIA_ACK_ID>,maya=<MAYA_ACK_ID>,quinn=<QUINN_ACK_ID>,sam=<SAM_ACK_ID>,riley=<RILEY_ACK_ID>.
+
+ACK:
+Reply exactly after writing the proof:
+RILEY_EVIDENCE_DELIVERED T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP5 frames/t6-native-gauntlet-extra-hard-<HASH_DATE>.proof parent_ack_id=<SAM_ACK_ID>
+
+The Pentagon message row for this ACK must have parent_id, caused_by, or equivalent causal link pointing to <SAM_ACK_ID>.

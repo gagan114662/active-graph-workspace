@@ -1,0 +1,20 @@
+hash=T6_NATIVE_EXTRA_HARD_20260525
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=7c01dbf52ff2ac878184e9311e9ca76117d80eae
+artifact_commit=7c01dbf52ff2ac878184e9311e9ca76117d80eae
+spec_path=activegraph/docs/specs/missing-events-tail.md
+impl_paths=activegraph/activegraph/cli/events_tail.py,activegraph/activegraph/cli/main.py
+test_path=activegraph/tests/test_cli_events_tail.py
+new_test_count=6
+adversarial_finding_id=fixture-quinn-finding-events-tail-filter
+quinn_test_commit=19047803af8f091e287b3ea8e1bd6c6fa20136bc
+maya_fix_commit=124c856927efd2868c02c61f255f338186078f4e
+docs_how_to_path=activegraph/docs/how-to/tail-events.md
+mkdocs_strict_exit=0
+pytest_after=6
+ruff_exit=0
+self_audit_event_id=evt_events_tail_invoked_004
+self_audit_event_kind=events_tail_invoked
+causal_chain=sofia=fixture-sofia-ack,maya=fixture-maya-ack,quinn=fixture-quinn-ack,sam=fixture-sam-ack,riley=fixture-riley-ack
+ack_parent_ids=fixture-sofia-ack=ROOT,fixture-maya-ack=fixture-sofia-ack,fixture-quinn-ack=fixture-maya-ack,fixture-sam-ack=fixture-quinn-ack,fixture-riley-ack=fixture-sam-ack
+verdict=native_extra_hard_done

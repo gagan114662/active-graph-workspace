@@ -1,0 +1,22 @@
+NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP2 MAYA_IMPL
+
+Maya, you are Code Owner for <FEATURE_NAME> in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+
+Feature scope:
+<FEATURE_SCOPE>
+
+Prior output:
+- Sofia spec path: activegraph/docs/specs/<FEATURE_NAME>.md
+- Sofia ACK id: <SOFIA_ACK_ID>
+
+Deliverables:
+1. Read Sofia's spec and implement the feature in activegraph/activegraph/ using the existing local patterns.
+2. For the events-tail feature from the T6 EXTRA-HARD spec, implementation belongs under activegraph/activegraph/cli/ and must emit an events_tail_invoked audit event every time the command runs.
+3. Commit only implementation files for this step. Quinn will add adversarial tests next.
+4. Record the comma-separated implementation paths for Riley's final proof.
+
+ACK:
+Reply exactly after committing implementation:
+MAYA_IMPL_DELIVERED T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP2 <IMPL_PATHS> parent_ack_id=<SOFIA_ACK_ID>
+
+The Pentagon message row for this ACK must have parent_id, caused_by, or equivalent causal link pointing to <SOFIA_ACK_ID>.

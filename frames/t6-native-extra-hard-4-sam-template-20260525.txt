@@ -1,0 +1,24 @@
+NATIVE_GAUNTLET EXTRA_HARD T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP4 SAM_DOCS
+
+Sam, you are Docs Owner for <FEATURE_NAME> in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+
+Feature scope:
+<FEATURE_SCOPE>
+
+Prior outputs:
+- Sofia spec path: activegraph/docs/specs/<FEATURE_NAME>.md
+- Maya implementation paths: <IMPL_PATHS>
+- Quinn test path: <TEST_PATH>
+- Quinn ACK id: <QUINN_ACK_ID>
+
+Deliverables:
+1. Add a user-facing how-to page at activegraph/docs/how-to/<FEATURE_NAME>.md.
+2. Add the spec and how-to pages to activegraph/mkdocs.yml nav.
+3. Run mkdocs build --strict from the inner repo. It must exit 0.
+4. Do not modify implementation or tests.
+
+ACK:
+Reply exactly after committing docs:
+SAM_DOCS_DELIVERED T6_NATIVE_EXTRA_HARD_<HASH_DATE> STEP4 activegraph/docs/how-to/<FEATURE_NAME>.md parent_ack_id=<QUINN_ACK_ID>
+
+The Pentagon message row for this ACK must have parent_id, caused_by, or equivalent causal link pointing to <QUINN_ACK_ID>.

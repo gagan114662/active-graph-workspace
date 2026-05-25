@@ -226,7 +226,7 @@ function innerRepoPath(relativePath) {
 
 function innerRepoPathCandidates(relativePath) {
   const candidates = [innerRepoPath(relativePath)];
-  if (relativePath?.startsWith("activegraph/tests/")) candidates.push(relativePath.slice("activegraph/".length));
+  if (relativePath?.startsWith("activegraph/")) candidates.push(relativePath.slice("activegraph/".length));
   return [...new Set(candidates.filter(Boolean))];
 }
 
@@ -487,6 +487,85 @@ function hardWorktreePytest(commitSha, testFile, suffix) {
   }
 }
 
+function setupWorktreeVenv(worktreePath, extras = []) {
+  const venv = spawnSync("uv", ["venv"], {
+    cwd: worktreePath,
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  if (venv.status !== 0) return { ok: false, output: "uv venv failed: " + ((venv.stdout ?? "") + (venv.stderr ?? "")).trim() };
+  const installArgs = ["pip", "install", "-e", ".", ...extras];
+  const install = spawnSync("uv", installArgs, {
+    cwd: worktreePath,
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  if (install.status !== 0) return { ok: false, output: "uv " + installArgs.join(" ") + " failed: " + ((install.stdout ?? "") + (install.stderr ?? "")).trim() };
+  const pythonPath = worktreePath + "/.venv/bin/python";
+  const sanity = spawnSync(pythonPath, ["-c", [
+    "import json, os, pathlib, sys",
+    "import activegraph",
+    "python = pathlib.Path(sys.executable).resolve()",
+    "expected = pathlib.Path(os.getcwd(), '.venv', 'bin', 'python').resolve()",
+    "activegraph_file = pathlib.Path(activegraph.__file__).resolve()",
+    "root = pathlib.Path(os.getcwd()).resolve()",
+    "ok = python == expected and root in activegraph_file.parents",
+    "print(json.dumps({'ok': ok, 'python': str(python), 'expected_python': str(expected), 'activegraph_file': str(activegraph_file), 'root': str(root)}))",
+    "raise SystemExit(0 if ok else 17)",
+  ].join("; ")], {
+    cwd: worktreePath,
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  if (sanity.status !== 0) return { ok: false, output: "venv/import sanity failed: " + ((sanity.stdout ?? "") + (sanity.stderr ?? "")).trim() };
+  return { ok: true, pythonPath };
+}
+
+function withInnerWorktree(commitSha, suffix, callback) {
+  const worktreePath = "/tmp/t6xh-verify-" + suffix;
+  const list = innerGit(["worktree", "list"]);
+  if (list.stdout.includes(worktreePath) || existsSync(worktreePath)) {
+    innerGit(["worktree", "remove", worktreePath, "--force"]);
+    rmSync(worktreePath, { recursive: true, force: true });
+  }
+  try {
+    const add = innerGit(["worktree", "add", worktreePath, commitSha]);
+    if (add.status !== 0) return { ok: false, status: null, output: add.stderr || add.stdout };
+    return callback(worktreePath);
+  } finally {
+    innerGit(["worktree", "remove", worktreePath, "--force"]);
+    rmSync(worktreePath, { recursive: true, force: true });
+  }
+}
+
+function xhardWorktreeCollect(commitSha, testFile) {
+  return withInnerWorktree(commitSha, "collect", (worktreePath) => {
+    const setup = setupWorktreeVenv(worktreePath, ["pytest"]);
+    if (!setup.ok) return { ok: false, status: null, count: null, output: setup.output };
+    const testPath = innerRepoPathCandidates(testFile).find((candidate) => existsSync(worktreePath + "/" + candidate)) ?? innerRepoPath(testFile);
+    const collect = spawnSync(setup.pythonPath, ["-m", "pytest", "--collect-only", "-q", testPath], {
+      cwd: worktreePath,
+      encoding: "utf8",
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    const output = ((collect.stdout ?? "") + (collect.stderr ?? "")).trim();
+    return { ok: true, status: collect.status, count: collectCountFromOutput(output), output: output.split(/\r?\n/).slice(-10).join("\n") };
+  });
+}
+
+function xhardMkdocsStrict(commitSha) {
+  return withInnerWorktree(commitSha, "mkdocs", (worktreePath) => {
+    const setup = setupWorktreeVenv(worktreePath, [".[docs]"]);
+    if (!setup.ok) return { ok: false, status: null, output: setup.output };
+    const mkdocs = spawnSync(worktreePath + "/.venv/bin/mkdocs", ["build", "--strict"], {
+      cwd: worktreePath,
+      encoding: "utf8",
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    return { ok: true, status: mkdocs.status, output: ((mkdocs.stdout ?? "") + (mkdocs.stderr ?? "")).trim().split(/\r?\n/).slice(-12).join("\n") };
+  });
+}
+
 function pythonAstInspect(relativePath, symbol) {
   const target = resolveTargetFile(relativePath + ":1");
   const astPath = target.astPath ?? ROOT + "/" + relativePath;
@@ -702,8 +781,8 @@ function proofAckPaths(proofFile) {
 }
 
 function t6TierFromHash(hash) {
-  const match = String(hash ?? "").match(/^T6_NATIVE_(EASY|MEDIUM|HARD)_20260523$/);
-  return match ? match[1].toLowerCase() : "unknown";
+  const match = String(hash ?? "").match(/^T6_NATIVE_(EASY|MEDIUM|HARD|EXTRA_HARD)_20260523$/);
+  return match ? match[1].toLowerCase().replace("_", "-") : "unknown";
 }
 
 function parseMayaAck(content) {
@@ -716,6 +795,31 @@ function parseQuinnAck(content) {
   const match = String(content ?? "").trim().match(/^QUINN_REGRESSION_VERIFIED\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+.*)?$/);
   if (!match) return null;
   return { hash: match[1], failing_test_commit: match[2], fix_commit: match[3] };
+}
+
+function parseExtraHardAck(content) {
+  const text = String(content ?? "").trim();
+  const parentMatch = text.match(/\bparent_ack_id=([^\s]+)/);
+  const parent_ack_id = parentMatch ? parentMatch[1] : null;
+  const patterns = [
+    ["sofia", /^SOFIA_SPEC_DELIVERED\s+(\S+)\s+STEP1\s+(\S+)/],
+    ["maya", /^MAYA_IMPL_DELIVERED\s+(\S+)\s+STEP2\s+(\S+)/],
+    ["quinn", /^QUINN_TESTS_DELIVERED\s+(\S+)\s+STEP3\s+(\S+)\s+(\S+)/],
+    ["sam", /^SAM_DOCS_DELIVERED\s+(\S+)\s+STEP4\s+(\S+)/],
+    ["riley", /^RILEY_EVIDENCE_DELIVERED\s+(\S+)\s+STEP5\s+(\S+)/],
+  ];
+  for (const [leg, pattern] of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    return {
+      leg,
+      hash: match[1],
+      primary_path: match[2],
+      adversarial_finding_id: leg === "quinn" ? match[3] : null,
+      parent_ack_id,
+    };
+  }
+  return null;
 }
 
 function canonicalFieldsEqual(left, right) {
@@ -905,6 +1009,10 @@ function resolveCanonicalAck({ proofFile, hash, tier, leg, expectedAgent, trigge
 
   return {
     ok: true,
+    canonical_trigger_id: canonicalTrigger.id,
+    canonical_ack_id: canonicalAck.id,
+    canonical_ack: canonicalAck,
+    canonical_fields: canonicalAck.canonical_fields,
     detail: JSON.stringify({
       canonical_trigger_id: canonicalTrigger.id,
       canonical_ack_id: canonicalAck.id,
@@ -944,7 +1052,7 @@ async function fetchAckAuditRows(state, expectedAgent, hash, since = null) {
     state,
     "/rest/v1/messages?conversation_id=in.(" + conversationIds.join(",") + ")" +
       messageSinceFilter +
-      "&select=id,conversation_id,sender_id,content,created_at&order=created_at.desc&limit=1000"
+      "&select=*&order=created_at.desc&limit=1000"
   );
   return { triggers, messages };
 }
@@ -1040,6 +1148,208 @@ async function verifyT6QuinnAck(proof, proofFile) {
     canonicalFieldFilter,
     triggerMatches: (content) => String(content ?? "").startsWith("NATIVE_GAUNTLET HARD " + hash + " QUINN_VERIFICATION"),
   });
+}
+
+function parseAssignmentList(text) {
+  const out = {};
+  for (const part of String(text ?? "").split(",")) {
+    if (!part.trim()) continue;
+    const idx = part.indexOf("=");
+    if (idx <= 0) return null;
+    out[part.slice(0, idx)] = part.slice(idx + 1);
+  }
+  return out;
+}
+
+function parseCommaList(text) {
+  return String(text ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+}
+
+function xhardArtifactCommit(proof) {
+  return proof.artifact_commit || proof.head || "HEAD";
+}
+
+function xhardAckChainFromProof(proof) {
+  const chain = parseAssignmentList(proof.causal_chain);
+  const parents = parseAssignmentList(proof.ack_parent_ids);
+  if (!chain || !parents) return { ok: false, detail: "missing or invalid causal_chain/ack_parent_ids" };
+  const steps = ["sofia", "maya", "quinn", "sam", "riley"];
+  const missing = steps.filter((step) => !chain[step]);
+  if (missing.length) return { ok: false, detail: "missing chain steps: " + missing.join(",") };
+  for (let i = 0; i < steps.length; i += 1) {
+    const step = steps[i];
+    const ackId = chain[step];
+    const expectedParent = i === 0 ? "ROOT" : chain[steps[i - 1]];
+    const actualParent = parents[ackId] ?? "";
+    if (actualParent !== expectedParent) {
+      return {
+        ok: false,
+        detail: JSON.stringify({ step, ack_id: ackId, expected_parent: expectedParent, actual_parent: actualParent }),
+      };
+    }
+  }
+  return { ok: true, detail: JSON.stringify({ chain, parents }) };
+}
+
+function messageParentId(row, parsedAck) {
+  const candidates = [
+    row.parent_id,
+    row.caused_by,
+    row.parent_message_id,
+    row.reply_to_message_id,
+    row.in_reply_to_id,
+    row.metadata?.parent_id,
+    row.metadata?.caused_by,
+    parsedAck?.parent_ack_id,
+  ].filter((value) => value !== undefined && value !== null && value !== "");
+  return candidates[0] ?? null;
+}
+
+async function verifyT6ExtraHardAckChainRealDb(proof) {
+  const hash = proof.hash;
+  const agentNames = {
+    sofia: "Sofia (Spec Owner)",
+    maya: "Maya (Code Owner)",
+    quinn: "Quinn (Test Adversary)",
+    sam: "Sam (Docs Owner)",
+    riley: "Riley (Evidence Lead)",
+  };
+  const legLabels = {
+    sofia: "Sofia spec",
+    maya: "Maya implementation",
+    quinn: "Quinn adversarial tests",
+    sam: "Sam docs",
+    riley: "Riley evidence",
+  };
+  const prefixes = {
+    sofia: "SOFIA_SPEC_DELIVERED " + hash + " STEP1",
+    maya: "MAYA_IMPL_DELIVERED " + hash + " STEP2",
+    quinn: "QUINN_TESTS_DELIVERED " + hash + " STEP3",
+    sam: "SAM_DOCS_DELIVERED " + hash + " STEP4",
+    riley: "RILEY_EVIDENCE_DELIVERED " + hash + " STEP5",
+  };
+  const primaryPathFilters = {
+    sofia: (fields) => fields.primary_path === proof.spec_path,
+    maya: (fields) => parseCommaList(proof.impl_paths).includes(fields.primary_path),
+    quinn: (fields) => fields.primary_path === (proof.test_path || proof.test_file) && fields.adversarial_finding_id === proof.adversarial_finding_id,
+    sam: (fields) => fields.primary_path === proof.docs_how_to_path,
+    riley: (fields) => fields.primary_path === proof.proof_path || String(fields.primary_path ?? "").includes("t6-native-gauntlet-extra-hard"),
+  };
+  const { state } = await fetchExpectedAgent("Maya (Code Owner)");
+  const agents = {};
+  for (const [step, name] of Object.entries(agentNames)) {
+    const rows = await supabase(
+      state,
+      "/rest/v1/agents?directory=eq." + encodeURIComponent(ROOT) + "&name=eq." + encodeURIComponent(name) + "&deleted_at=is.null&select=id,name&limit=1"
+    );
+    if (!rows[0]) return { ok: false, detail: "agent row missing: " + name };
+    agents[step] = rows[0];
+  }
+  const byStep = {};
+  const since = optionalSinceParam();
+  for (const step of ["sofia", "maya", "quinn", "sam", "riley"]) {
+    const expectedAgent = agents[step];
+    const { triggers, messages } = await fetchAckAuditRows(state, expectedAgent, hash, since);
+    const check = resolveCanonicalAck({
+      proofFile: proof.proof_path || "extra-hard-chain",
+      hash,
+      tier: "extra-hard",
+      leg: legLabels[step],
+      expectedAgent,
+      triggers,
+      messages,
+      ackParser: parseExtraHardAck,
+      ackMatches: (content) => String(content ?? "").startsWith(prefixes[step]),
+      canonicalFieldFilter: (fields) => fields.hash === hash && fields.leg === step && primaryPathFilters[step](fields),
+      triggerMatches: (content) => String(content ?? "").includes(hash),
+    });
+    if (!check.ok) return { ok: false, detail: JSON.stringify({ step, detail: check.detail }) };
+    byStep[step] = {
+      row: check.canonical_ack,
+      parsed: check.canonical_fields,
+      parent_id: messageParentId(check.canonical_ack, check.canonical_fields),
+      detail: check.detail,
+    };
+  }
+  const steps = ["sofia", "maya", "quinn", "sam", "riley"];
+  for (let i = 1; i < steps.length; i += 1) {
+    const step = steps[i];
+    const prior = steps[i - 1];
+    if (byStep[step].parent_id !== byStep[prior].row.id) {
+      return {
+        ok: false,
+        detail: JSON.stringify({ step, ack_id: byStep[step].row.id, expected_parent: byStep[prior].row.id, actual_parent: byStep[step].parent_id }),
+      };
+    }
+  }
+  return { ok: true, detail: JSON.stringify(Object.fromEntries(steps.map((step) => [step, byStep[step].row.id]))) };
+}
+
+function xhardQuinnGroundTruth(proof) {
+  const quinnCommit = proof.quinn_test_commit;
+  const mayaFixCommit = proof.maya_fix_commit;
+  const testFile = proof.test_path || proof.test_file;
+  const commitQExists = innerCommitExists(quinnCommit);
+  const commitMExists = innerCommitExists(mayaFixCommit);
+  if (!commitQExists || !commitMExists) {
+    return { ok: false, detail: JSON.stringify({ quinn_test_commit: quinnCommit, quinn_exists: commitQExists, maya_fix_commit: mayaFixCommit, maya_exists: commitMExists }) };
+  }
+  const ancestor = innerGit(["merge-base", "--is-ancestor", quinnCommit, mayaFixCommit]);
+  const quinnChanged = changedFilesForInnerCommit(quinnCommit);
+  const mayaChanged = changedFilesForInnerCommit(mayaFixCommit);
+  if (!quinnChanged.ok || !mayaChanged.ok) return { ok: false, detail: quinnChanged.error || mayaChanged.error };
+  const testCandidates = innerRepoPathCandidates(testFile);
+  const quinnTouchesTests = quinnChanged.files.some((path) => path.startsWith("tests/") || path.startsWith("activegraph/tests/"));
+  const quinnTouchesTestPath = quinnChanged.files.some((path) => testCandidates.includes(path));
+  const mayaTouchesSource = mayaChanged.files.some((path) => path.startsWith("activegraph/") && !path.startsWith("activegraph/tests/"));
+  const mayaTouchesTest = mayaChanged.files.some((path) => testCandidates.includes(path));
+  const shown = gitShowForTarget(quinnCommit, testFile);
+  const addedTests = shown.ok ? (shown.diff.match(/^\+\s*def\s+test_/gm) ?? []).length : 0;
+  const pytestQ = hardWorktreePytest(quinnCommit, testFile, "xhard-Q");
+  const pytestM = hardWorktreePytest(mayaFixCommit, testFile, "xhard-M");
+  return {
+    ok: ancestor.status === 0 &&
+      quinnTouchesTests &&
+      quinnTouchesTestPath &&
+      addedTests >= 1 &&
+      mayaTouchesSource &&
+      !mayaTouchesTest &&
+      pytestQ.ok && pytestQ.status !== 0 &&
+      pytestM.ok && pytestM.status === 0,
+    detail: JSON.stringify({
+      ancestor_status: ancestor.status,
+      quinn_files: quinnChanged.files,
+      maya_files: mayaChanged.files,
+      quinn_touches_tests: quinnTouchesTests,
+      quinn_touches_test_path: quinnTouchesTestPath,
+      added_test_defs: addedTests,
+      maya_touches_source: mayaTouchesSource,
+      maya_touches_test: mayaTouchesTest,
+      quinn_pytest_status: pytestQ.status,
+      quinn_pytest_output: pytestQ.output,
+      maya_pytest_status: pytestM.status,
+      maya_pytest_output: pytestM.output,
+    }),
+  };
+}
+
+async function verifyT6ExtraHardSelfAudit(proof, noDb) {
+  if (noDb) {
+    return {
+      ok: Boolean(proof.self_audit_event_id && proof.self_audit_event_kind === "events_tail_invoked"),
+      detail: JSON.stringify({ self_audit_event_id: proof.self_audit_event_id, self_audit_event_kind: proof.self_audit_event_kind }),
+    };
+  }
+  const state = readPentagonSession();
+  const rows = await supabase(
+    state,
+    "/rest/v1/agent_runtime_events?id=eq." + encodeURIComponent(proof.self_audit_event_id) + "&select=*&limit=1"
+  );
+  const row = rows[0];
+  return {
+    ok: Boolean(row && JSON.stringify(row).includes("events_tail_invoked")),
+    detail: row ? JSON.stringify(row) : String(proof.self_audit_event_id ?? "<missing>"),
+  };
 }
 
 async function t6RuntimeEventCount(hash) {
@@ -1313,6 +1623,112 @@ async function runT6HardVerifier() {
   process.exit(exitCode);
 }
 
+async function runT6ExtraHardVerifier() {
+  const noDb = process.argv.includes("--no-db");
+  const proofFile = arg("--proof-file", "frames/t6-native-gauntlet-extra-hard-20260523.proof");
+  const proofText = repoFile(proofFile);
+  const parsed = proofText ? parseKeyValueProof(proofText) : { ok: false, error: "missing proof", proof: {} };
+  const proof = parsed.proof;
+  const artifactCommit = xhardArtifactCommit(proof);
+
+  must("T6 extra-hard proof file exists and parses as key=value lines", Boolean(proofText) && parsed.ok, parsed.error || proofFile);
+  must("T6 extra-hard hash field matches T6_NATIVE_EXTRA_HARD_<DATE>", /^T6_NATIVE_EXTRA_HARD_\d{8}$/.test(String(proof.hash ?? "")), proof.hash ?? "<missing>");
+  must("T6 extra-hard verdict field matches", proof.verdict === "native_extra_hard_done", proof.verdict ?? "<missing>");
+
+  const artifactCommitExists = innerCommitExists(artifactCommit);
+  must("T6 extra-hard artifact commit resolves in inner repo", artifactCommitExists, artifactCommit);
+
+  must(
+    "T6 extra-hard Sofia spec path exists at proof head",
+    artifactCommitExists && innerPathExistsAtCommit(artifactCommit, proof.spec_path),
+    proof.spec_path ?? "<missing>"
+  );
+
+  const implPaths = parseCommaList(proof.impl_paths);
+  must("T6 extra-hard Maya impl_paths field is non-empty", implPaths.length > 0, proof.impl_paths ?? "<missing>");
+  for (const implPath of implPaths) {
+    must(
+      "T6 extra-hard Maya implementation path exists at proof head: " + implPath,
+      artifactCommitExists && innerPathExistsAtCommit(artifactCommit, implPath),
+      implPath
+    );
+  }
+
+  const testPath = proof.test_path || proof.test_file;
+  must(
+    "T6 extra-hard Quinn test path exists at proof head",
+    artifactCommitExists && innerPathExistsAtCommit(artifactCommit, testPath),
+    testPath ?? "<missing>"
+  );
+  if (artifactCommitExists && testPath) {
+    const collect = xhardWorktreeCollect(artifactCommit, testPath);
+    const expectedCount = parseInteger(proof.new_test_count);
+    must(
+      "T6 extra-hard pytest collect-only finds Quinn test file",
+      collect.ok && collect.status === 0 && collect.count !== null && expectedCount !== null && collect.count >= expectedCount,
+      JSON.stringify({ status: collect.status, count: collect.count, expected_count: expectedCount, output: collect.output })
+    );
+  } else {
+    must("T6 extra-hard pytest collect-only finds Quinn test file", false, "missing artifact commit or test_path");
+  }
+
+  must(
+    "T6 extra-hard Sam how-to path exists at proof head",
+    artifactCommitExists && innerPathExistsAtCommit(artifactCommit, proof.docs_how_to_path),
+    proof.docs_how_to_path ?? "<missing>"
+  );
+  if (artifactCommitExists) {
+    const mkdocs = xhardMkdocsStrict(artifactCommit);
+    must(
+      "T6 extra-hard mkdocs build --strict exits 0",
+      mkdocs.ok && mkdocs.status === 0 && proof.mkdocs_strict_exit === "0",
+      JSON.stringify({ status: mkdocs.status, proof_mkdocs_strict_exit: proof.mkdocs_strict_exit, output: mkdocs.output })
+    );
+  } else {
+    must("T6 extra-hard mkdocs build --strict exits 0", false, "missing artifact commit");
+  }
+
+  if (noDb) {
+    const chain = xhardAckChainFromProof(proof);
+    must("T6 extra-hard messages table has 5-ACK causal chain", chain.ok, chain.detail);
+  } else {
+    try {
+      const chain = await verifyT6ExtraHardAckChainRealDb(proof);
+      must("T6 extra-hard messages table has 5-ACK causal chain", chain.ok, chain.detail);
+    } catch (error) {
+      must("T6 extra-hard messages table has 5-ACK causal chain", false, error.message);
+    }
+  }
+
+  const quinnGroundTruth = xhardQuinnGroundTruth(proof);
+  must("T6 extra-hard Quinn adversarial test forced Maya fix", quinnGroundTruth.ok, quinnGroundTruth.detail);
+
+  try {
+    const selfAudit = await verifyT6ExtraHardSelfAudit(proof, noDb);
+    must("T6 extra-hard self_audit_event_id resolves to events_tail_invoked", selfAudit.ok, selfAudit.detail);
+  } catch (error) {
+    must("T6 extra-hard self_audit_event_id resolves to events_tail_invoked", false, error.message);
+  }
+
+  const failed = checks.filter((check) => !check.ok);
+  for (const check of checks) {
+    console.log((check.ok ? "PASS " : "FAIL ") + check.name + (check.detail ? " :: " + check.detail : ""));
+  }
+  if (!noDb) {
+    try {
+      const runtimeEventCount = await t6RuntimeEventCount(proof.hash);
+      console.log("WARN T6 extra-hard agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: " + runtimeEventCount + " rows");
+    } catch (error) {
+      console.log("WARN T6 extra-hard agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: query failed: " + error.message);
+    }
+  }
+  console.log("");
+  console.log("summary: " + (checks.length - failed.length) + "/" + checks.length + " checks passed");
+  console.log("verdict: " + (failed.length ? "failed" : "t6_extra_hard_verified"));
+  const exitCode = failed.length > 0 ? 1 : 0;
+  process.exit(exitCode);
+}
+
 function rowAgentName(row, agentsById) {
   const ids = [row.agent_id, row.actor_id, row.author_id, row.user_id, row.sender_id].filter(Boolean);
   for (const id of ids) {
@@ -1391,8 +1807,12 @@ async function main() {
       await runT6HardVerifier();
       return;
     }
+    if (tier === "extra-hard") {
+      await runT6ExtraHardVerifier();
+      return;
+    }
     {
-      record(false, "T6 tier is supported", "--tier must be easy, medium, or hard");
+      record(false, "T6 tier is supported", "--tier must be easy, medium, hard, or extra-hard");
       const failed = checks.filter((check) => !check.ok);
       for (const check of checks) console.log((check.ok ? "PASS " : "FAIL ") + check.name + (check.detail ? " :: " + check.detail : ""));
       console.log("");
