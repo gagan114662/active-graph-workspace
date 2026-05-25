@@ -1,6 +1,6 @@
 status: incomplete_dirty_unpushed
 inner_head: 83eaef0
-outer_head_at_evaluation: 9c1a457
+outer_head_at_evaluation: 32eca85
 outer_evidence_head: latest committed revision of this status file
 evaluated: 2026-05-25
 review: clean_for_inner_5c2cd8e_commit_scoped_only_stale_for_current_545889f
