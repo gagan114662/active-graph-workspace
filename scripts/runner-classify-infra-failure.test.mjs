@@ -139,12 +139,12 @@ test("existing T7 easy ledger classifies Pentagon infrastructure modes without h
   assert.equal(run019.outcome_class, OUTCOME_PASS);
   assert.equal(run021.infrastructure_failure_root_cause, INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW);
   assert.equal(run022.infrastructure_failure_root_cause, INFRA_ROOT_NO_TRIGGER_TIMEOUT);
-  assert.equal(metrics.pass_count, 19);
+  assert.equal(metrics.pass_count, 21);
   assert.equal(metrics.agent_failure_count, 1);
   assert.equal(metrics.infra_retry_count, 5);
-  assert.equal(metrics.total_run_attempts, 25);
-  assert.equal(Number((metrics.pass_rate * 100).toFixed(1)), 95.0);
-  assert.equal(Number((metrics.infrastructure_failure_rate * 100).toFixed(1)), 20.0);
+  assert.equal(metrics.total_run_attempts, 27);
+  assert.equal(Number((metrics.pass_rate * 100).toFixed(1)), 95.5);
+  assert.equal(Number((metrics.infrastructure_failure_rate * 100).toFixed(1)), 18.5);
 });
 
 test("retry policy treats ghost completion and no-trigger timeout as retryable infra", () => {

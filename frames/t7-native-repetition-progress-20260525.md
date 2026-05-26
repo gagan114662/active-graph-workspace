@@ -11,10 +11,10 @@ Scope: progress toward T7 repetition gauntlet from `frames/t7-t12-scale-reliabil
 - Runner-side attribution now separates agent variance from infrastructure retry:
   - `pass_rate = pass_count / (pass_count + agent_failure_count)`.
   - `infrastructure_failure_rate = infra_retry_count / total_run_attempts`.
-  - Current reclassified sample after 2026-05-26 resume continuation: pass_count=19, agent_failure_count=1, infra_retry_count=4, incomplete_count=2, total_run_attempts=25.
-  - Agent-attributed pass rate: 19/20 = 95.0%.
-  - Infrastructure failure rate: 4/25 = 16.0%.
-  - 23/25 = 92% gate status: missed/aborted. After run 022, only runs 023-025 remained, so max possible pass_count was 22 without adding a new retry policy for incomplete/no-proof runs.
+  - Current reclassified sample after 2026-05-26 classifier-retry validation: pass_count=21, agent_failure_count=1, infra_retry_count=5, total_run_attempts=27.
+  - Agent-attributed pass rate: 21/22 = 95.5%.
+  - Infrastructure failure rate: 5/27 = 18.5%.
+  - 23/25 = 92% original gate status: missed/aborted before the classifier extension. The 017 and 022 retry validation proves the new retry policy can recover both incomplete infrastructure modes in production.
   - Completed-run latency over the ledger: p50 wall-to-completed=183.192s, p95 wall-to-completed=336.601s.
   - Native-runner watchdog restarts recorded in the ledger: 12.
 
@@ -27,14 +27,16 @@ The resume from audited verifier head `52ba17c` resolved the previous retry-hash
 - `016`: infrastructure_retry, known `message_poller_no_trigger_row`; proof and exact ACKs existed, but the original message had no trigger row.
 - `16_retry_1`: pass, 10/10, canonical trigger `b8cf2c98-0d94-40be-8551-b9cdc8d104de`.
 - `017`: abort-triggering new failure mode. Trigger `3b7deda1-de4f-4d9f-999a-0b08258f1c25` was claimed and completed in about 10.6s, but no hash-bearing Maya response rows and no proof file appeared before the runner deadline. Runner classified `outcome_class=incomplete`.
+- `17_retry_1`: pass, 10/10, canonical trigger `336dcdc3-3649-49d8-bbce-813af590e22f`; validates production recovery after `ghost_completion`.
 - `018`: pass, 10/10, fresh target `activegraph.core.ids.IDGen.run`.
 - `019`: pass, 10/10, fresh target `activegraph.runtime.patterns.Match.get`; runner polling hit a Supabase connect timeout after dispatch, but Pentagon completed the work and independent verifier accepted the canonical ACK.
 - `020`: pass, 10/10, fresh target `activegraph.core.patch.Patch.to_dict`.
 - `021`: infrastructure_retry, known `message_poller_no_trigger_row`; proof and ACKs existed but original message had no trigger row.
 - `21_retry_1`: pass, 10/10, canonical trigger `78e58d8a-7cfb-469d-bb74-ee35e01ef629`; closes run 021's target.
 - `022`: incomplete/no-proof/no-ACK. No agent_triggers row, no hash-bearing response rows, and no proof file before runner deadline. At this point the 23-pass gate became mathematically impossible under the current retry policy.
+- `22_retry_1`: pass, 10/10, canonical trigger `1bd35511-b238-4e9a-a7b9-c95b912c9cb8`; validates production recovery after `no_trigger_timeout`.
 
-Authoritative metric command after appending run 022: `node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-20260525.jsonl`; exit 0; pass_count=19, agent_failure_count=1, infra_retry_count=4, total_run_attempts=25, pass_rate_percent=95.0, infrastructure_failure_rate_percent=16.0. The harness does not print incomplete_count; direct ledger count is 2.
+Authoritative metric command after appending 017/022 retry validation: `node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-20260525.jsonl`; exit 0; pass_count=21, agent_failure_count=1, infra_retry_count=5, total_run_attempts=27, pass_rate_percent=95.5, infrastructure_failure_rate_percent=18.5.
 
 ## Fresh Native Easy Results
 
@@ -59,12 +61,14 @@ Authoritative metric command after appending run 022: `node scripts/t7-repetitio
 | 016 | `T7_REPEAT_EASY_20260525_016` | fail, 9/10 | infrastructure_retry | n/a | missing trigger row; retry same target |
 | 016 retry 1 | `T7_REPEAT_EASY_20260525_016_RETRY_1` | pass, 10/10 | exit 0, native pass | 158.422s | within 10 min wall gate |
 | 017 | `T7_REPEAT_EASY_20260525_017` | not run; no proof | exit 2, incomplete | 10.615s to trigger completion; 1214.7s harness | abort: trigger completed without proof/ACK |
+| 017 retry 1 | `T7_REPEAT_EASY_20260525_017_RETRY_1` | pass, 10/10 | exit 0, native pass | 191.833s | within 10 min wall gate |
 | 018 | `T7_REPEAT_EASY_20260525_018` | pass, 10/10 | exit 0, native pass | 223.483s | within 10 min wall gate |
 | 019 | `T7_REPEAT_EASY_20260525_019` | pass, 10/10 | exit 1 transport timeout after dispatch; verifier pass | 237.384s | within 10 min wall gate |
 | 020 | `T7_REPEAT_EASY_20260525_020` | pass, 10/10 | exit 0, native pass | 174.270s | within 10 min wall gate |
 | 021 | `T7_REPEAT_EASY_20260525_021` | fail, 9/10 | infrastructure_retry | n/a | missing trigger row; retry same target |
 | 021 retry 1 | `T7_REPEAT_EASY_20260525_021_RETRY_1` | pass, 10/10 | exit 0, native pass | 164.273s | within 10 min wall gate |
 | 022 | `T7_REPEAT_EASY_20260525_022` | not run; no proof | exit 2, incomplete | n/a | no trigger/proof/ACK; gate impossible |
+| 022 retry 1 | `T7_REPEAT_EASY_20260525_022_RETRY_1` | pass, 10/10 | exit 0, native pass | 118.073s | within 10 min wall gate |
 
 ## Run 001
 
