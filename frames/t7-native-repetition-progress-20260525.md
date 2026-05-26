@@ -11,9 +11,24 @@ Scope: progress toward T7 repetition gauntlet from `frames/t7-t12-scale-reliabil
 - Runner-side attribution now separates agent variance from infrastructure retry:
   - `pass_rate = pass_count / (pass_count + agent_failure_count)`.
   - `infrastructure_failure_rate = infra_retry_count / total_run_attempts`.
-  - Current reclassified sample: pass_count=12, agent_failure_count=1, infra_retry_count=1, total_run_attempts=14.
-  - Agent-attributed pass rate: 12/13 = 92.3%.
-  - Infrastructure failure rate: 1/14 = 7.1%.
+  - Current reclassified sample after 2026-05-26 resume: pass_count=15, agent_failure_count=1, infra_retry_count=2, incomplete_count=1, total_run_attempts=19.
+  - Agent-attributed pass rate: 15/16 = 93.8%.
+  - Infrastructure failure rate: 2/19 = 10.5%.
+  - 23/25 = 92% gate status: aborted before reachable at run 017 because a new failure mode appeared outside the allowed set.
+  - Completed-run latency over the ledger: p50 wall-to-completed=183.192s, p95 wall-to-completed=1244.306s.
+  - Native-runner watchdog restarts recorded in the ledger: 8.
+
+## 2026-05-26 Resume Summary
+
+The resume from audited verifier head `52ba17c` resolved the previous retry-hash blocker and retried run 014.
+
+- `14_retry_1`: pass, 10/10, canonical trigger `ea63af08-11a5-4491-abe5-0b9dca9a589f`.
+- `015`: pass, 10/10, fresh target `activegraph.core.ids.IDGen.patch`.
+- `016`: infrastructure_retry, known `message_poller_no_trigger_row`; proof and exact ACKs existed, but the original message had no trigger row.
+- `16_retry_1`: pass, 10/10, canonical trigger `b8cf2c98-0d94-40be-8551-b9cdc8d104de`.
+- `017`: abort-triggering new failure mode. Trigger `3b7deda1-de4f-4d9f-999a-0b08258f1c25` was claimed and completed in about 10.6s, but no hash-bearing Maya response rows and no proof file appeared before the runner deadline. Runner classified `outcome_class=incomplete`.
+
+Authoritative metric command after appending run 017: `node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-20260525.jsonl`; exit 0; pass_count=15, agent_failure_count=1, infra_retry_count=2, total_run_attempts=19, pass_rate_percent=93.8, infrastructure_failure_rate_percent=10.5.
 
 ## Fresh Native Easy Results
 
@@ -33,6 +48,11 @@ Scope: progress toward T7 repetition gauntlet from `frames/t7-t12-scale-reliabil
 | 012 | `T7_REPEAT_EASY_20260525_012` | pass, 10/10 | exit 0, native pass | 223.621s | within 10 min wall gate |
 | 013 | `T7_REPEAT_EASY_20260525_013` | pass, 10/10 | exit 0, native pass | 184.210s | within 10 min wall gate |
 | 014 | `T7_REPEAT_EASY_20260525_014` | fail, 9/10 | infrastructure_retry | n/a | missing trigger row; retry same target |
+| 014 retry 1 | `T7_REPEAT_EASY_20260525_014_RETRY_1` | pass, 10/10 | exit 0, native pass | 156.422s | within 10 min wall gate |
+| 015 | `T7_REPEAT_EASY_20260525_015` | pass, 10/10 | exit 0, native pass | 251.589s | within 10 min wall gate |
+| 016 | `T7_REPEAT_EASY_20260525_016` | fail, 9/10 | infrastructure_retry | n/a | missing trigger row; retry same target |
+| 016 retry 1 | `T7_REPEAT_EASY_20260525_016_RETRY_1` | pass, 10/10 | exit 0, native pass | 158.422s | within 10 min wall gate |
+| 017 | `T7_REPEAT_EASY_20260525_017` | not run; no proof | exit 2, incomplete | 10.615s to trigger completion; 1214.7s harness | abort: trigger completed without proof/ACK |
 
 ## Run 001
 
