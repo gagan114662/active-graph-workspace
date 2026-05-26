@@ -1,0 +1,67 @@
+RUN_SEED=dc8f307a-e9cb-420b-abe9-b4f828ec1b7b
+NATIVE_GAUNTLET MEDIUM T7_REPEAT_MEDIUM_20260526_006
+
+Maya, this is T7 repetition run 006 for the medium T6 task class in:
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+
+Purpose: measure whether the T6 medium capability repeats on a fresh uncovered API target.
+
+Do not reuse these prior T7 medium targets:
+- activegraph.store.base.replay_into
+- activegraph.core.view.View.objects
+- activegraph.runtime.view_builder.build_view
+- activegraph.observability.status.status_to_dict
+- activegraph.runtime.budget.Budget.snapshot
+
+Worktree discipline:
+- Work in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+- There may be unrelated operator changes in this repo. Do not revert, delete, or rewrite unrelated files.
+- Commit only the new test file you intentionally create for this run.
+- Do not modify product code for this medium run.
+- Do not mock the API under test.
+
+Task:
+1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.
+2. Capture baseline pytest collected-test count without using a pipe:
+     uv run pytest --collect-only -q > /tmp/t7-repeat-medium-006-collect-before.out 2>&1; echo "exit=$?"; tail -3 /tmp/t7-repeat-medium-006-collect-before.out
+   Record the integer count as `pytest_collect_before`.
+3. Run the full pytest suite without using a pipe:
+     uv run pytest -q --tb=no > /tmp/t7-repeat-medium-006-pytest-before.out 2>&1; echo "exit=$?"; tail -3 /tmp/t7-repeat-medium-006-pytest-before.out
+   Record the integer passing count as `pytest_before`.
+4. Pick ONE public API surface in activegraph/activegraph/ that is currently NOT covered by any file in activegraph/tests/. Prove the gap by running:
+     uv run pytest --collect-only -q -k <symbol> > /tmp/t7-repeat-medium-006-gap.out 2>&1; echo "exit=$?"; tail -5 /tmp/t7-repeat-medium-006-gap.out
+   It must show 0 collected tests for that symbol. Record the chosen symbol as `uncovered_symbol` using the fully qualified name.
+5. Write activegraph/tests/test_<feature>_t7m_006_coverage.py with AT LEAST 2 test functions exercising distinct configurations of the API, such as happy path plus boundary/error behavior. Use real fixtures, not mocks of the API under test. Each test function name should include enough of <uncovered_symbol> that `pytest --collect-only -k <uncovered_symbol>` matches it.
+6. Run the new test file alone:
+     uv run pytest activegraph/tests/test_<feature>_t7m_006_coverage.py -v
+   All tests must pass.
+7. Run the full pytest suite again:
+     uv run pytest -q --tb=no > /tmp/t7-repeat-medium-006-pytest-after.out 2>&1; echo "exit=$?"; tail -3 /tmp/t7-repeat-medium-006-pytest-after.out
+   `pytest_after` MUST be greater than or equal to `pytest_before`.
+8. Run collection again:
+     uv run pytest --collect-only -q > /tmp/t7-repeat-medium-006-collect-after.out 2>&1; echo "exit=$?"; tail -3 /tmp/t7-repeat-medium-006-collect-after.out
+   `pytest_collect_after - pytest_collect_before` MUST equal the number of new test functions you added.
+9. Confirm the symbol now collects at least 2 tests:
+     uv run pytest --collect-only -q -k <uncovered_symbol> > /tmp/t7-repeat-medium-006-symbol-after.out 2>&1; echo "exit=$?"; tail -5 /tmp/t7-repeat-medium-006-symbol-after.out
+10. Commit the new test file in the activegraph inner repo with message:
+      T7 medium 006: cover <uncovered_symbol>
+    Record the resulting full commit SHA as `agent_commit_sha`.
+11. Run `uv run ruff check activegraph/tests/test_<feature>_t7m_006_coverage.py`; it must exit 0. Record `ruff_target_exit=0`.
+12. Create frames/t7-repeat-medium-006-20260526.proof with EXACTLY these keys, in this order:
+      hash=T7_REPEAT_MEDIUM_20260526_006
+      run_seed=dc8f307a-e9cb-420b-abe9-b4f828ec1b7b
+      pwd=<pwd output>
+      head=<git short head after commit>
+      uncovered_symbol=<fully.qualified.name>
+      test_file=activegraph/tests/test_<feature>_t7m_006_coverage.py
+      new_test_count=<int>
+      pytest_collect_before=<int>
+      pytest_collect_after=<int>
+      pytest_before=<int>
+      pytest_after=<int>
+      agent_commit_sha=<full sha that committed test_file>
+      ruff_target_exit=0
+      verdict=native_medium_done
+13. Reply exactly:
+    MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_MEDIUM_20260526_006 MEDIUM frames/t7-repeat-medium-006-20260526.proof
+
