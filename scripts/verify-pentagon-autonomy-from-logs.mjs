@@ -580,6 +580,8 @@ function pythonAstInspect(relativePath, symbol) {
     "relative_path = pathlib.Path(sys.argv[3])",
     "parts = relative_path.with_suffix(\"\").parts",
     "module_parts = parts[1:] if len(parts) > 1 and parts[0] == \"activegraph\" and parts[1] == \"activegraph\" else parts",
+    "if module_parts and module_parts[-1] == \"__init__\":",
+    "    module_parts = module_parts[:-1]",
     "module = \".\".join(module_parts)",
     "tree = ast.parse(path.read_text(), filename=str(path))",
     "",
@@ -781,8 +783,38 @@ function proofAckPaths(proofFile) {
 }
 
 function t6TierFromHash(hash) {
-  const match = String(hash ?? "").match(/^T6_NATIVE_(EASY|MEDIUM|HARD|EXTRA_HARD)_20260523$/);
+  const match = String(hash ?? "").match(/^(?:T6_NATIVE|T7_REPEAT)_(EASY|MEDIUM|HARD|EXTRA_HARD)_\d{8}(?:_\d{3})?$/);
   return match ? match[1].toLowerCase().replace("_", "-") : "unknown";
+}
+
+function t6BaselineHash(tier) {
+  return {
+    easy: "T6_NATIVE_EASY_20260523",
+    medium: "T6_NATIVE_MEDIUM_20260523",
+    hard: "T6_NATIVE_HARD_20260523",
+    "extra-hard": null,
+  }[tier] ?? null;
+}
+
+function t7RepeatHashPattern(tier) {
+  const token = tier.toUpperCase().replace("-", "_");
+  return new RegExp("^T7_REPEAT_" + token + "_\\d{8}_\\d{3}$");
+}
+
+function isAcceptedT6ModeHash(hash, tier) {
+  const text = String(hash ?? "");
+  if (text === t6BaselineHash(tier)) return true;
+  if (tier === "extra-hard" && /^T6_NATIVE_EXTRA_HARD_\d{8}$/.test(text)) return true;
+  return t7RepeatHashPattern(tier).test(text);
+}
+
+function acceptedHashDescription(tier) {
+  const baseline = t6BaselineHash(tier) ?? "T6_NATIVE_EXTRA_HARD_<DATE>";
+  return baseline + " or " + "T7_REPEAT_" + tier.toUpperCase().replace("-", "_") + "_<DATE>_<NNN>";
+}
+
+function nativeInstructionBody(content) {
+  return String(content ?? "").replace(/^RUN_SEED=[^\n]+\n/, "");
 }
 
 function parseMayaAck(content) {
@@ -1013,11 +1045,13 @@ function resolveCanonicalAck({ proofFile, hash, tier, leg, expectedAgent, trigge
     canonical_ack_id: canonicalAck.id,
     canonical_ack: canonicalAck,
     canonical_fields: canonicalAck.canonical_fields,
+    equivalent_ack_ids: sortedAcks.map((row) => row.id),
     detail: JSON.stringify({
       canonical_trigger_id: canonicalTrigger.id,
       canonical_ack_id: canonicalAck.id,
       ack_rows: sortedAcks.length,
       shadow_ack_ids: shadowAcks.map((row) => row.id),
+      equivalent_ack_ids: sortedAcks.map((row) => row.id),
       accepted_proof_paths: proofAckPaths(proofFile),
     }),
   };
@@ -1077,7 +1111,7 @@ async function verifyT6Ack(proofFile, hash) {
       ackMatches: (content) => String(content ?? "").includes(ackPrefix),
       canonicalFieldFilter,
       triggerMatches: (content) => {
-        const text = String(content ?? "");
+        const text = nativeInstructionBody(content);
         return text.startsWith("NATIVE_GAUNTLET " + expectedTier + " " + hash) && !text.includes("QUINN_VERIFICATION");
       },
     });
@@ -1099,15 +1133,14 @@ async function verifyT6Ack(proofFile, hash) {
     ackMatches: (content) => String(content ?? "").includes(ackPrefix),
     canonicalFieldFilter: (fields) => fields.hash === hash && fields.tier === expectedTier && acceptedPaths.includes(fields.proof_path),
     triggerMatches: (content) => {
-      const text = String(content ?? "");
+      const text = nativeInstructionBody(content);
       return text.startsWith("NATIVE_GAUNTLET " + expectedTier + " " + hash) && !text.includes("QUINN_VERIFICATION");
     },
   });
 }
 
-async function verifyT6QuinnAck(proof, proofFile) {
+async function verifyT6QuinnAck(proof, proofFile, hash = "T6_NATIVE_HARD_20260523") {
   const since = optionalSinceParam();
-  const hash = "T6_NATIVE_HARD_20260523";
   const commitA = String(proof.failing_test_commit ?? "");
   const commitB = String(proof.fix_commit ?? "");
   const ackPrefix = "QUINN_REGRESSION_VERIFIED " + hash;
@@ -1129,7 +1162,7 @@ async function verifyT6QuinnAck(proof, proofFile) {
       ackParser: parseQuinnAck,
       ackMatches: (content) => String(content ?? "").includes(ackPrefix),
       canonicalFieldFilter,
-      triggerMatches: (content) => String(content ?? "").startsWith("NATIVE_GAUNTLET HARD " + hash + " QUINN_VERIFICATION"),
+      triggerMatches: (content) => nativeInstructionBody(content).startsWith("NATIVE_GAUNTLET HARD " + hash + " QUINN_VERIFICATION"),
     });
   }
   const { state, agent: quinn } = await fetchExpectedAgent("Quinn (Test Adversary)");
@@ -1146,7 +1179,7 @@ async function verifyT6QuinnAck(proof, proofFile) {
     ackParser: parseQuinnAck,
     ackMatches: (content) => String(content ?? "").includes(ackPrefix),
     canonicalFieldFilter,
-    triggerMatches: (content) => String(content ?? "").startsWith("NATIVE_GAUNTLET HARD " + hash + " QUINN_VERIFICATION"),
+    triggerMatches: (content) => nativeInstructionBody(content).startsWith("NATIVE_GAUNTLET HARD " + hash + " QUINN_VERIFICATION"),
   });
 }
 
@@ -1274,6 +1307,7 @@ async function verifyT6ExtraHardAckChainRealDb(proof) {
       row: check.canonical_ack,
       parsed: check.canonical_fields,
       parent_id: messageParentId(check.canonical_ack, check.canonical_fields),
+      equivalent_ack_ids: check.equivalent_ack_ids ?? [check.canonical_ack.id],
       detail: check.detail,
     };
   }
@@ -1281,10 +1315,10 @@ async function verifyT6ExtraHardAckChainRealDb(proof) {
   for (let i = 1; i < steps.length; i += 1) {
     const step = steps[i];
     const prior = steps[i - 1];
-    if (byStep[step].parent_id !== byStep[prior].row.id) {
+    if (!byStep[prior].equivalent_ack_ids.includes(byStep[step].parent_id)) {
       return {
         ok: false,
-        detail: JSON.stringify({ step, ack_id: byStep[step].row.id, expected_parent: byStep[prior].row.id, actual_parent: byStep[step].parent_id }),
+        detail: JSON.stringify({ step, ack_id: byStep[step].row.id, expected_parent: byStep[prior].row.id, accepted_parent_ids: byStep[prior].equivalent_ack_ids, actual_parent: byStep[step].parent_id }),
       };
     }
   }
@@ -1410,9 +1444,10 @@ async function runT6EasyVerifier() {
   const proofText = repoFile(proofFile);
   const parsed = proofText ? parseKeyValueProof(proofText) : { ok: false, error: "missing proof", proof: {} };
   const proof = parsed.proof;
+  const hash = proof.hash;
 
   must("T6 easy proof file exists and parses as key=value lines", Boolean(proofText) && parsed.ok, parsed.error || proofFile);
-  must("T6 easy hash field matches", proof.hash === "T6_NATIVE_EASY_20260523", proof.hash ?? "<missing>");
+  must("T6 easy hash field matches " + acceptedHashDescription("easy"), isAcceptedT6ModeHash(hash, "easy"), proof.hash ?? "<missing>");
   must("T6 easy verdict field matches", proof.verdict === "native_easy_done", proof.verdict ?? "<missing>");
 
   const target = resolveTargetFile(proof.target_file);
@@ -1452,7 +1487,7 @@ async function runT6EasyVerifier() {
     record(true, "T6 easy messages table has Maya ACK referencing proof", "skipped by --no-db");
   } else {
     try {
-      const eventCheck = await verifyT6Ack(proofFile, "T6_NATIVE_EASY_20260523");
+      const eventCheck = await verifyT6Ack(proofFile, hash);
       must("T6 easy messages table has Maya ACK referencing proof", eventCheck.ok, eventCheck.detail);
     } catch (error) {
       must("T6 easy messages table has Maya ACK referencing proof", false, error.message);
@@ -1465,7 +1500,7 @@ async function runT6EasyVerifier() {
   }
   if (!noDb) {
     try {
-      const runtimeEventCount = await t6RuntimeEventCount("T6_NATIVE_EASY_20260523");
+      const runtimeEventCount = await t6RuntimeEventCount(hash);
       console.log("WARN T6 easy agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: " + runtimeEventCount + " rows");
     } catch (error) {
       console.log("WARN T6 easy agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: query failed: " + error.message);
@@ -1484,9 +1519,10 @@ async function runT6MediumVerifier() {
   const proofText = repoFile(proofFile);
   const parsed = proofText ? parseKeyValueProof(proofText) : { ok: false, error: "missing proof", proof: {} };
   const proof = parsed.proof;
+  const hash = proof.hash;
 
   must("T6 medium proof file exists and parses as key=value lines", Boolean(proofText) && parsed.ok, parsed.error || proofFile);
-  must("T6 medium hash field matches", proof.hash === "T6_NATIVE_MEDIUM_20260523", proof.hash ?? "<missing>");
+  must("T6 medium hash field matches " + acceptedHashDescription("medium"), isAcceptedT6ModeHash(hash, "medium"), proof.hash ?? "<missing>");
   must("T6 medium verdict field matches", proof.verdict === "native_medium_done", proof.verdict ?? "<missing>");
   must("T6 medium test_file exists at HEAD in inner repo", innerPathExistsAtHead(proof.test_file), proof.test_file ?? "<missing>");
   must("T6 medium test_file is inside activegraph/tests/", String(proof.test_file ?? "").startsWith("activegraph/tests/"), proof.test_file ?? "<missing>");
@@ -1531,7 +1567,7 @@ async function runT6MediumVerifier() {
     record(true, "T6 medium messages table has Maya ACK referencing proof", "skipped by --no-db");
   } else {
     try {
-      const eventCheck = await verifyT6Ack(proofFile, "T6_NATIVE_MEDIUM_20260523");
+      const eventCheck = await verifyT6Ack(proofFile, hash);
       must("T6 medium messages table has Maya ACK referencing proof", eventCheck.ok, eventCheck.detail);
     } catch (error) {
       must("T6 medium messages table has Maya ACK referencing proof", false, error.message);
@@ -1544,7 +1580,7 @@ async function runT6MediumVerifier() {
   }
   if (!noDb) {
     try {
-      const runtimeEventCount = await t6RuntimeEventCount("T6_NATIVE_MEDIUM_20260523");
+      const runtimeEventCount = await t6RuntimeEventCount(hash);
       console.log("WARN T6 medium agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: " + runtimeEventCount + " rows");
     } catch (error) {
       console.log("WARN T6 medium agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: query failed: " + error.message);
@@ -1563,9 +1599,10 @@ async function runT6HardVerifier() {
   const proofText = repoFile(proofFile);
   const parsed = proofText ? parseKeyValueProof(proofText) : { ok: false, error: "missing proof", proof: {} };
   const proof = parsed.proof;
+  const hash = proof.hash;
 
   must("T6 hard proof file exists and parses as key=value lines", Boolean(proofText) && parsed.ok, parsed.error || proofFile);
-  must("T6 hard hash field matches", proof.hash === "T6_NATIVE_HARD_20260523", proof.hash ?? "<missing>");
+  must("T6 hard hash field matches " + acceptedHashDescription("hard"), isAcceptedT6ModeHash(hash, "hard"), proof.hash ?? "<missing>");
   must("T6 hard verdict field matches", proof.verdict === "native_hard_done", proof.verdict ?? "<missing>");
 
   const testFileOk = String(proof.test_file ?? "").startsWith("activegraph/tests/")
@@ -1590,7 +1627,7 @@ async function runT6HardVerifier() {
     ancestor.stderr || ancestor.stdout || JSON.stringify({ failing_test_commit: proof.failing_test_commit, fix_commit: proof.fix_commit })
   );
 
-  const triggerTs = proofFile.includes("fixture") ? null : triggerTimestampFromLog("T6_NATIVE_HARD_20260523");
+  const triggerTs = proofFile.includes("fixture") ? null : triggerTimestampFromLog(hash);
   const commitATs = commitTimestamp(proof.failing_test_commit);
   if (triggerTs === null) {
     record(true, "T6 hard failing_test_commit timestamp after trigger", "skipped (no T6 hard run log found)");
@@ -1633,13 +1670,13 @@ async function runT6HardVerifier() {
     record(true, "T6 hard messages table has Quinn verification ACK", "skipped by --no-db");
   } else {
     try {
-      const mayaCheck = await verifyT6Ack(proofFile, "T6_NATIVE_HARD_20260523");
+      const mayaCheck = await verifyT6Ack(proofFile, hash);
       must("T6 hard messages table has Maya ACK referencing proof", mayaCheck.ok, mayaCheck.detail);
     } catch (error) {
       must("T6 hard messages table has Maya ACK referencing proof", false, error.message);
     }
     try {
-      const quinnCheck = await verifyT6QuinnAck(proof, proofFile);
+      const quinnCheck = await verifyT6QuinnAck(proof, proofFile, hash);
       must("T6 hard messages table has Quinn verification ACK", quinnCheck.ok, quinnCheck.detail);
     } catch (error) {
       must("T6 hard messages table has Quinn verification ACK", false, error.message);
@@ -1652,7 +1689,7 @@ async function runT6HardVerifier() {
   }
   if (!noDb) {
     try {
-      const runtimeEventCount = await t6RuntimeEventCount("T6_NATIVE_HARD_20260523");
+      const runtimeEventCount = await t6RuntimeEventCount(hash);
       console.log("WARN T6 hard agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: " + runtimeEventCount + " rows");
     } catch (error) {
       console.log("WARN T6 hard agent_runtime_events runtime event missing " + warnContext({ leg: "audit_advisory" }) + " :: query failed: " + error.message);
@@ -1672,9 +1709,10 @@ async function runT6ExtraHardVerifier() {
   const parsed = proofText ? parseKeyValueProof(proofText) : { ok: false, error: "missing proof", proof: {} };
   const proof = parsed.proof;
   const artifactCommit = xhardArtifactCommit(proof);
+  const hash = proof.hash;
 
   must("T6 extra-hard proof file exists and parses as key=value lines", Boolean(proofText) && parsed.ok, parsed.error || proofFile);
-  must("T6 extra-hard hash field matches T6_NATIVE_EXTRA_HARD_<DATE>", /^T6_NATIVE_EXTRA_HARD_\d{8}$/.test(String(proof.hash ?? "")), proof.hash ?? "<missing>");
+  must("T6 extra-hard hash field matches " + acceptedHashDescription("extra-hard"), isAcceptedT6ModeHash(hash, "extra-hard"), proof.hash ?? "<missing>");
   must("T6 extra-hard verdict field matches", proof.verdict === "native_extra_hard_done", proof.verdict ?? "<missing>");
 
   const artifactCommitExists = innerCommitExists(artifactCommit);

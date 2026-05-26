@@ -9,6 +9,8 @@ const PENTAGON_BIN = "/Applications/Pentagon.app/Contents/MacOS/Pentagon";
 const BRIDGE_PLIST = "/Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist";
 const BRIDGE_LABEL = "run.pentagon.trigger-bridge";
 const THEO = "Theo (Test Owner)";
+const PENTAGON_WATCHDOG_STUCK_AGE_SECONDS = 60;
+const PENTAGON_WATCHDOG_COOLDOWN_SECONDS = 300;
 
 function arg(name, fallback = null) {
   const idx = process.argv.indexOf(name);
@@ -19,8 +21,20 @@ function has(name) {
   return process.argv.includes(name);
 }
 
-function command(cmd, args) {
-  return spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 });
+function command(cmd, args, options = {}) {
+  return spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", maxBuffer: 20 * 1024 * 1024, ...options });
+}
+
+function commandResult(cmd, args, options = {}) {
+  const result = command(cmd, args, options);
+  return {
+    cmd,
+    args,
+    status: result.status,
+    signal: result.signal,
+    stdout: String(result.stdout ?? "").trim(),
+    stderr: String(result.stderr ?? "").trim(),
+  };
 }
 
 function decodeJwtPayload(jwt) {
@@ -115,6 +129,110 @@ function restoreBridge() {
   return { kick_status: kick.status, kick_stdout: kick.stdout, kick_stderr: kick.stderr, state: bridgeState() };
 }
 
+function pentagonProcesses() {
+  const result = commandResult("pgrep", ["-fl", PENTAGON_BIN]);
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error("pgrep Pentagon failed: " + JSON.stringify(result));
+  }
+  return result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^(\d+)\s+(.*)$/);
+      return match ? { pid: Number(match[1]), command: match[2] } : null;
+    })
+    .filter((row) => row && row.command.includes(PENTAGON_BIN));
+}
+
+function triggerAgeSeconds(trigger, nowMs = Date.now()) {
+  const createdAt = Date.parse(trigger?.created_at ?? "");
+  if (!Number.isFinite(createdAt)) return null;
+  return Math.max(0, Math.floor((nowMs - createdAt) / 1000));
+}
+
+async function restartPentagonForNativeWatchdog(trigger, result) {
+  const restartStartedAt = Date.now();
+  const previousRestartAt = result.native_watchdog_last_restart_at ?? null;
+  result.native_watchdog_last_restart_at = restartStartedAt;
+  const event = {
+    event: "native_runner_pentagon_watchdog_triggered",
+    detection_time: new Date(restartStartedAt).toISOString(),
+    trigger_id: trigger.id,
+    trigger_age_seconds: triggerAgeSeconds(trigger, restartStartedAt),
+    last_restart_at: previousRestartAt ? new Date(previousRestartAt).toISOString() : null,
+    cooldown_remaining: 0,
+  };
+  result.native_watchdog_events.push(event);
+  console.error(JSON.stringify(event));
+
+  const quitResult = commandResult("osascript", ["-e", "quit app \"Pentagon\""], { timeout: 3000 });
+  await sleep(2000);
+  const survivors = pentagonProcesses();
+  const killResults = [];
+  for (const proc of survivors) {
+    killResults.push(commandResult("kill", ["-9", String(proc.pid)]));
+  }
+  await sleep(3000);
+  const openResult = commandResult("open", ["-a", "Pentagon"]);
+  if (openResult.status !== 0) {
+    throw new Error("open -a Pentagon failed: " + JSON.stringify(openResult));
+  }
+  await sleep(2000);
+  const newProcesses = pentagonProcesses();
+  const completed = {
+    event: "native_runner_pentagon_restart_completed",
+    detection_time: event.detection_time,
+    duration_ms: Date.now() - restartStartedAt,
+    new_pentagon_pid: newProcesses[0]?.pid ?? null,
+    quit_result: quitResult,
+    killed_survivor_pids: survivors.map((proc) => proc.pid),
+    kill_results: killResults,
+  };
+  result.native_watchdog_events.push(completed);
+  console.error(JSON.stringify(completed));
+}
+
+async function checkNativePentagonWatchdog(trigger, result) {
+  if (has("--disable-native-watchdog")) return;
+  if (!trigger || trigger.claimed_at || trigger.completed_at) return;
+  const now = Date.now();
+  const age = triggerAgeSeconds(trigger, now);
+  if (age === null || age < PENTAGON_WATCHDOG_STUCK_AGE_SECONDS) return;
+  const lastRestartAt = result.native_watchdog_last_restart_at ?? null;
+  const elapsedSinceRestartSeconds = lastRestartAt ? Math.floor((now - lastRestartAt) / 1000) : null;
+  const cooldownRemaining = elapsedSinceRestartSeconds === null
+    ? 0
+    : Math.max(0, PENTAGON_WATCHDOG_COOLDOWN_SECONDS - elapsedSinceRestartSeconds);
+  if (cooldownRemaining > 0) {
+    const event = {
+      event: "native_runner_pentagon_watchdog_suppressed",
+      detection_time: new Date(now).toISOString(),
+      reason: "cooldown_active",
+      trigger_id: trigger.id,
+      trigger_age_seconds: age,
+      last_restart_at: new Date(lastRestartAt).toISOString(),
+      cooldown_remaining: cooldownRemaining,
+    };
+    result.native_watchdog_events.push(event);
+    console.error(JSON.stringify(event));
+    return;
+  }
+  try {
+    await restartPentagonForNativeWatchdog(trigger, result);
+  } catch (error) {
+    result.native_watchdog_last_restart_at = Date.now();
+    const event = {
+      event: "native_runner_pentagon_watchdog_error",
+      detection_time: new Date().toISOString(),
+      trigger_id: trigger.id,
+      error: String(error?.message ?? error),
+    };
+    result.native_watchdog_events.push(event);
+    console.error(JSON.stringify(event));
+  }
+}
+
 async function insertMessage(conversationId, senderId, content) {
   const rows = await request("/rest/v1/messages?select=id,conversation_id,sender_id,content,created_at", {
     method: "POST",
@@ -163,6 +281,9 @@ async function main() {
     instruction_file: instructionFile,
     expect_file: expectFile,
     bridge_before: { ok: bridgeState().ok },
+    native_watchdog: has("--disable-native-watchdog") ? "disabled" : "enabled",
+    native_watchdog_events: [],
+    native_watchdog_last_restart_at: null,
   };
   try {
     if (!has("--keep-bridge-running")) {
@@ -185,6 +306,7 @@ async function main() {
     while (Date.now() < deadline) {
       finalTrigger = await triggerForMessage(message.id);
       responses = await responseRows(conversationId, target, hash, message.created_at);
+      await checkNativePentagonWatchdog(finalTrigger, result);
       const fileOk = expectFile ? existsSync(expectFile) && readFileSync(expectFile, "utf8").includes(hash) : true;
       if (finalTrigger?.claimed_at && finalTrigger?.completed_at && responses.length && fileOk) break;
       await sleep(5000);

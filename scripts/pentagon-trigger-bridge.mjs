@@ -9,7 +9,7 @@ const MCP_URL = "https://auth.pentagon.run/functions/v1/mcp";
 const PENTAGON_WATCHDOG_STUCK_AGE_SECONDS = 60;
 const PENTAGON_WATCHDOG_COOLDOWN_SECONDS = 300;
 const PENTAGON_WATCHDOG_AGENT_CACHE_MS = 60_000;
-const PENTAGON_WATCHDOG_NATIVE_CONTENT_FILTER = "or=(content.ilike.NATIVE*,content.ilike.PIPELINE_SMOKE_TEST*)";
+const PENTAGON_WATCHDOG_NATIVE_CONTENT_FILTER = "or=(content.ilike.NATIVE*,content.ilike.RUN_SEED*,content.ilike.PIPELINE_SMOKE_TEST*)";
 
 function arg(name, fallback = null) {
   const idx = process.argv.indexOf(name);
@@ -247,8 +247,8 @@ function summarizeTrigger(trigger) {
   };
 }
 
-function commandResult(cmd, args) {
-  const result = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 1024 * 1024 });
+function commandResult(cmd, args, options = {}) {
+  const result = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 1024 * 1024, ...options });
   return {
     cmd,
     args,
@@ -305,7 +305,10 @@ async function stuckNativeTriggers() {
       "&" + PENTAGON_WATCHDOG_NATIVE_CONTENT_FILTER +
       "&select=id,conversation_id,agent_id,sender_id,message_id,content,created_at&order=created_at.asc&limit=50"
   );
-  return rows.filter((row) => /^(NATIVE|PIPELINE_SMOKE_TEST)/.test(String(row.content ?? "")));
+  return rows.filter((row) => {
+    const content = String(row.content ?? "");
+    return /^(NATIVE|PIPELINE_SMOKE_TEST)/.test(content) || /^RUN_SEED=[^\n]+\nNATIVE/.test(content);
+  });
 }
 
 async function restartPentagonForWatchdog(stuckTriggers, detectionTime, cooldownRemaining) {
@@ -323,7 +326,7 @@ async function restartPentagonForWatchdog(stuckTriggers, detectionTime, cooldown
     cooldown_remaining: cooldownRemaining,
   }));
 
-  const quitResult = commandResult("osascript", ["-e", "quit app \"Pentagon\""]);
+  const quitResult = commandResult("osascript", ["-e", "quit app \"Pentagon\""], { timeout: 3000 });
   await sleep(2000);
   const survivors = pentagonProcesses();
   const killResults = [];
