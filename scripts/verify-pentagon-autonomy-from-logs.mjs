@@ -783,7 +783,7 @@ function proofAckPaths(proofFile) {
 }
 
 function t6TierFromHash(hash) {
-  const match = String(hash ?? "").match(/^(?:T6_NATIVE|T7_REPEAT)_(EASY|MEDIUM|HARD|EXTRA_HARD)_\d{8}(?:_\d{3})?$/);
+  const match = String(hash ?? "").match(/^(?:T6_NATIVE|T7_REPEAT)_(EASY|MEDIUM|HARD|EXTRA_HARD)_\d{8}(?:_\d{3})?(?:_RETRY_\d+)?$/);
   return match ? match[1].toLowerCase().replace("_", "-") : "unknown";
 }
 
@@ -798,7 +798,7 @@ function t6BaselineHash(tier) {
 
 function t7RepeatHashPattern(tier) {
   const token = tier.toUpperCase().replace("-", "_");
-  return new RegExp("^T7_REPEAT_" + token + "_\\d{8}_\\d{3}$");
+  return new RegExp("^T7_REPEAT_" + token + "_\\d{8}_\\d{3}(?:_RETRY_\\d+)?$");
 }
 
 function isAcceptedT6ModeHash(hash, tier) {
@@ -810,7 +810,7 @@ function isAcceptedT6ModeHash(hash, tier) {
 
 function acceptedHashDescription(tier) {
   const baseline = t6BaselineHash(tier) ?? "T6_NATIVE_EXTRA_HARD_<DATE>";
-  return baseline + " or " + "T7_REPEAT_" + tier.toUpperCase().replace("-", "_") + "_<DATE>_<NNN>";
+  return baseline + " or " + "T7_REPEAT_" + tier.toUpperCase().replace("-", "_") + "_<DATE>_<NNN>[_RETRY_<N>]";
 }
 
 function nativeInstructionBody(content) {
