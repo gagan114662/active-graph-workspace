@@ -8,6 +8,12 @@ Scope: progress toward T7 repetition gauntlet from `frames/t7-t12-scale-reliabil
 - `gauntlet_runs` Supabase table: missing (`/rest/v1/gauntlet_runs` returned PostgREST `PGRST205`).
 - File-backed outcome rows: `frames/t7-native-repetition-progress-20260525.jsonl`.
 - Prior reproducibility slice: `frames/t7-t6-regrade-25x-after-duplicate-ack-fix-20260525.md` shows existing T6 proofs regrade 25/25 after the duplicate-ACK equivalent-parent verifier fix.
+- Runner-side attribution now separates agent variance from infrastructure retry:
+  - `pass_rate = pass_count / (pass_count + agent_failure_count)`.
+  - `infrastructure_failure_rate = infra_retry_count / total_run_attempts`.
+  - Current reclassified sample: pass_count=12, agent_failure_count=1, infra_retry_count=1, total_run_attempts=14.
+  - Agent-attributed pass rate: 12/13 = 92.3%.
+  - Infrastructure failure rate: 1/14 = 7.1%.
 
 ## Fresh Native Easy Results
 
@@ -26,7 +32,7 @@ Scope: progress toward T7 repetition gauntlet from `frames/t7-t12-scale-reliabil
 | 011 | `T7_REPEAT_EASY_20260525_011` | pass, 10/10 | exit 0, native pass | 183.192s | within 10 min wall gate |
 | 012 | `T7_REPEAT_EASY_20260525_012` | pass, 10/10 | exit 0, native pass | 223.621s | within 10 min wall gate |
 | 013 | `T7_REPEAT_EASY_20260525_013` | pass, 10/10 | exit 0, native pass | 184.210s | within 10 min wall gate |
-| 014 | `T7_REPEAT_EASY_20260525_014` | fail, 9/10 | exit 0, native pass | n/a | fails canonical-trigger audit |
+| 014 | `T7_REPEAT_EASY_20260525_014` | fail, 9/10 | infrastructure_retry | n/a | missing trigger row; retry same target |
 
 ## Run 001
 

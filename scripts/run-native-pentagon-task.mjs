@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { classifyNativeRunnerResult } from "./t7-repetition-classifier.mjs";
 
 const ROOT = "/Users/gaganarora/Desktop/my projects/active_graph";
 const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
@@ -199,8 +200,8 @@ async function main() {
     const triggerPassed = Boolean(finalTrigger?.claimed_at && finalTrigger?.completed_at);
     const messagePollerPassed = Boolean(!finalTrigger && responses.length && filePassed);
     result.activation_path = triggerPassed ? "agent_trigger" : (messagePollerPassed ? "message_poller_no_trigger_row" : "incomplete");
-    result.native_pass = Boolean((triggerPassed || messagePollerPassed) && responses.length && filePassed);
-    result.verdict = result.native_pass ? "native_task_passed" : "native_task_failed_or_incomplete";
+    result.agent_triggers_result = finalTrigger ? [finalTrigger] : [];
+    Object.assign(result, classifyNativeRunnerResult(result));
   } finally {
     if (!has("--no-restore") && !has("--keep-bridge-running")) result.bridge_restore = restoreBridge();
   }

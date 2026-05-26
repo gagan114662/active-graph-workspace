@@ -1,0 +1,129 @@
+Runner classify infrastructure failure self-test
+date=2026-05-26
+workspace=/Users/gaganarora/Desktop/my projects/active_graph
+goal=frames/codex-goals/runner-classify-infra-failure-goal-20260525.md
+
+Scope
+=====
+
+This self-test covers runner-side classification and T7 repetition harness
+retry/pass-rate policy only. It does not modify the verifier and does not run a
+new T7 native gauntlet.
+
+
+Commands and outcomes
+=====================
+
+1. Unit-test classifier and harness retry policy.
+
+command:
+  node --test scripts/runner-classify-infra-failure.test.mjs > /tmp/runner-classify-test.out 2>&1; echo "exit=$?"; sed -n "1,220p" /tmp/runner-classify-test.out
+
+output:
+  exit=0
+  ok classifier marks message_poller_no_trigger_row as infrastructure_retry
+  ok retry policy retries infra twice then accepts pass
+  ok retry policy escalates after three infrastructure attempts
+  ok existing runs 001-014 reclassify only run 014 as infrastructure_retry
+  tests 4
+  pass 4
+  fail 0
+
+result=PASS
+
+
+2. Syntax checks.
+
+commands:
+  node --check scripts/run-native-pentagon-task.mjs > /tmp/run-native-check.out 2>&1; echo "runner_check_exit=$?"
+  node --check scripts/t7-repetition-classifier.mjs > /tmp/classifier-check.out 2>&1; echo "classifier_check_exit=$?"
+  node --check scripts/t7-repetition-harness.mjs > /tmp/harness-check.out 2>&1; echo "harness_check_exit=$?"
+
+output:
+  runner_check_exit=0
+  classifier_check_exit=0
+  harness_check_exit=0
+
+result=PASS
+
+
+3. Regression check: reclassify run 014 existing runner log.
+
+command:
+  node inline regression script using classifyNativeRunnerResult(frames/t7-repeat-easy-014-run-20260525.log)
+
+output:
+  activation_path=message_poller_no_trigger_row
+  native_pass=false
+  outcome_class=infrastructure_retry
+  verdict=native_task_failed_or_incomplete
+  original_message_id=b826d01f-0252-4ae6-8c74-7fb12ace8b09
+  agent_triggers_query=/rest/v1/agent_triggers?message_id=eq.b826d01f-0252-4ae6-8c74-7fb12ace8b09
+  agent_triggers_result=[]
+  ack_message_ids=[
+    b6ffe48b-33f0-4e02-a753-c6629e3d95db,
+    d5bf9e17-2f66-45a4-b622-3f21d8bb658b,
+    b79b43ff-1d88-4a6a-9f92-24c00b0465b9,
+    26f723d9-c449-4ff3-938a-1bc04b7e0814
+  ]
+
+result=PASS
+
+
+4. Regression check: runs 001-013 do not reclassify as infrastructure_retry.
+
+command:
+  node inline regression script using classifyT7LedgerRows(frames/t7-native-repetition-progress-20260525.jsonl)
+
+output:
+  runs001_013_infra_reclassified=[]
+  run008.outcome_class=fail_verifier
+  run008.agent_failure_root_cause=narrative_wrapped_ack
+
+result=PASS
+
+
+5. Progress metric check.
+
+command:
+  node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-20260525.jsonl > /tmp/t7-harness-summary.out 2>&1; echo "summary_exit=$?"; cat /tmp/t7-harness-summary.out
+
+output:
+  summary_exit=0
+  {
+    "pass_count": 12,
+    "agent_failure_count": 1,
+    "infra_retry_count": 1,
+    "total_run_attempts": 14,
+    "pass_rate": 0.9230769230769231,
+    "infrastructure_failure_rate": 0.07142857142857142,
+    "pass_rate_percent": 92.3,
+    "infrastructure_failure_rate_percent": 7.1
+  }
+
+result=PASS
+
+
+6. Verifier/canonical-trigger rule untouched by this change.
+
+check:
+  The implementation intentionally did not edit scripts/verify-pentagon-autonomy-from-logs.mjs for this goal. Staged diff contains only:
+    frames/runner-classify-infra-failure-selftest-20260525.log
+    frames/t7-native-repetition-progress-20260525.md
+    scripts/run-native-pentagon-task.mjs
+    scripts/runner-classify-infra-failure.test.mjs
+    scripts/t7-repetition-classifier.mjs
+    scripts/t7-repetition-harness.mjs
+
+result=PASS
+
+
+Summary
+-------
+
+- message_poller_no_trigger_row now classifies as native_pass=false and outcome_class=infrastructure_retry in the runner classifier.
+- The missing-trigger evidence attached to that classification includes original instruction message_id, the agent_triggers query/result, and Maya ACK message ids.
+- The T7 harness policy retries infrastructure_retry attempts against the same target symbol with a fresh retry hash/seed and escalates after three infrastructure attempts.
+- Existing run 014 reclassifies to infrastructure_retry.
+- Existing runs 001-013 do not reclassify to infrastructure_retry.
+- Reclassified T7-easy sample metrics are pass_rate=12/13=92.3% for agent attribution and infrastructure_failure_rate=1/14=7.1%.
