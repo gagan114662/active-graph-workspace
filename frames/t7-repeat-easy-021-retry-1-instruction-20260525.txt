@@ -1,0 +1,45 @@
+RUN_SEED=4fdd99c7-db84-4ae9-9b42-7b2003d81ac0
+NATIVE_GAUNTLET EASY T7_REPEAT_EASY_20260525_021_RETRY_1
+
+Maya, this is T7 repetition run 021 retry 1 for the easy T6 task class in:
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+
+Purpose: retry run 021 after an infrastructure-only message-poller failure. Use the same target symbol as run 021 so the audit chain has a real canonical trigger for this target.
+
+Target symbol for this retry:
+- activegraph.core.overrides.CoercedOverride.to_event_payload
+
+Worktree discipline:
+- Work in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+- There may be unrelated operator changes in this repo. Do not revert, delete, or rewrite unrelated files.
+- Commit only the file you intentionally change for this run. If the target already has the required docstring and type annotations from the prior run, do not create an empty commit; record the existing commit that made the target compliant.
+
+Task:
+1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.
+2. Run the full pytest suite and capture the baseline summary line:
+     uv run pytest -q --tb=no > /tmp/t7-repeat-easy-021-retry-1-pytest-before.out 2>&1; echo "exit=$?"; tail -3 /tmp/t7-repeat-easy-021-retry-1-pytest-before.out
+   Record `pytest_before` as the integer count of passing tests.
+3. Inspect activegraph.core.overrides.CoercedOverride.to_event_payload in activegraph/core/overrides.py. It must have BOTH:
+     (a) a docstring matching activegraph/CONTRACT.md's documented format as applicable, and
+     (b) complete parameter and return type annotations.
+4. If the target is missing either requirement, add the missing docstring and/or annotations without changing runtime behavior. If it already satisfies both requirements, leave the file unchanged.
+5. Re-run pytest. `pytest_after` MUST be greater than or equal to `pytest_before`.
+6. Run `uv run ruff check activegraph/core/overrides.py`; it must exit 0.
+7. If you changed activegraph/core/overrides.py, commit the target-file change in the activegraph inner repo. Commit message:
+     T7 easy 021 retry 1: document and type activegraph.core.overrides.CoercedOverride.to_event_payload
+   If no change was needed, use the existing commit SHA that already made activegraph.core.overrides.CoercedOverride.to_event_payload compliant as `agent_commit_sha`.
+8. Create frames/t7-repeat-easy-021-retry-1-20260525.proof with EXACTLY these keys, in this order:
+     hash=T7_REPEAT_EASY_20260525_021_RETRY_1
+     run_seed=4fdd99c7-db84-4ae9-9b42-7b2003d81ac0
+     pwd=<pwd output>
+     head=<git short head after commit, or current short head if no change was needed>
+     target_file=activegraph/core/overrides.py:<line number for CoercedOverride.to_event_payload>
+     target_symbol=activegraph.core.overrides.CoercedOverride.to_event_payload
+     agent_commit_sha=<full sha that committed or already contains the target_file compliance>
+     pytest_before=<int>
+     pytest_after=<int>
+     ruff_target_exit=0
+     verdict=native_easy_done
+9. Reply exactly:
+   MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_EASY_20260525_021_RETRY_1 EASY frames/t7-repeat-easy-021-retry-1-20260525.proof
+

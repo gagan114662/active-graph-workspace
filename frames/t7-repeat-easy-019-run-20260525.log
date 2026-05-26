@@ -1,0 +1,16 @@
+{"event":"native_runner_pentagon_watchdog_triggered","detection_time":"2026-05-26T18:54:53.486Z","trigger_id":"49535121-907c-4410-bf99-497fa4465dc0","trigger_age_seconds":60,"last_restart_at":null,"cooldown_remaining":0}
+{"event":"native_runner_pentagon_restart_completed","detection_time":"2026-05-26T18:54:53.486Z","duration_ms":7419,"new_pentagon_pid":55089,"quit_result":{"cmd":"osascript","args":["-e","quit app \"Pentagon\""],"status":0,"signal":null,"stdout":"","stderr":""},"killed_survivor_pids":[],"kill_results":[]}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+[TypeError: fetch failed] {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:1981:23)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:1962:11)
+      at process.processImmediate (node:internal/timers:504:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+
+Node.js v25.8.2
