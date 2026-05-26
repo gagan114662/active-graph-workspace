@@ -1,0 +1,178 @@
+# Pentagon Defect Investigation - 2026-05-26
+
+Scope: diagnostic only. No code, verifier, Pentagon, database, or ledger changes were made.
+
+Goal input: investigate the known T7 easy infrastructure/incomplete anomalies before resuming T7, then propose classifier extensions only if the evidence supports distinct buckets.
+
+Bootstrap notes:
+- Current goal file: frames/codex-goals/pentagon-defect-investigation-and-classifier-extension-goal-20260526.md
+- Head observed at goal start: e570686 T7 easy repetition runs 022: 0/1 pass, 95.0%/16.0% so far
+- Relevant scripts read: scripts/t7-repetition-classifier.mjs, scripts/t7-repetition-harness.mjs, scripts/run-native-pentagon-task.mjs, scripts/pentagon-trigger-bridge.mjs
+- DB evidence was queried read-only through Supabase REST helpers and reduced into /tmp/pentagon-defect-db-traces.json.
+- Classifier command used for current behavior check:
+  node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-20260525.jsonl --classify
+
+Important filesystem contradiction:
+The goal text says the no-trigger timeout remains unclassified. The current filesystem contradicts that: the ledger row for run 022 is still outcome_class=incomplete, but the current classifier output reclassifies run 022 to outcome_class=infrastructure_retry with infrastructure_failure_root_cause=message_poller_no_trigger_row. That reclassification appears to be caused by a broad note-text match rather than proof/ACK evidence. Per instruction, this log trusts the filesystem.
+
+## Evidence By Run
+
+### Run 014 - T7_REPEAT_EASY_20260525_014
+Ledger:
+- outcome: fail_verifier
+- message_id: b826d01f-0252-4ae6-8c74-7fb12ace8b09
+- trigger_id: null
+- proof_file: activegraph/frames/t7-repeat-easy-014-20260525.proof
+- verifier: exit 1, 9/10
+- notes: activation_path=message_poller_no_trigger_row; exact ACK message ids b6ffe48b-33f0-4e02-a753-c6629e3d95db and d5bf9e17-2f66-45a4-b622-3f21d8bb658b.
+
+DB trace:
+- /agent_triggers?message_id=eq.b826d01f-0252-4ae6-8c74-7fb12ace8b09 returned no rows.
+- Original instruction message exists at 2026-05-25T18:42:53.613551+00:00.
+- Hash-bearing messages for the same run exist after dispatch, including ACK-like messages at 2026-05-25T18:45:31.267912+00:00 and 2026-05-25T18:45:48.425581+00:00.
+- Nearby triggers existed before and after the run window, but on other message_ids, showing trigger ingestion was not globally stopped.
+
+Classification evidence:
+This is a missing canonical trigger row with proof and ACK evidence. It is a good match for message_poller_no_trigger_row.
+
+### Run 016 - T7_REPEAT_EASY_20260525_016
+Ledger:
+- outcome_class: infrastructure_retry
+- message_id: 7bc8bbf0-b112-47e5-bc49-4bf3e47ccb1a
+- trigger_id: null
+- proof_file: activegraph/frames/t7-repeat-easy-016-20260525.proof
+- verifier: exit 1, 9/10
+- notes: activation_path=message_poller_no_trigger_row with proof file and exact ACK messages, but no canonical trigger row.
+
+DB trace:
+- /agent_triggers?message_id=eq.7bc8bbf0-b112-47e5-bc49-4bf3e47ccb1a returned no rows.
+- Original instruction message exists at 2026-05-26T14:25:15.060744+00:00.
+- Hash-bearing messages exist after dispatch, including ACK-like message 094cac75-c1e1-4509-8549-681ed4f96c40 at 2026-05-26T14:28:14.519529+00:00.
+- Nearby triggers existed around the same window, all on other message_ids.
+
+Classification evidence:
+This is a missing canonical trigger row with proof and ACK evidence. It is a good match for message_poller_no_trigger_row.
+
+### Run 017 - T7_REPEAT_EASY_20260525_017
+Ledger:
+- outcome_class: incomplete
+- message_id: b5b74472-a417-489a-9541-bb68fa7b6ce6
+- trigger_id: 3b7deda1-de4f-4d9f-999a-0b08258f1c25
+- trigger_created_at: 2026-05-26T14:51:58.085685+00:00
+- claimed_at: 2026-05-26T14:51:58.241062+00:00
+- completed_at: 2026-05-26T14:52:08.701+00:00
+- ack_id: null
+- proof_file: activegraph/frames/t7-repeat-easy-017-20260525.proof
+- verifier: not run
+- notes: trigger was created, claimed, and completed in about 10.6s, but Maya produced no hash-bearing response rows and no expected proof file.
+
+DB trace:
+- The direct message trigger exists and reached completed_at.
+- Only the original instruction message was hash-bearing in the conversation trace.
+- No Maya ACK/proof messages were found for the run hash.
+- Nearby trigger activity existed, but the run's own lifecycle completed without matching work output.
+
+Classification evidence:
+This is not message_poller_no_trigger_row because the trigger row exists. It is also not an agent failure because there is no agent answer/proof to evaluate. The best supported label is ghost_completion: trigger lifecycle reached completed_at without observable task execution or proof output.
+
+### Run 019 - T7_REPEAT_EASY_20260525_019
+Ledger:
+- outcome_class: pass
+- message_id: 62ef537b-8f05-46b2-854e-84f6a39231b4
+- trigger_id: 49535121-907c-4410-bf99-497fa4465dc0
+- trigger_created_at: 2026-05-26T18:53:52.549631+00:00
+- claimed_at: 2026-05-26T18:55:39.490129+00:00
+- completed_at: 2026-05-26T18:57:49.933426+00:00
+- ack_id: 3d5396c8-10cf-4392-b270-8c4804afb060
+- proof_file: activegraph/frames/t7-repeat-easy-019-20260525.proof
+- verifier: exit 0, 10/10
+- notes: first runner attempt failed before handoff due DNS ENOTFOUND; second attempt created canonical trigger and watchdog restart, then runner crashed with Supabase connect timeout while polling. Pentagon still completed work.
+
+DB trace:
+- Canonical trigger exists for the run message and has claimed/completed timestamps.
+- ACK message 3d5396c8-10cf-4392-b270-8c4804afb060 exists at 2026-05-26T18:57:49.777323+00:00.
+- Verifier passed independently.
+
+Classification evidence:
+This is not a Pentagon execution failure and should remain pass. The defect is runner transport/observability: a local polling/network timeout after dispatch created a false error surface even though Pentagon completed and the verifier passed.
+
+### Run 021 - T7_REPEAT_EASY_20260525_021
+Ledger:
+- outcome_class: infrastructure_retry
+- message_id: d3d3d122-9dbd-4acc-abae-fb42def385e4
+- trigger_id: null
+- proof_file: activegraph/frames/t7-repeat-easy-021-20260525.proof
+- verifier: exit 1, 9/10
+- notes: activation_path=message_poller_no_trigger_row with proof file and exact ACK messages, but no canonical trigger row.
+
+DB trace:
+- /agent_triggers?message_id=eq.d3d3d122-9dbd-4acc-abae-fb42def385e4 returned no rows.
+- Original instruction message exists at 2026-05-26T19:28:37.413747+00:00.
+- Hash-bearing response/ACK messages exist after dispatch, including 0c0a7c71-a18d-4005-be39-84770506307e at 2026-05-26T19:31:03.170091+00:00.
+- Nearby triggers existed for other message_ids.
+
+Classification evidence:
+This is a missing canonical trigger row with proof and ACK evidence. It is a good match for message_poller_no_trigger_row.
+
+### Run 022 - T7_REPEAT_EASY_20260525_022
+Ledger:
+- outcome_class: incomplete
+- message_id: 538bdb13-b4c5-46e1-b346-7269f33a193e
+- trigger_id: null
+- proof_file: activegraph/frames/t7-repeat-easy-022-20260525.proof
+- verifier: not run
+- notes: no agent_triggers row, no hash-bearing response rows, and no proof file before runner deadline. This is not the classified message_poller_no_trigger_row path because no ACK/proof existed.
+
+DB trace:
+- /agent_triggers?message_id=eq.538bdb13-b4c5-46e1-b346-7269f33a193e returned no rows.
+- Original instruction message exists at 2026-05-26T19:54:59.06815+00:00.
+- No hash-bearing response rows beyond the original instruction.
+- Nearby triggers existed before the run message, but none for the original instruction.
+
+Current classifier behavior:
+- Despite the ledger note saying this is not message_poller_no_trigger_row, the current classifier output reclassifies run 022 as outcome_class=infrastructure_retry with infrastructure_failure_root_cause=message_poller_no_trigger_row.
+- That is not supported by proof/ACK evidence and should be treated as classifier overreach.
+
+Classification evidence:
+This is distinct from runs 014/016/021. The best supported label is no_trigger_timeout: no canonical trigger row, no proof, no ACK, and no observable agent work before the runner deadline.
+
+## Cross-Run Findings
+
+1. A single shared upstream root cause is not proven.
+Runs 014, 016, 021, 017, 019, and 022 all involve T7/Pentagon infrastructure surfaces, but the evidence splits into multiple lifecycle modes. Combining them under one root cause would overstate the evidence.
+
+2. The missing-trigger-with-proof mode is well supported.
+Runs 014, 016, and 021 have the same shape: original instruction message exists, no agent_triggers row exists for that message, proof/ACK evidence exists, and the verifier fails only because it requires a canonical trigger row. This supports message_poller_no_trigger_row.
+
+3. The ghost-completion mode is distinct.
+Run 017 has a trigger row that was claimed and completed in about 10.6 seconds, but no output/proof. That cannot be explained by no trigger row. It should be tracked separately.
+
+4. The no-trigger-timeout mode is distinct.
+Run 022 has no trigger row and no output/proof. It could share a lower-level ingestion failure with message_poller_no_trigger_row, but the absence of proof/ACK means the classifier cannot safely treat it as the same evidence class. It needs its own label.
+
+5. Runner transport false error is distinct.
+Run 019 passed by DB/verifier evidence. The failure surface was local transport while polling Supabase. It should not lower agent-attributed pass rate and should not be treated as a Pentagon execution defect.
+
+6. Bridge logs are not decisive for native-runner failures.
+The native runner stops/restores the trigger bridge during native runs, so the bridge stderr log is not a reliable primary source for these native handoffs. Per-run native runner logs and DB rows are stronger evidence. No per-run watchdog event was recorded for runs 014, 016, 017, 021, or 022; run 019 did record a native-runner watchdog restart and still completed successfully.
+
+## Bottleneck Feedback Event
+
+event: bottleneck.detected
+frame: T7-easy
+source: ledger_plus_supabase_rest_plus_run_logs
+symptom: Pentagon trigger lifecycle anomalies are recurring under T7 repetition and currently blur distinct infrastructure failure modes.
+observed_modes:
+  - message_poller_no_trigger_row: no canonical trigger for original instruction, but proof/ACK landed anyway; observed runs 014, 016, 021.
+  - ghost_completion: trigger claimed/completed, but no proof/ACK/output; observed run 017.
+  - no_trigger_timeout: no trigger row, no proof, no ACK/output before deadline; observed run 022.
+  - runner_transport_after_dispatch: verifier pass despite runner transport error while polling; observed run 019.
+impact: T7 metrics can remain auditable only if retryable infrastructure is classified by evidence shape rather than broad note text.
+feedback_action: propose classifier extension with stricter evidence requirements and separate root-cause labels before resuming T7.
+
+## Phase 1 Decision
+
+Phase 1 is conclusive enough for classifier-scope action, but not for a single upstream root-cause claim.
+
+Recommended next step: proceed to Phase 2 proposal only. Do not implement without operator approval.
+

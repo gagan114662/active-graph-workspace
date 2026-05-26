@@ -1,0 +1,175 @@
+# Classifier Extension Self-Test - 2026-05-26
+
+Scope:
+- Phase 3 of frames/codex-goals/pentagon-defect-investigation-and-classifier-extension-goal-20260526.md.
+- Proposal source: frames/classifier-extension-proposal-20260526.md.
+- No T7 medium/hard/extra-hard run was executed.
+- scripts/verify-pentagon-autonomy-from-logs.mjs was not modified.
+
+## Command: node --test scripts/runner-classify-infra-failure.test.mjs
+
+Exit: 0
+
+```
+✔ classifier marks message_poller_no_trigger_row as infrastructure_retry (1.546042ms)
+✔ classifier marks ghost completion as retryable infrastructure (0.091375ms)
+✔ classifier marks no-trigger timeout as retryable infrastructure (0.728791ms)
+✔ retry policy retries infra twice then accepts pass (0.546833ms)
+✔ retry policy escalates after three infrastructure attempts (0.085416ms)
+✔ existing T7 easy ledger classifies Pentagon infrastructure modes without hiding agent failure (1.354709ms)
+✔ retry policy treats ghost completion and no-trigger timeout as retryable infra (0.113583ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 102.873375
+```
+
+## Command: node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-20260525.jsonl
+
+Exit: 0
+
+```json
+{
+  "pass_count": 19,
+  "agent_failure_count": 1,
+  "infra_retry_count": 5,
+  "total_run_attempts": 25,
+  "pass_rate": 0.95,
+  "infrastructure_failure_rate": 0.2,
+  "pass_rate_percent": 95,
+  "infrastructure_failure_rate_percent": 20
+}
+```
+
+## Named Regression Rows
+
+Command:
+node - <<'NODE' ... classifyT7LedgerRows(...) for runs 014, 016, 017, 019, 021, 022
+
+Exit: 0
+
+```json
+[
+  {
+    "run_idx": 14,
+    "outcome": "infrastructure_retry",
+    "outcome_class": "infrastructure_retry",
+    "infrastructure_failure_root_cause": "message_poller_no_trigger_row",
+    "agent_failure_root_cause": null,
+    "trigger_id": null,
+    "verifier_exit": 1,
+    "ack_id": null
+  },
+  {
+    "run_idx": 16,
+    "outcome": "infrastructure_retry",
+    "outcome_class": "infrastructure_retry",
+    "infrastructure_failure_root_cause": "message_poller_no_trigger_row",
+    "agent_failure_root_cause": null,
+    "trigger_id": null,
+    "verifier_exit": 1,
+    "ack_id": null
+  },
+  {
+    "run_idx": 17,
+    "outcome": "infrastructure_retry",
+    "outcome_class": "infrastructure_retry",
+    "infrastructure_failure_root_cause": "ghost_completion",
+    "agent_failure_root_cause": null,
+    "trigger_id": "3b7deda1-de4f-4d9f-999a-0b08258f1c25",
+    "verifier_exit": null,
+    "ack_id": null
+  },
+  {
+    "run_idx": 19,
+    "outcome": "pass",
+    "outcome_class": "pass",
+    "infrastructure_failure_root_cause": null,
+    "agent_failure_root_cause": null,
+    "trigger_id": "49535121-907c-4410-bf99-497fa4465dc0",
+    "verifier_exit": 0,
+    "ack_id": "3d5396c8-10cf-4392-b270-8c4804afb060"
+  },
+  {
+    "run_idx": 21,
+    "outcome": "infrastructure_retry",
+    "outcome_class": "infrastructure_retry",
+    "infrastructure_failure_root_cause": "message_poller_no_trigger_row",
+    "agent_failure_root_cause": null,
+    "trigger_id": null,
+    "verifier_exit": 1,
+    "ack_id": null
+  },
+  {
+    "run_idx": 22,
+    "outcome": "infrastructure_retry",
+    "outcome_class": "infrastructure_retry",
+    "infrastructure_failure_root_cause": "no_trigger_timeout",
+    "agent_failure_root_cause": null,
+    "trigger_id": null,
+    "verifier_exit": null,
+    "ack_id": null
+  }
+]
+```
+
+## Retry Decision: run 017 ghost_completion
+
+Command:
+node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-20260525.jsonl --retry-decision --run-idx 17
+
+Exit: 0
+
+```json
+{
+  "action": "retry",
+  "reason": "infrastructure_retry",
+  "infrastructure_attempts": 1,
+  "retry": {
+    "retry_of_run_idx": 17,
+    "retry_of_hash": "T7_REPEAT_EASY_20260525_017",
+    "retry_attempt": 1,
+    "hash": "T7_REPEAT_EASY_20260525_017_RETRY_1",
+    "seed": "dc0419da-91f2-439f-914a-d0a563776955",
+    "target_symbol": null
+  }
+}
+```
+
+## Retry Decision: run 022 no_trigger_timeout
+
+Command:
+node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-20260525.jsonl --retry-decision --run-idx 22
+
+Exit: 0
+
+```json
+{
+  "action": "retry",
+  "reason": "infrastructure_retry",
+  "infrastructure_attempts": 1,
+  "retry": {
+    "retry_of_run_idx": 22,
+    "retry_of_hash": "T7_REPEAT_EASY_20260525_022",
+    "retry_attempt": 1,
+    "hash": "T7_REPEAT_EASY_20260525_022_RETRY_1",
+    "seed": "b02e805a-1fbf-4392-a5fa-be446d2b7417",
+    "target_symbol": null
+  }
+}
+```
+
+## Self-Test Conclusion
+
+- Run 014: infrastructure_retry / message_poller_no_trigger_row.
+- Run 016: infrastructure_retry / message_poller_no_trigger_row.
+- Run 017: infrastructure_retry / ghost_completion.
+- Run 019: pass; runner transport failure remains non-failing.
+- Run 021: infrastructure_retry / message_poller_no_trigger_row.
+- Run 022: infrastructure_retry / no_trigger_timeout.
+- Agent failure run 008 remains fail_verifier / narrative_wrapped_ack.
+- T7 easy classified summary: 19 pass, 1 agent failure, 5 infrastructure retry, 25 attempts, 95.0% agent-attributed pass rate.

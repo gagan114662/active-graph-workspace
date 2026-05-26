@@ -4,6 +4,9 @@ export const OUTCOME_PASS = "pass";
 export const OUTCOME_FAIL_VERIFIER = "fail_verifier";
 export const OUTCOME_INFRASTRUCTURE_RETRY = "infrastructure_retry";
 export const OUTCOME_INCOMPLETE = "incomplete";
+export const INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW = "message_poller_no_trigger_row";
+export const INFRA_ROOT_GHOST_COMPLETION = "ghost_completion";
+export const INFRA_ROOT_NO_TRIGGER_TIMEOUT = "no_trigger_timeout";
 export const MAX_INFRASTRUCTURE_RETRIES = 3;
 
 export function classifyNativeRunnerResult(result) {
@@ -15,6 +18,7 @@ export function classifyNativeRunnerResult(result) {
       : "incomplete"
   );
   const filePassed = !result?.expected_file || result.expected_file.contains_hash === true;
+  const proofMissing = result?.expected_file && result.expected_file.exists === false;
   const triggerPassed = Boolean(finalTrigger?.claimed_at && finalTrigger?.completed_at);
   const messagePollerOnly = activationPath === "message_poller_no_trigger_row";
 
@@ -28,6 +32,7 @@ export function classifyNativeRunnerResult(result) {
       activation_path: activationPath,
       native_pass: false,
       outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
+      infrastructure_failure_root_cause: INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW,
       verdict: "native_task_failed_or_incomplete",
       missing_trigger_evidence: {
         original_message_id: originalMessageId,
@@ -36,6 +41,44 @@ export function classifyNativeRunnerResult(result) {
           : null,
         agent_triggers_result: triggerRows,
         ack_message_ids: responseRows.map((row) => row.id).filter(Boolean),
+      },
+    };
+  }
+
+  if (triggerPassed && responseRows.length === 0 && proofMissing) {
+    return {
+      ...result,
+      activation_path: activationPath,
+      native_pass: false,
+      outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
+      infrastructure_failure_root_cause: INFRA_ROOT_GHOST_COMPLETION,
+      verdict: "native_task_failed_or_incomplete",
+      ghost_completion_evidence: {
+        trigger_id: finalTrigger?.id ?? null,
+        claimed_at: finalTrigger?.claimed_at ?? null,
+        completed_at: finalTrigger?.completed_at ?? null,
+        response_row_count: responseRows.length,
+        expected_file_exists: result?.expected_file?.exists ?? null,
+      },
+    };
+  }
+
+  if (!finalTrigger && responseRows.length === 0 && proofMissing) {
+    const originalMessageId = result?.message?.id ?? result?.message_id ?? null;
+    return {
+      ...result,
+      activation_path: activationPath,
+      native_pass: false,
+      outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
+      infrastructure_failure_root_cause: INFRA_ROOT_NO_TRIGGER_TIMEOUT,
+      verdict: "native_task_failed_or_incomplete",
+      no_trigger_timeout_evidence: {
+        original_message_id: originalMessageId,
+        agent_triggers_query: originalMessageId
+          ? "/rest/v1/agent_triggers?message_id=eq." + originalMessageId
+          : null,
+        response_row_count: responseRows.length,
+        expected_file_exists: result?.expected_file?.exists ?? null,
       },
     };
   }
@@ -56,7 +99,7 @@ export function classifyT7LedgerRow(row, runnerResult = null) {
       ...row,
       outcome: OUTCOME_INFRASTRUCTURE_RETRY,
       outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
-      infrastructure_failure_root_cause: row?.infrastructure_failure_root_cause ?? "message_poller_no_trigger_row",
+      infrastructure_failure_root_cause: row?.infrastructure_failure_root_cause ?? inferInfrastructureRootCause(row),
     };
   }
   if (row?.outcome_class === OUTCOME_PASS) {
@@ -77,8 +120,10 @@ export function classifyT7LedgerRow(row, runnerResult = null) {
         ...row,
         outcome: OUTCOME_INFRASTRUCTURE_RETRY,
         outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
-        infrastructure_failure_root_cause: "message_poller_no_trigger_row",
+        infrastructure_failure_root_cause: classified.infrastructure_failure_root_cause,
         missing_trigger_evidence: classified.missing_trigger_evidence,
+        ghost_completion_evidence: classified.ghost_completion_evidence,
+        no_trigger_timeout_evidence: classified.no_trigger_timeout_evidence,
       };
     }
   }
@@ -88,14 +133,32 @@ export function classifyT7LedgerRow(row, runnerResult = null) {
     row?.trigger_id === null ||
     row?.trigger_id === undefined ||
     row?.activation_path === "message_poller_no_trigger_row"
-  ) && /message_poller_no_trigger_row|trigger_rows=0|no canonical agent_triggers row/i.test(notes);
+  ) && hasMessagePollerWorkEvidence(row, notes);
 
   if (looksLikeMessagePollerDrop) {
     return {
       ...row,
       outcome: OUTCOME_INFRASTRUCTURE_RETRY,
       outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
-      infrastructure_failure_root_cause: "message_poller_no_trigger_row",
+      infrastructure_failure_root_cause: INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW,
+    };
+  }
+
+  if (looksLikeGhostCompletion(row, notes)) {
+    return {
+      ...row,
+      outcome: OUTCOME_INFRASTRUCTURE_RETRY,
+      outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
+      infrastructure_failure_root_cause: INFRA_ROOT_GHOST_COMPLETION,
+    };
+  }
+
+  if (looksLikeNoTriggerTimeout(row, notes)) {
+    return {
+      ...row,
+      outcome: OUTCOME_INFRASTRUCTURE_RETRY,
+      outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
+      infrastructure_failure_root_cause: INFRA_ROOT_NO_TRIGGER_TIMEOUT,
     };
   }
 
@@ -112,6 +175,36 @@ export function classifyT7LedgerRow(row, runnerResult = null) {
   }
 
   return { ...row, outcome_class: row?.outcome_class ?? OUTCOME_INCOMPLETE };
+}
+
+export function inferInfrastructureRootCause(row) {
+  const notes = String(row?.notes ?? "");
+  if (looksLikeGhostCompletion(row, notes)) return INFRA_ROOT_GHOST_COMPLETION;
+  if (looksLikeNoTriggerTimeout(row, notes)) return INFRA_ROOT_NO_TRIGGER_TIMEOUT;
+  if (hasMessagePollerWorkEvidence(row, notes)) return INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW;
+  return INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW;
+}
+
+function hasMessagePollerWorkEvidence(row, notes = String(row?.notes ?? "")) {
+  if (row?.activation_path === "message_poller_no_trigger_row") return true;
+  if (row?.ack_id || row?.ack_created_at) return true;
+  if (/exact ACK message ids|exact ACK messages|proof file and exact ACK|harness succeeded via activation_path=message_poller_no_trigger_row/i.test(notes)) {
+    return true;
+  }
+  return false;
+}
+
+function looksLikeGhostCompletion(row, notes = String(row?.notes ?? "")) {
+  const triggerCompleted = Boolean(row?.trigger_id && row?.claimed_at && row?.completed_at);
+  const noAgentOutput = !row?.ack_id && /no hash-bearing response rows|zero hash-bearing responses|no expected proof file/i.test(notes);
+  return triggerCompleted && noAgentOutput;
+}
+
+function looksLikeNoTriggerTimeout(row, notes = String(row?.notes ?? "")) {
+  const missingTrigger = row?.trigger_id === null || row?.trigger_id === undefined;
+  const noWorkEvidence = !hasMessagePollerWorkEvidence(row, notes);
+  const timeoutEvidence = /no agent_triggers row.*no hash-bearing response rows.*no proof file|no trigger row.*no proof.*no ACK|runner deadline/i.test(notes);
+  return missingTrigger && noWorkEvidence && timeoutEvidence;
 }
 
 export function inferAgentFailureRootCause(row) {

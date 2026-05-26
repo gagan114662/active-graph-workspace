@@ -5,6 +5,9 @@ import {
   OUTCOME_FAIL_VERIFIER,
   OUTCOME_INFRASTRUCTURE_RETRY,
   OUTCOME_PASS,
+  INFRA_ROOT_GHOST_COMPLETION,
+  INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW,
+  INFRA_ROOT_NO_TRIGGER_TIMEOUT,
   classifyNativeRunnerResult,
   classifyT7LedgerRows,
   computeT7ProgressMetrics,
@@ -24,12 +27,58 @@ test("classifier marks message_poller_no_trigger_row as infrastructure_retry", (
 
   assert.equal(classified.native_pass, false);
   assert.equal(classified.outcome_class, OUTCOME_INFRASTRUCTURE_RETRY);
+  assert.equal(classified.infrastructure_failure_root_cause, INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW);
   assert.equal(classified.verdict, "native_task_failed_or_incomplete");
   assert.deepEqual(classified.missing_trigger_evidence, {
     original_message_id: "message-1",
     agent_triggers_query: "/rest/v1/agent_triggers?message_id=eq.message-1",
     agent_triggers_result: [],
     ack_message_ids: ["ack-1", "ack-2"],
+  });
+});
+
+test("classifier marks ghost completion as retryable infrastructure", () => {
+  const classified = classifyNativeRunnerResult({
+    activation_path: "agent_trigger",
+    message: { id: "message-ghost" },
+    final_trigger: {
+      id: "trigger-ghost",
+      claimed_at: "2026-05-26T14:51:58.241062+00:00",
+      completed_at: "2026-05-26T14:52:08.701+00:00",
+    },
+    response_rows: [],
+    expected_file: { exists: false, contains_hash: false },
+  });
+
+  assert.equal(classified.native_pass, false);
+  assert.equal(classified.outcome_class, OUTCOME_INFRASTRUCTURE_RETRY);
+  assert.equal(classified.infrastructure_failure_root_cause, INFRA_ROOT_GHOST_COMPLETION);
+  assert.deepEqual(classified.ghost_completion_evidence, {
+    trigger_id: "trigger-ghost",
+    claimed_at: "2026-05-26T14:51:58.241062+00:00",
+    completed_at: "2026-05-26T14:52:08.701+00:00",
+    response_row_count: 0,
+    expected_file_exists: false,
+  });
+});
+
+test("classifier marks no-trigger timeout as retryable infrastructure", () => {
+  const classified = classifyNativeRunnerResult({
+    activation_path: "incomplete",
+    message: { id: "message-timeout" },
+    final_trigger: null,
+    response_rows: [],
+    expected_file: { exists: false, contains_hash: false },
+  });
+
+  assert.equal(classified.native_pass, false);
+  assert.equal(classified.outcome_class, OUTCOME_INFRASTRUCTURE_RETRY);
+  assert.equal(classified.infrastructure_failure_root_cause, INFRA_ROOT_NO_TRIGGER_TIMEOUT);
+  assert.deepEqual(classified.no_trigger_timeout_evidence, {
+    original_message_id: "message-timeout",
+    agent_triggers_query: "/rest/v1/agent_triggers?message_id=eq.message-timeout",
+    response_row_count: 0,
+    expected_file_exists: false,
   });
 });
 
@@ -64,7 +113,7 @@ test("retry policy escalates after three infrastructure attempts", () => {
   assert.equal(decision.infrastructure_attempts, 3);
 });
 
-test("existing runs 001-014 reclassify only run 014 as infrastructure_retry", () => {
+test("existing T7 easy ledger classifies Pentagon infrastructure modes without hiding agent failure", () => {
   const rows = readFileSync("frames/t7-native-repetition-progress-20260525.jsonl", "utf8")
     .trim()
     .split(/\n/)
@@ -73,16 +122,57 @@ test("existing runs 001-014 reclassify only run 014 as infrastructure_retry", ()
   const infraRows = classified.filter((row) => row.outcome_class === OUTCOME_INFRASTRUCTURE_RETRY);
   const run008 = classified.find((row) => row.run_idx === 8);
   const run014 = classified.find((row) => row.run_idx === 14);
+  const run016 = classified.find((row) => row.run_idx === 16);
+  const run017 = classified.find((row) => row.run_idx === 17);
+  const run019 = classified.find((row) => row.run_idx === 19);
+  const run021 = classified.find((row) => row.run_idx === 21);
+  const run022 = classified.find((row) => row.run_idx === 22);
   const metrics = computeT7ProgressMetrics(rows);
 
-  assert.deepEqual(infraRows.map((row) => row.run_idx), [14]);
+  assert.deepEqual(infraRows.map((row) => row.run_idx), [14, 16, 17, 21, 22]);
   assert.equal(run008.outcome_class, OUTCOME_FAIL_VERIFIER);
   assert.equal(run008.agent_failure_root_cause, "narrative_wrapped_ack");
   assert.equal(run014.outcome_class, OUTCOME_INFRASTRUCTURE_RETRY);
-  assert.equal(metrics.pass_count, 12);
+  assert.equal(run014.infrastructure_failure_root_cause, INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW);
+  assert.equal(run016.infrastructure_failure_root_cause, INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW);
+  assert.equal(run017.infrastructure_failure_root_cause, INFRA_ROOT_GHOST_COMPLETION);
+  assert.equal(run019.outcome_class, OUTCOME_PASS);
+  assert.equal(run021.infrastructure_failure_root_cause, INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW);
+  assert.equal(run022.infrastructure_failure_root_cause, INFRA_ROOT_NO_TRIGGER_TIMEOUT);
+  assert.equal(metrics.pass_count, 19);
   assert.equal(metrics.agent_failure_count, 1);
-  assert.equal(metrics.infra_retry_count, 1);
-  assert.equal(metrics.total_run_attempts, 14);
-  assert.equal(Number((metrics.pass_rate * 100).toFixed(1)), 92.3);
-  assert.equal(Number((metrics.infrastructure_failure_rate * 100).toFixed(1)), 7.1);
+  assert.equal(metrics.infra_retry_count, 5);
+  assert.equal(metrics.total_run_attempts, 25);
+  assert.equal(Number((metrics.pass_rate * 100).toFixed(1)), 95.0);
+  assert.equal(Number((metrics.infrastructure_failure_rate * 100).toFixed(1)), 20.0);
+});
+
+test("retry policy treats ghost completion and no-trigger timeout as retryable infra", () => {
+  const ghostDecision = decideRetryAction([
+    {
+      run_idx: 17,
+      hash: "T7_REPEAT_EASY_20260525_017",
+      outcome_class: "incomplete",
+      trigger_id: "3b7deda1-de4f-4d9f-999a-0b08258f1c25",
+      claimed_at: "2026-05-26T14:51:58.241062+00:00",
+      completed_at: "2026-05-26T14:52:08.701+00:00",
+      notes: "trigger was created, claimed, and completed in about 10.6s, but Maya produced no hash-bearing response rows and no expected proof file.",
+    },
+  ], { seedFactory: () => "ghost-retry-seed" });
+  assert.equal(ghostDecision.action, "retry");
+  assert.equal(ghostDecision.reason, "infrastructure_retry");
+  assert.equal(ghostDecision.retry.hash, "T7_REPEAT_EASY_20260525_017_RETRY_1");
+
+  const timeoutDecision = decideRetryAction([
+    {
+      run_idx: 22,
+      hash: "T7_REPEAT_EASY_20260525_022",
+      outcome_class: "incomplete",
+      trigger_id: null,
+      notes: "no agent_triggers row, no hash-bearing response rows, and no proof file before runner deadline.",
+    },
+  ], { seedFactory: () => "timeout-retry-seed" });
+  assert.equal(timeoutDecision.action, "retry");
+  assert.equal(timeoutDecision.reason, "infrastructure_retry");
+  assert.equal(timeoutDecision.retry.hash, "T7_REPEAT_EASY_20260525_022_RETRY_1");
 });
