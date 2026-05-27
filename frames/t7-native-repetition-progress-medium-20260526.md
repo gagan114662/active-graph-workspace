@@ -4,25 +4,23 @@ Scope: T7 medium reliability measurement, 25 sequential native runs using the T6
 
 ## Current Status
 
-- Run index reached: 008/025.
-- Sequence status: stopped for operator review after run 008 exhausted infrastructure retries with repeated ghost_completion.
+- Run index reached: 012/025.
+- Sequence status: resumed at run 009 after operator-managed Pentagon restart and run 008 diagnostic review.
 - Authoritative ledger: `frames/t7-native-repetition-progress-medium-20260526.jsonl`.
 - Authoritative metric command:
   `node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-medium-20260526.jsonl`
-- Retry-decision command for run 008:
-  `node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-medium-20260526.jsonl --retry-decision --run-idx 8`
-- Current metrics after run 008 retry 3:
-  - pass_count=7
+- Current metrics after run 012:
+  - pass_count=11
   - agent_failure_count=0
   - infra_retry_count=4
-  - total_run_attempts=11
+  - total_run_attempts=15
   - pass_rate_percent=100.0
-  - infrastructure_failure_rate_percent=36.4
-- 22/25 = 88% gate: still mathematically reachable if the series resumes and enough future runs pass, but run 008 requires operator review first.
+  - infrastructure_failure_rate_percent=26.7
+- 22/25 = 88% gate: still reachable; current agent-attributed pass rate is above gate.
 - Wall time to completed: median=214.438s, p95=516.212s, max=516.212s.
-- Native-runner watchdog restarts: 4.
+- Native-runner watchdog restarts: 8 observed in run logs/diagnostic evidence (6 on passing runs, plus 2 during run 008 exhausted infrastructure attempts). This is below the abort threshold of 10.
 - Infrastructure root-cause distribution: ghost_completion=4.
-- New failure modes: none; run 008 used the existing ghost_completion classifier path.
+- New failure modes: none.
 
 ## Batch 001-004
 
@@ -40,14 +38,23 @@ Scope: T7 medium reliability measurement, 25 sequential native runs using the T6
 | 005 | `T7_REPEAT_MEDIUM_20260526_005` | `activegraph.runtime.budget.Budget.snapshot` | 12/12 | pass | 214.438s | restarted Pentagon |
 | 006 | `T7_REPEAT_MEDIUM_20260526_006` | `activegraph.core.view.View.relations` | 12/12 | pass | 139.840s | none |
 | 007 | `T7_REPEAT_MEDIUM_20260526_007` | `activegraph.core.view.View.events` | 12/12 | pass | 249.374s | restarted Pentagon |
-| 008 | `T7_REPEAT_MEDIUM_20260526_008` | n/a | n/a | infrastructure_retry: ghost_completion | 93.976s | none |
+| 008 | `T7_REPEAT_MEDIUM_20260526_008` | n/a | n/a | infrastructure_retry: ghost_completion | 93.976s | restarted Pentagon |
 | 008 retry 1 | `T7_REPEAT_MEDIUM_20260526_008_RETRY_1` | n/a | n/a | infrastructure_retry: ghost_completion | 11.875s | none |
-| 008 retry 2 | `T7_REPEAT_MEDIUM_20260526_008_RETRY_2` | n/a | n/a | infrastructure_retry: ghost_completion | 93.060s | none |
+| 008 retry 2 | `T7_REPEAT_MEDIUM_20260526_008_RETRY_2` | n/a | n/a | infrastructure_retry: ghost_completion | 93.060s | restarted Pentagon |
 | 008 retry 3 | `T7_REPEAT_MEDIUM_20260526_008_RETRY_3` | n/a | n/a | infrastructure_retry: ghost_completion | 17.477s | none |
 
+## Batch 009-012
+
+| run | hash | target_symbol | verifier | outcome | wall to completed | watchdog |
+| ---: | --- | --- | --- | --- | ---: | --- |
+| 009 | `T7_REPEAT_MEDIUM_20260526_009` | `activegraph.core.graph.Graph.neighborhood` | 12/12 | pass | 186.938s | none |
+| 010 | `T7_REPEAT_MEDIUM_20260526_010` | `activegraph.core.graph.Graph.relations` | 12/12 | pass | 192.475s | none |
+| 011 | `T7_REPEAT_MEDIUM_20260526_011` | `activegraph.core.graph.Graph.events` | 12/12 | pass | 293.961s | restarted Pentagon |
+| 012 | `T7_REPEAT_MEDIUM_20260526_012` | `activegraph.core.graph.Graph.objects` | 12/12 | pass | 250.333s | restarted Pentagon |
+
 Notes:
-- Runs 003 and 004 emitted duplicate exact ACKs. The verifier kept the latest equivalent ACK and passed both runs.
-- Runs 001, 003, 005, and 007 required the native-runner Pentagon watchdog restart. Total watchdog restarts across the medium series is 4, below the abort threshold of 10.
-- Run 008 and retries 1-3 all produced canonical triggers that were claimed and completed, but no exact ACK rows and no proof files appeared before the runner deadline. The classifier path is the existing `ghost_completion` infrastructure retry path.
-- The run 008 retry-decision command returned `action=escalate`, `reason=max_infrastructure_retries_exhausted`, `infrastructure_attempts=4`. The series is stopped here for operator review before run 009.
+- Runs 003, 004, and 010 emitted duplicate exact ACKs. The verifier kept the latest equivalent ACK and passed all three runs.
+- Run 008 exhausted its infrastructure retries as ghost_completion. Operator-reviewed diagnostic is in `frames/t7-medium-run-008-diagnostic-20260527.log`; no new ledger entry was needed before resuming at 009.
+- Runs 009-012 all passed after the manual Pentagon restart. Runs 011 and 012 required native-runner watchdog restarts; run 012 killed a surviving Pentagon pid before relaunch.
 - The inner repo branch has no upstream configured and has unrelated dirty docs/local artifacts. Maya committed only the new medium test files for successful runs.
+
