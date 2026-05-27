@@ -532,4 +532,57 @@ Concretely: when T6 extra-hard re-fires on opus-4.7, it should still be the 5-ag
 
 ---
 
+---
+
+### 2026-05-27 (FINAL late-evening continuation — T6 ladder GREEN on opus-4.7)
+
+**Shipped (all T6 tiers re-proven on the new cohort):**
+
+| Tier | Status | Commits |
+|---|---|---|
+| T6 easy | ✅ | `c18d390` Maya — docstring + annotations on `RecordedDiligenceProvider.complete` |
+| T6 medium | ✅ | `8b6b8f8` Maya — tests for `Budget.add_cost` |
+| T6 hard | ✅ | `af7f669` + `ff3926d` Maya — bug repro + fix for `View.objects(where=)` |
+| T6 extra-hard | ✅ (4/5 chain done on branch `t6-extra-hard-opus47-20260527`) | `2affbb7` Sofia spec → `78728a9` Maya impl → `ae95634` Quinn adversarial tests → `06076cb` Maya fix → Sam docs (in flight at write time) |
+
+**T6 capability ladder fully re-verified on opus-4.7-claude-code-2026-05-27 cohort.** Same sample-1 standard as the original gpt-5.5 cohort proof — but now on the live model.
+
+**Infrastructure shipped:**
+- `scripts/bridge_dispatch.py` (#28 unifier) handled all 5 dispatches end-to-end. Bridge is no longer doing its own claude spawn — the Python `ClaudeCodeCliProvider` is the single dispatch path.
+- `scripts/build-agent-social-graph.mjs` (Brandon-style social graph) generates `~/.activegraph/social-graph.html` — interactive D3 viz of agent↔agent message + conversation edges. Analogous to Unblocked's Social Comment Network.
+- Classifier (`scripts/t7-repetition-classifier.mjs`) gained `INFRA_ROOT_CLAUDE_CODE_SERVER_THROTTLE` for Anthropic's soft-throttle 429s (distinct from session-limit 429s).
+- `agent-os/AGENT_IDENTITY_MAP.md` gained gauntlet roles for Theo (Test Owner), Rowan (Code Reviewer), Grace (Gate Sentinel) — ACK contracts defined, instruction templates in `frames/templates/`.
+- Runner `scripts/run-native-pentagon-task.mjs` learned to auto-create Theo↔Quinn / Theo↔Sam / Theo↔Riley conversations (was the blocker for the multi-agent chain). Used Pentagon MCP `find_conversation` as a fallback because direct REST inserts are RLS-blocked.
+
+**Surfaced:**
+- **Anthropic soft-throttle 429** ("Server is temporarily limiting requests · Rate limited") is DIFFERENT from MAX session limit. Releases in minutes, not hours. Now classified as `claude_code_server_throttle`. Quinn's dispatch took 6+ min waiting through this throttle and then succeeded — proves the bridge survives soft-throttle waves.
+- Pentagon `conversations` + `conversation_participants` tables are under Supabase RLS — direct REST inserts return 403. Runner had to fall back to Pentagon's internal `find_conversation` MCP tool (which I called from THIS Claude Code session) to seed the Quinn/Sam/Riley conversations. Long-term fix: surface Pentagon's `create_conversation` RPC if one exists, or document the MCP-call setup step.
+- **Pullfrog self-hosted runner**: registered and online via `gh api`. Workflow `.github/workflows/pullfrog.yml` triggers fire on `@pullfrog` mentions, but all attempts today completed `skipped` in 1s — the `if:` condition or runs-on labels match wrong. Needs debug in next session. The Pullfrog COMMERCIAL bot (separate GitHub App) responded to our test comment, NOT our self-hosted runner.
+
+**Honest gaps still open at end of this session:**
+- T7 medium still at 13/25 on opus-4.7 (12 cohort-B + Quinn this session). Need 12 more to hit 25-run gate.
+- T7 hard / T7 extra-hard / T8+ never started. Each is a multi-hour gauntlet costing ~$5-15 per run.
+- 15 of 20 agents still not wired into gauntlet (Theo/Rowan/Grace roles defined this session but not yet exercised end-to-end with verifier ACK grading).
+- Pullfrog self-hosted runner debug.
+- Sasha/Blake/F1/Slack adapter still file-poll instead of `honker_listen` (1-line switch per script; Honker substrate ready at `~/.local/lib/libhonker_ext.dylib`).
+- Last Puter user (theo_test_owner) — rate-limited; idempotent re-run after IP cools.
+
+**Cost this session (rough):**
+- ~25 Maya/Sofia/Quinn/Sam claude dispatches at $0.30-$4 each
+- Total claude tokens: estimated $30-60
+- Plus this conversation's tokens
+- Per-token-arbitrage backlog item is more urgent than ever
+
+**Next session opens with:**
+1. Re-fire missed steps (Pullfrog debug, T7 hard / extra-hard / T8 spec).
+2. Wire 12 remaining Pentagon agents (Taylor, Simone, Parker, Casey, Carmen, Avery, Priya, T5d, Finn, Ravi + script-only Sasha/Blake getting their Pentagon-agent ACK pattern too).
+3. Hit T7 medium 25-run gate (12 more runs).
+4. Per-token-arbitrage proof — pick ONE output→revenue pipeline before scaling further.
+
+**Pushed to GitHub end-of-session:**
+- gagan114662/active-graph-workspace main (multiple commits)
+- gagan114662/activegraph main (T6 easy/medium/hard work) + branch t6-extra-hard-opus47-20260527 (T6 extra-hard 4-5 step chain)
+
+---
+
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._

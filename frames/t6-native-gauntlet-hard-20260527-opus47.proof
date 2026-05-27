@@ -1,0 +1,11 @@
+hash=T6_NATIVE_HARD_20260527_OPUS47
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=ff3926d
+bug_source=docstring:activegraph/core/graph.py:253
+bug_summary=View.objects(where=) ignores top-level data field keys, contradicting Graph.objects docstring promise of mirrored semantics
+failing_test_commit=af7f669a8427ac7c303c1cb445d6c6f265a6e54f
+fix_commit=ff3926d4e5664346af86c6b7b7db4ae7e2ff4155
+test_file=activegraph/tests/test_view_objects_where_data_top_level_regression.py
+pytest_before=794
+pytest_after=795
+verdict=native_hard_done

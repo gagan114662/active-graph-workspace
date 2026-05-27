@@ -23,6 +23,15 @@ const CODEX_USAGE_LIMIT_PATTERNS = [
   /You've hit your usage limit\b/i,
   /chatgpt\.com\/codex\/settings\/usage/i,
 ];
+// Anthropic-side "soft" throttle distinct from the per-session hard limit.
+// Surfaces as "Server is temporarily limiting requests" in claude CLI output
+// and a 429 HTTP code. Releases within minutes (vs. session_limit which
+// resets on a fixed clock).
+const CLAUDE_CODE_SERVER_THROTTLE_PATTERNS = [
+  /Server is temporarily limiting requests/i,
+  /not your usage limit.*Rate limited/i,
+];
+export const INFRA_ROOT_CLAUDE_CODE_SERVER_THROTTLE = "claude_code_server_throttle";
 
 function _matchesAny(text, patterns) {
   if (!text) return false;
@@ -57,6 +66,12 @@ export function detectUpstreamRateLimit(result) {
   }
   if (_matchesAny(msg, CLAUDE_CODE_SESSION_LIMIT_PATTERNS)) {
     return { root: INFRA_ROOT_CLAUDE_CODE_SESSION_LIMIT, retry_after: _extractClaudeResetTime(msg) };
+  }
+  // Anthropic soft server throttle: same 429 code but different text.
+  // Distinguished from session limit because retry_after is minutes, not
+  // hours — handled by the harness with a shorter backoff.
+  if (_matchesAny(msg, CLAUDE_CODE_SERVER_THROTTLE_PATTERNS)) {
+    return { root: INFRA_ROOT_CLAUDE_CODE_SERVER_THROTTLE, retry_after: null };
   }
   // Codex usage limit (older cohort).
   if (_matchesAny(msg, CODEX_USAGE_LIMIT_PATTERNS)) {

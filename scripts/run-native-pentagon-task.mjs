@@ -142,16 +142,28 @@ async function findSharedConversation(agentA, agentB) {
   // No shared conv yet — auto-create one. Required for the broader
   // gauntlet (Theo<->Quinn/Sam/Riley/Sasha/Grace/Rowan etc., where these
   // pairs haven't talked before).
-  const created = await supabaseInsert("/rest/v1/conversations?select=id", {
-    label: `gauntlet-${agentA.name}-${agentB.name}-${Date.now()}`.replace(/[^a-z0-9\-_]/gi, "_").slice(0, 60),
-  });
+  // Schema (per live Supabase rows):
+  //   conversations(id, title, updated_at, deleted_at, created_at, history_start_after)
+  //   conversation_participants(conversation_id, user_id, owner_id, joined_at, ...)
+  //   owner_id is the human operator's user id (extracted from the JWT 'sub' claim).
+  const ownerId = jwtSub();
+  const title = `gauntlet:${agentA.name}<->${agentB.name}`.slice(0, 60);
+  const created = await supabaseInsert("/rest/v1/conversations?select=id", { title });
   const convId = Array.isArray(created) ? created[0]?.id : created?.id;
   if (!convId) throw new Error("conversation create failed: " + JSON.stringify(created));
   await supabaseInsert("/rest/v1/conversation_participants", [
-    { conversation_id: convId, user_id: agentA.id },
-    { conversation_id: convId, user_id: agentB.id },
+    { conversation_id: convId, user_id: agentA.id, owner_id: ownerId },
+    { conversation_id: convId, user_id: agentB.id, owner_id: ownerId },
   ]);
   return convId;
+}
+
+function jwtSub() {
+  const session = readSession();
+  const part = session.accessToken.split(".")[1];
+  const padded = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
+  const claims = JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  return claims.sub;
 }
 
 async function supabaseInsert(path, body) {
