@@ -661,6 +661,28 @@ async function processCandidates(candidates) {
         stderr_tail: String(run.stderr ?? "").slice(-2000),
       });
     } else {
+      // Release the trigger claim so it isn't orphaned (claimed_at=set,
+      // completed_at=null forever). The completion records failure
+      // alongside the bridge's emit so any future query joining
+      // agent_triggers with factory-events.jsonl sees the same story.
+      // Defensive: complete_agent_trigger may have invariants — if it
+      // rejects (e.g. 4xx), emit an infra event but keep moving.
+      let failureCompletion = null;
+      try {
+        failureCompletion = await completeTrigger(claimed.id);
+      } catch (completeErr) {
+        try {
+          emitInfrastructureEvent({
+            subtype: "trigger_release_failed",
+            message: `complete_agent_trigger RPC failed on bridge dispatch failure path: ${String(completeErr?.message ?? completeErr)}`,
+            extras: {
+              trigger_id: claimed.id,
+              harness,
+              underlying_error: String(completeErr?.message ?? completeErr),
+            },
+          });
+        } catch {}
+      }
       // Emit a structured factory event for the failure so it lives in the
       // activegraph-shaped event log alongside successful runs, not just
       // in the bridge's stdout JSON. Reason codes match what
@@ -705,6 +727,8 @@ async function processCandidates(candidates) {
         signal: run.signal,
         claude_error: claudeError,
         factory_event_reason: failureReason,
+        completed_at: failureCompletion?.completed_at ?? null,
+        completed_with_failure: Boolean(failureCompletion),
         stdout_tail: String(run.stdout ?? "").slice(-2000),
         stderr_tail: String(run.stderr ?? "").slice(-2000),
       });
@@ -754,6 +778,13 @@ if (!loop) {
         event: "pentagon_watchdog_error",
         error: serializeError(error),
       }));
+      try {
+        emitInfrastructureEvent({
+          subtype: "pentagon_watchdog_error",
+          message: String(error?.message || error),
+          extras: { error: serializeError(error) },
+        });
+      } catch {}
     }
     try {
       const result = await runOnce();
@@ -766,19 +797,46 @@ if (!loop) {
         status: "loop_error",
         error: serializeError(error),
       }));
-      if (/jwt expired/i.test(String(error?.message ?? ""))) {
+      // Mirror to factory event log so any Supabase API failure (4xx, 5xx,
+      // network) becomes queryable. JWT-expired is recovered immediately
+      // by the refreshSession() block below; both are recorded.
+      const isJwtExpired = /jwt expired/i.test(String(error?.message ?? ""));
+      try {
+        emitInfrastructureEvent({
+          subtype: isJwtExpired ? "supabase_jwt_expired" : "supabase_api_error",
+          message: String(error?.message || error),
+          extras: {
+            error: serializeError(error),
+            recoverable: isJwtExpired,
+          },
+        });
+      } catch {}
+      if (isJwtExpired) {
         try {
           refreshSession();
           console.error(JSON.stringify({
             checked_at: new Date().toISOString(),
             status: "session_refreshed_after_loop_error",
           }));
+          try {
+            emitInfrastructureEvent({
+              subtype: "supabase_session_refreshed",
+              message: "JWT expired and refreshed automatically",
+            });
+          } catch {}
         } catch (refreshError) {
           console.error(JSON.stringify({
             checked_at: new Date().toISOString(),
             status: "session_refresh_failed_after_loop_error",
             error: serializeError(refreshError),
           }));
+          try {
+            emitInfrastructureEvent({
+              subtype: "supabase_session_refresh_failed",
+              message: String(refreshError?.message || refreshError),
+              extras: { error: serializeError(refreshError) },
+            });
+          } catch {}
         }
       }
     }

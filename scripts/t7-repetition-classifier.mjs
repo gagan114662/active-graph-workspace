@@ -8,6 +8,76 @@ export const INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW = "message_poller_no_trigg
 export const INFRA_ROOT_GHOST_COMPLETION = "ghost_completion";
 export const INFRA_ROOT_NO_TRIGGER_TIMEOUT = "no_trigger_timeout";
 export const INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED = "late_ack_after_trigger_completed";
+export const INFRA_ROOT_CLAUDE_CODE_SESSION_LIMIT = "claude_code_session_limit";
+export const INFRA_ROOT_CODEX_USAGE_LIMIT = "codex_usage_limit";
+
+// Regexes for upstream-provider rate-limit detection. Match the exact strings
+// the CLIs return so we can disambiguate "Pentagon dispatched and the agent
+// got nothing done" (ghost_completion) from "Pentagon dispatched but the LLM
+// provider 429'd us before the agent could think" (rate-limited).
+const CLAUDE_CODE_SESSION_LIMIT_PATTERNS = [
+  /You've hit your session limit\b/i,
+  /session limit\b.*resets/i,
+];
+const CODEX_USAGE_LIMIT_PATTERNS = [
+  /You've hit your usage limit\b/i,
+  /chatgpt\.com\/codex\/settings\/usage/i,
+];
+
+function _matchesAny(text, patterns) {
+  if (!text) return false;
+  const s = String(text);
+  return patterns.some((re) => re.test(s));
+}
+
+/**
+ * Inspect a runner-shaped result for upstream-provider rate-limit fingerprints.
+ * Returns the specific INFRA_ROOT_* code when matched, or null otherwise.
+ *
+ * Inputs we look at:
+ *   - result.bridge_failure_reason (set by the runner when it correlates with
+ *     a recent behavior.failed factory event for the trigger)
+ *   - result.bridge_failure_message (verbatim message from the same event)
+ *   - result.claude_error (when the runner is invoked in-process by the bridge)
+ *   - result.dispatch_error (catch-all extras carried by the helper script)
+ */
+export function detectUpstreamRateLimit(result) {
+  if (!result) return null;
+  const reason = result.bridge_failure_reason || result.claude_error?.reason;
+  const apiStatus = result.bridge_api_error_status ?? result.claude_error?.apiErrorStatus;
+  const msg = (
+    result.bridge_failure_message ||
+    result.claude_error?.text ||
+    result.dispatch_error ||
+    ""
+  );
+  // Claude Code MAX session limit: HTTP 429 + matching message text.
+  if (apiStatus === 429 && _matchesAny(msg, CLAUDE_CODE_SESSION_LIMIT_PATTERNS)) {
+    return { root: INFRA_ROOT_CLAUDE_CODE_SESSION_LIMIT, retry_after: _extractClaudeResetTime(msg) };
+  }
+  if (_matchesAny(msg, CLAUDE_CODE_SESSION_LIMIT_PATTERNS)) {
+    return { root: INFRA_ROOT_CLAUDE_CODE_SESSION_LIMIT, retry_after: _extractClaudeResetTime(msg) };
+  }
+  // Codex usage limit (older cohort).
+  if (_matchesAny(msg, CODEX_USAGE_LIMIT_PATTERNS)) {
+    return { root: INFRA_ROOT_CODEX_USAGE_LIMIT, retry_after: _extractCodexResetTime(msg) };
+  }
+  if (reason === "llm.rate_limited") {
+    // Generic rate-limit without a recognizable upstream fingerprint; fall
+    // back to the Claude Code label so callers still get a specific code.
+    return { root: INFRA_ROOT_CLAUDE_CODE_SESSION_LIMIT, retry_after: null };
+  }
+  return null;
+}
+
+function _extractClaudeResetTime(msg) {
+  const m = String(msg || "").match(/resets\s+([0-9]{1,2}:[0-9]{2}\s*[ap]m\s*\([^)]+\))/i);
+  return m ? m[1] : null;
+}
+function _extractCodexResetTime(msg) {
+  const m = String(msg || "").match(/try again at\s+([^.]+\.)/i);
+  return m ? m[1].trim() : null;
+}
 export const MAX_INFRASTRUCTURE_RETRIES = 3;
 
 export function classifyNativeRunnerResult(result) {
@@ -47,12 +117,17 @@ export function classifyNativeRunnerResult(result) {
   }
 
   if (triggerPassed && responseRows.length === 0 && proofMissing) {
+    // Disambiguate ghost_completion (Pentagon claimed+completed with no
+    // work) from upstream rate-limit (LLM provider 429'd before agent
+    // could think). Same DB shape; different root cause + retry policy.
+    const upstream = detectUpstreamRateLimit(result);
+    const root = upstream?.root ?? INFRA_ROOT_GHOST_COMPLETION;
     return {
       ...result,
       activation_path: activationPath,
       native_pass: false,
       outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
-      infrastructure_failure_root_cause: INFRA_ROOT_GHOST_COMPLETION,
+      infrastructure_failure_root_cause: root,
       verdict: "native_task_failed_or_incomplete",
       ghost_completion_evidence: {
         trigger_id: finalTrigger?.id ?? null,
@@ -61,6 +136,7 @@ export function classifyNativeRunnerResult(result) {
         response_row_count: responseRows.length,
         expected_file_exists: result?.expected_file?.exists ?? null,
       },
+      ...(upstream?.retry_after ? { retry_after: upstream.retry_after } : {}),
     };
   }
 

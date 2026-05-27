@@ -110,3 +110,45 @@ Verifier success without `--require-native` means:
 `bridge_autonomy_verified_native_blocked`
 
 It does not mean the full native Pentagon autonomy goal is complete.
+
+## 5. Satisfaction Of Search (Brandon-B, added 2026-05-27)
+
+Borrowed from radiology: a radiologist finds *one* thing on an X-ray and
+stops scanning, missing the real cause. Agents exhibit the same pattern —
+they find the *first* plausible target/pattern/symbol and commit to it
+without considering alternatives. Source: Brandon Walsenuk (Unblocked),
+AI Engineer 2026-05-26.
+
+How it shows up in this repo:
+
+- T7 medium runs where Maya picks the first uncovered API symbol that
+  compiles without considering whether it is the *best* target. Adds
+  trivial coverage without exercising the API's real edge cases.
+- T6-extra-hard 5-agent runs where Sasha-skeptic role (manually played
+  by Claude) settles on the first divergence instead of cataloging.
+
+Required by every agent before claiming a target/pattern/symbol:
+
+1. **Record N>=3 candidates considered.** Proof files for symbol-selection
+   tasks (T7 medium target picks, T7 extra-hard, Sofia spec choices)
+   must include a `candidates_considered=A,B,C` field with at least
+   three fully-qualified symbol/pattern/source names.
+2. **Record rejection rationale per non-chosen candidate.** One
+   `candidate_rejection_X=reason` line per non-chosen entry.
+3. **Single-candidate runs emit `satisfaction_of_search_risk` warning.**
+   The verifier WARN-tags any proof file with fewer than 3 candidates;
+   does not FAIL the run (back-compat with pre-Brandon-B proofs) but
+   surfaces the risk so the operator can decide whether to retry.
+
+Verifier wiring lives in `scripts/verify-pentagon-autonomy-from-logs.mjs`
+in the satisfaction_of_search_risk check function (run as part of the
+default verifier pass; queryable via factory-events.jsonl events of type
+`verifier.satisfaction_of_search_risk`).
+
+Rollout: new instruction templates gain a step between "pick target"
+and "write tests": *"Before committing to a target symbol, list 3+
+candidates with one-line rejection rationale for each non-chosen entry.
+Record in proof as `candidates_considered` + `candidate_rejection_*`."*
+
+Existing proofs predating this gate stay valid (single-candidate warns
+are recorded but do not fail).
