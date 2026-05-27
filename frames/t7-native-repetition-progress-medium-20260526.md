@@ -4,23 +4,23 @@ Scope: T7 medium reliability measurement, 25 sequential native runs using the T6
 
 ## Current Status
 
-- Run index reached: 012/025.
-- Sequence status: resumed at run 009 after operator-managed Pentagon restart and run 008 diagnostic review.
+- Run index reached: 014/025.
+- Sequence status: stopped after run 014 on abort condition 3 (new failure mode).
 - Authoritative ledger: `frames/t7-native-repetition-progress-medium-20260526.jsonl`.
 - Authoritative metric command:
   `node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-medium-20260526.jsonl`
-- Current metrics after run 012:
-  - pass_count=11
-  - agent_failure_count=0
+- Current metrics after run 014:
+  - pass_count=12
+  - agent_failure_count=1
   - infra_retry_count=4
-  - total_run_attempts=15
-  - pass_rate_percent=100.0
-  - infrastructure_failure_rate_percent=26.7
-- 22/25 = 88% gate: still reachable; current agent-attributed pass rate is above gate.
-- Wall time to completed: median=214.438s, p95=516.212s, max=516.212s.
-- Native-runner watchdog restarts: 8 observed in run logs/diagnostic evidence (6 on passing runs, plus 2 during run 008 exhausted infrastructure attempts). This is below the abort threshold of 10.
+  - total_run_attempts=17
+  - pass_rate_percent=92.3
+  - infrastructure_failure_rate_percent=23.5
+- 22/25 = 88% gate: aborted before final determination; still mathematically reachable at stop.
+- Wall time to completed: median=226.561s, p95=516.212s, max=516.212s.
+- Native-runner watchdog restarts: 10 observed in run logs/diagnostic evidence (8 on agent-attributed rows, plus 2 during run 008 exhausted infrastructure attempts). This reaches but does not exceed the abort threshold of 10.
 - Infrastructure root-cause distribution: ghost_completion=4.
-- New failure modes: none.
+- New failure modes: `late_ack_after_trigger_completed` on run 014.
 
 ## Batch 001-004
 
@@ -52,9 +52,16 @@ Scope: T7 medium reliability measurement, 25 sequential native runs using the T6
 | 011 | `T7_REPEAT_MEDIUM_20260526_011` | `activegraph.core.graph.Graph.events` | 12/12 | pass | 293.961s | restarted Pentagon |
 | 012 | `T7_REPEAT_MEDIUM_20260526_012` | `activegraph.core.graph.Graph.objects` | 12/12 | pass | 250.333s | restarted Pentagon |
 
+## Batch 013-016
+
+| run | hash | target_symbol | verifier | outcome | wall to completed | watchdog |
+| ---: | --- | --- | --- | --- | ---: | --- |
+| 013 | `T7_REPEAT_MEDIUM_20260526_013` | `activegraph.core.graph.Graph.has_object_of_type` | 12/12 | pass | 226.561s | restarted Pentagon |
+| 014 | `T7_REPEAT_MEDIUM_20260526_014` | `activegraph.core.graph.Graph.get_object` | 11/12 | fail_verifier: late_ack_after_trigger_completed | 83.944s | restarted Pentagon |
+
 Notes:
 - Runs 003, 004, and 010 emitted duplicate exact ACKs. The verifier kept the latest equivalent ACK and passed all three runs.
 - Run 008 exhausted its infrastructure retries as ghost_completion. Operator-reviewed diagnostic is in `frames/t7-medium-run-008-diagnostic-20260527.log`; no new ledger entry was needed before resuming at 009.
-- Runs 009-012 all passed after the manual Pentagon restart. Runs 011 and 012 required native-runner watchdog restarts; run 012 killed a surviving Pentagon pid before relaunch.
+- Runs 009-013 all passed after the manual Pentagon restart. Runs 011, 012, and 013 required native-runner watchdog restarts; run 012 killed a surviving Pentagon pid before relaunch.
+- Run 014 produced a valid proof file and exact ACK row, but the verifier failed because the exact ACK was created at `2026-05-27T14:49:28.240837+00:00`, after canonical trigger `be44f987-dec9-480c-8aef-04539548797d` had already been marked completed at `2026-05-27T14:46:25.035+00:00`. This is not one of the known retryable infrastructure modes, so the series stopped per abort condition 3.
 - The inner repo branch has no upstream configured and has unrelated dirty docs/local artifacts. Maya committed only the new medium test files for successful runs.
-
