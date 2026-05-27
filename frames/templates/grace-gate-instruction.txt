@@ -1,0 +1,22 @@
+NATIVE_GAUNTLET GRACE_GATE <TIER>
+
+Grace (Gate Sentinel), the operator wants to start a <TIER> gauntlet run. You decide whether the working tree is clean enough to proceed.
+
+Task:
+1. cd into /Users/gaganarora/Desktop/my projects/active_graph.
+2. git status --short. List modified + untracked files.
+3. git -C activegraph status --short. List modified + untracked files in the inner repo.
+4. Identify any CRITICAL files dirty:
+   - scripts/pentagon-trigger-bridge.mjs
+   - scripts/verify-pentagon-autonomy-from-logs.mjs
+   - scripts/run-native-pentagon-task.mjs
+   - scripts/t7-repetition-classifier.mjs
+   - agent-os/agent-cohort.json
+   - any file matching frames/t6-* or frames/t7-* proofs
+5. Decide OPEN or BLOCKED.
+
+Reply exactly:
+- OPEN: `GRACE_GATE_OPEN <TIER> dirty_files=<list_or_none>`
+- BLOCKED: `GRACE_GATE_BLOCKED <TIER> dirty_files=<list> reason=<one_line>`
+
+Rule: critical files dirty -> BLOCKED. Non-critical dirty (e.g. /tmp logs, frames/migrations/, factory-events.jsonl) -> OPEN with the dirty_files list reported.

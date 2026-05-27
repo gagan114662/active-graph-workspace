@@ -1,0 +1,64 @@
+NATIVE_GAUNTLET HARD T6_NATIVE_HARD_20260527_OPUS47 QUINN_VERIFICATION
+
+Quinn, you are the Test Adversary. Maya has claimed she found a real bug,
+wrote a failing test (commit A), and fixed it (commit B). Independently
+verify this by checking out each commit and running the test, without
+modifying the working tree.
+
+Read Maya's proof first to get the SHAs and test_file:
+  cat frames/t6-native-gauntlet-hard-20260527-opus47.proof
+OR (if that path does not exist)
+  cat activegraph/frames/t6-native-gauntlet-hard-20260527-opus47.proof
+
+Extract these fields:
+  failing_test_commit  (commit A)
+  fix_commit           (commit B)
+  test_file            (path to regression test)
+
+1. Confirm A is an ancestor of B:
+     git -C activegraph merge-base --is-ancestor <commitA> <commitB>
+   Must exit 0. If not, write a FAIL ACK and stop.
+
+2. Verify commit A: test must FAIL.
+     git -C activegraph worktree add /tmp/quinn-T6H-A <commitA>
+     cd /tmp/quinn-T6H-A
+     uv venv
+     uv pip install -e . pytest
+     # CRITICAL: use the worktree's .venv/bin/python directly, never `uv run pytest`.
+     # `uv run pytest` can fall back to a global pytest that imports activegraph
+     # from global site-packages, producing a false signal. The verifier was
+     # bitten by this; the verifier fix is commit c1c2603 in the outer repo.
+     # Confirm isolation before running the test:
+     ./.venv/bin/python -c "import activegraph; assert '/tmp/quinn-T6H-A' in activegraph.__file__, activegraph.__file__"
+     ./.venv/bin/python -m pytest <test_file> --tb=no -q 2>&1 | tee /tmp/quinn-T6H-A.log
+   Record the python -m pytest process exit code as `a_exit`. MUST be non-zero.
+   cd back to the active_graph repo root:
+     cd "/Users/gaganarora/Desktop/my projects/active_graph"
+     git -C activegraph worktree remove /tmp/quinn-T6H-A --force
+
+3. Verify commit B: test must PASS.
+     git -C activegraph worktree add /tmp/quinn-T6H-B <commitB>
+     cd /tmp/quinn-T6H-B
+     uv venv
+     uv pip install -e . pytest
+     ./.venv/bin/python -c "import activegraph; assert '/tmp/quinn-T6H-B' in activegraph.__file__, activegraph.__file__"
+     ./.venv/bin/python -m pytest <test_file> --tb=no -q 2>&1 | tee /tmp/quinn-T6H-B.log
+   Record the python -m pytest process exit code as `b_exit`. MUST be 0.
+   cd back and remove worktree:
+     cd "/Users/gaganarora/Desktop/my projects/active_graph"
+     git -C activegraph worktree remove /tmp/quinn-T6H-B --force
+
+4. Verify the source-vs-test split:
+   - git -C activegraph show --name-only <commitA> MUST include the test_file
+     AND MUST NOT include any path under activegraph/activegraph/.
+   - git -C activegraph show --name-only <commitB> MUST include at least one
+     path under activegraph/activegraph/ AND MUST NOT include the test_file.
+
+5. Reply EXACTLY (single line, no leading whitespace, no trailing prose):
+   QUINN_REGRESSION_VERIFIED T6_NATIVE_HARD_20260527_OPUS47 <commitA> <commitB> a_exit=<int> b_exit=<int> verdict=verified
+
+   If any check in steps 1-4 failed, reply EXACTLY instead:
+   QUINN_REGRESSION_REJECTED T6_NATIVE_HARD_20260527_OPUS47 <commitA> <commitB> reason=<short>
+
+Do NOT modify any files. Do NOT commit. Your only output is the single
+ACK/REJECT line in this conversation.

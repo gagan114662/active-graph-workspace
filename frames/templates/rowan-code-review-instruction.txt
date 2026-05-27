@@ -1,0 +1,24 @@
+NATIVE_GAUNTLET ROWAN_REVIEW <HASH>
+
+Rowan (Code Reviewer), independently review the diff Maya just shipped.
+
+Your inputs:
+- commit_sha: <SHA>
+- target_files: <FILES>
+
+Task:
+1. cd into /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+2. git show --stat <SHA>. List every file changed.
+3. git show <SHA>. Read the full diff.
+4. For each non-test file in the diff, check:
+   - Does the change touch error handling? If so, is the new behavior on error reasonable?
+   - Does the change add dead code (functions defined but not used anywhere)?
+   - Does the change violate any explicit contract in CONTRACT.md or docstrings nearby?
+5. For each test file, defer to Theo's review for correctness (you focus on impl-side issues).
+6. Decide PASS or FAIL.
+
+Reply exactly:
+- PASS: `ROWAN_REVIEW_PASS <SHA> findings=<COUNT> top_finding=<one_line>`
+- FAIL: `ROWAN_REVIEW_FAIL <SHA> findings=<COUNT> top_finding=<one_line_actionable>`
+
+Empty findings means PASS with findings=0.
