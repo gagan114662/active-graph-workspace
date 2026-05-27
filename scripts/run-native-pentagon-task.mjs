@@ -138,8 +138,41 @@ async function findSharedConversation(agentA, agentB) {
   const known = "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1";
   const candidates = [...grouped.entries()].filter(([, ids]) => ids.has(agentA.id) && ids.has(agentB.id)).map(([id]) => id);
   if (candidates.includes(known)) return known;
-  if (!candidates.length) throw new Error("no shared conversation found");
-  return candidates[0];
+  if (candidates.length) return candidates[0];
+  // No shared conv yet — auto-create one. Required for the broader
+  // gauntlet (Theo<->Quinn/Sam/Riley/Sasha/Grace/Rowan etc., where these
+  // pairs haven't talked before).
+  const created = await supabaseInsert("/rest/v1/conversations?select=id", {
+    label: `gauntlet-${agentA.name}-${agentB.name}-${Date.now()}`.replace(/[^a-z0-9\-_]/gi, "_").slice(0, 60),
+  });
+  const convId = Array.isArray(created) ? created[0]?.id : created?.id;
+  if (!convId) throw new Error("conversation create failed: " + JSON.stringify(created));
+  await supabaseInsert("/rest/v1/conversation_participants", [
+    { conversation_id: convId, user_id: agentA.id },
+    { conversation_id: convId, user_id: agentB.id },
+  ]);
+  return convId;
+}
+
+async function supabaseInsert(path, body) {
+  const session = readSession();
+  const anonKey = readAnonKey();
+  const res = await fetch(session.supabaseOrigin + path, {
+    method: "POST",
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${session.accessToken}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`POST ${path} failed ${res.status}: ${text}`);
+  }
+  return res.json();
 }
 
 function bridgeState() {
