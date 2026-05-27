@@ -520,6 +520,16 @@ If it's already shipped (commit on origin/main with audit), it lives in "Verifie
 2. Resume T7 medium runs 028 onward toward 25-run gate.
 3. Per-token arbitrage: T6 easy cost $4 today; need to either drop cost or add output→revenue side of the equation before scaling.
 
+**Honest org-chart status (important reminder — "all team members should be used"):**
+
+Pentagon has 20 named agents all migrated to opus-4.7. **Only 5 are routed to in gauntlets** (Maya, Quinn, Sofia, Sam, Riley). The other 15 (Sasha, Grace, Rowan, Taylor, Theo, Simone, Parker, Casey, Carmen, Avery, Blake, Priya, T5d, Finn, Ravi) are provisioned but their **Pentagon-conversation seats are unused**.
+
+Today's session wired *script-side* watchers named after two of them — `scripts/sasha-skeptic.mjs` and `scripts/blake-budget-marshal.mjs` — but those are **Node daemons running OUTSIDE Pentagon**, not the actual Pentagon agents. The dark factory still runs at 25% of its designed staff at the gauntlet level.
+
+The full wiring task — give each of the 15 unused agents a real role in T6/T7/T8+ gauntlets (instruction file, dispatch, ACK contract, verifier coverage) — remains in the "Org-chart integration" backlog section below. The Sasha-as-script + Blake-as-script work this session counts toward **F2 (monitoring agent infrastructure)** and **F5 (cost meter)**, not toward agent-org-chart completion.
+
+Concretely: when T6 extra-hard re-fires on opus-4.7, it should still be the 5-agent Sofia → Maya → Quinn → Maya → Sam chain. Adding Theo as Test-Owner reviewer, Rowan as Code-Reviewer, Grace as Gate-Sentinel etc. into the gauntlet remains a deliberate org-chart expansion task, not a side effect of today's monitoring-script work.
+
 ---
 
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._
