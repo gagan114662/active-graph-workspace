@@ -10,6 +10,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
 import { randomUUID, createHash } from "node:crypto";
 import { emitInfrastructureEvent, emitBehaviorCompleted } from "./factory-events.mjs";
+import { installCrashGuard } from "./factory-crash-guard.mjs";
+
+installCrashGuard("t7_medium_cohortB_fire");
 
 const idx = Number(process.argv[2]);
 if (!Number.isInteger(idx) || idx < 16) {

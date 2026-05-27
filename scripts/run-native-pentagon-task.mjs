@@ -3,6 +3,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { classifyNativeRunnerResult } from "./t7-repetition-classifier.mjs";
 import { emitInfrastructureEvent, emitBehaviorFailed } from "./factory-events.mjs";
+import { installCrashGuard } from "./factory-crash-guard.mjs";
+
+installCrashGuard("native_task_runner");
 
 const ROOT = "/Users/gaganarora/Desktop/my projects/active_graph";
 const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";

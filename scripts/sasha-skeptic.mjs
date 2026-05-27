@@ -33,6 +33,9 @@
 import { readFileSync, existsSync, statSync, appendFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { installCrashGuard } from "./factory-crash-guard.mjs";
+
+installCrashGuard("sasha-skeptic");
 
 const EVENTS_PATH = resolve(
   process.env.FACTORY_EVENTS_PATH || "frames/factory-events.jsonl"

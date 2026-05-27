@@ -170,8 +170,43 @@ function command(cmd, args) {
   return spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 });
 }
 
+// Lazy-loaded factory event emitter so the verifier still runs if the
+// emitter module isn't available (e.g. an older clone). Each failed
+// `must()` check becomes a queryable `verifier.check_failed` event in
+// frames/factory-events.jsonl alongside dispatch failures.
+let _emitFactoryEvent = null;
+async function _loadEmitter() {
+  if (_emitFactoryEvent !== null) return _emitFactoryEvent;
+  try {
+    const mod = await import("./factory-events.mjs");
+    _emitFactoryEvent = mod.emitFactoryEvent;
+  } catch {
+    _emitFactoryEvent = false; // sentinel: tried + failed
+  }
+  return _emitFactoryEvent;
+}
+
 function record(ok, name, detail = "") {
   checks.push({ ok, name, detail });
+  if (!ok) {
+    // Fire-and-forget event emit; failures here must never break the verifier.
+    _loadEmitter().then((emit) => {
+      if (!emit) return;
+      try {
+        emit({
+          type: "verifier.check_failed",
+          behavior: "verifier",
+          reason: "verifier.check_failed",
+          message: name,
+          extras: {
+            check_name: name,
+            detail: String(detail || "").slice(0, 2000),
+            argv: process.argv.slice(2).join(" "),
+          },
+        });
+      } catch {}
+    }).catch(() => {});
+  }
 }
 
 function must(name, condition, detail = "") {

@@ -8,6 +8,9 @@ import {
   emitLlmRequested,
   emitLlmResponded,
 } from "./factory-events.mjs";
+import { installCrashGuard } from "./factory-crash-guard.mjs";
+
+installCrashGuard("bridge");
 
 const WORKSPACE = "/Users/gaganarora/Desktop/my projects/active_graph";
 const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
