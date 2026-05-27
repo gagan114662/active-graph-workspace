@@ -235,7 +235,12 @@ function claudePrompt(trigger) {
   return codexPrompt(trigger);
 }
 
-function runClaude(trigger, token) {
+// Direct claude-CLI invocation (legacy path). Used as fallback if the
+// Python dispatcher is unavailable. #28 routes Maya/Quinn dispatch through
+// scripts/bridge_dispatch.py so activegraph + bridge share one provider
+// implementation; this function stays for graceful degradation when the
+// dispatcher script is missing.
+function runClaudeLegacyDirect(trigger, token) {
   const claude = process.env.PENTAGON_CLAUDE || "/Users/gaganarora/.local/bin/claude";
   const mcpConfig = JSON.stringify({
     mcpServers: {
@@ -268,6 +273,86 @@ function runClaude(trigger, token) {
     timeout: Number(arg("--claude-timeout-ms", arg("--codex-timeout-ms", "180000"))),
     maxBuffer: 10 * 1024 * 1024,
   });
+}
+
+// #28: route through scripts/bridge_dispatch.py so activegraph and the
+// bridge share ONE Claude-CLI dispatch implementation (the v1
+// ClaudeCodeCliProvider from activegraph.llm). Falls back to the legacy
+// direct spawn if the Python dispatcher script is missing or refuses to
+// import activegraph. The dispatcher emits its own llm.* + behavior.*
+// factory events so we keep the unified event log.
+function runClaudeViaPythonDispatcher(trigger, token, agent) {
+  const dispatcher = process.env.PENTAGON_DISPATCHER || (WORKSPACE + "/scripts/bridge_dispatch.py");
+  if (!existsSync(dispatcher)) {
+    // Legacy path is the only option.
+    return null;
+  }
+  const python = process.env.PENTAGON_PYTHON || "python3";
+  const payload = {
+    trigger_id: trigger.id,
+    agent_id: trigger.agent_id,
+    agent_name: agent?.name ?? null,
+    conversation_id: trigger.conversation_id,
+    message_id: trigger.message_id,
+    token,
+    mcp_url: MCP_URL,
+    prompt: claudePrompt(trigger),
+    model: agent?.model || "claude-opus-4-7",
+    timeout_seconds: Number(arg("--claude-timeout-ms", arg("--codex-timeout-ms", "180000"))) / 1000,
+    harness: agent?.harness_id || "claude-code",
+  };
+  const env = { ...process.env };
+  delete env.CLAUDECODE;
+  delete env.CLAUDE_CODE_ENTRYPOINT;
+  delete env.CLAUDE_CODE_EXECPATH;
+  delete env.AI_AGENT;
+  const result = spawnSync(python, [dispatcher], {
+    input: JSON.stringify(payload),
+    encoding: "utf8",
+    cwd: WORKSPACE,
+    env,
+    timeout: Number(arg("--claude-timeout-ms", arg("--codex-timeout-ms", "180000"))) + 30000,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  return result;
+}
+
+// Translate the Python dispatcher's stdout JSON back into the shape
+// the bridge's downstream code expects (claude_failed/completed path).
+function translateDispatcherResult(spawnResult) {
+  if (!spawnResult) return null;
+  let parsed = null;
+  try { parsed = JSON.parse(String(spawnResult.stdout || "").trim()); } catch {}
+  if (!parsed) return null;
+  const usage = parsed.ok ? {
+    model: parsed.model,
+    input_tokens: parsed.input_tokens,
+    output_tokens: parsed.output_tokens,
+    total_cost_usd: parsed.cost_usd ? Number(parsed.cost_usd) : null,
+    duration_ms: parsed.duration_ms,
+    duration_api_ms: parsed.duration_api_ms,
+    cache_read_input_tokens: parsed.cache_read_input_tokens || 0,
+    cache_creation_input_tokens: parsed.cache_creation_input_tokens || 0,
+    session_id: parsed.session_id,
+    stop_reason: parsed.finish_reason,
+    terminal_reason: "completed",
+  } : null;
+  const errorRow = parsed.ok ? null : {
+    text: parsed.error_message || "(no error message)",
+    isError: true,
+    apiErrorStatus: parsed.api_error_status ?? null,
+    reason: parsed.error_reason,
+  };
+  return {
+    status: parsed.ok ? 0 : 1,
+    signal: null,
+    stdout: spawnResult.stdout,
+    stderr: spawnResult.stderr,
+    parsed,
+    finalText: parsed.ok ? parsed.text : null,
+    usage,
+    error: errorRow,
+  };
 }
 
 function finalClaudeMessage(stdout) {
@@ -324,10 +409,35 @@ function finalClaudeMessage(stdout) {
   };
 }
 
+// #28: prefer Python dispatcher (scripts/bridge_dispatch.py) which uses
+// activegraph's ClaudeCodeCliProvider under the hood. Falls back to the
+// legacy direct claude-CLI spawn if the dispatcher is unavailable or
+// produces no parsable result. The dispatcher route emits richer
+// activegraph-shaped events; the legacy route still emits via the
+// bridge's own event hooks.
+function runClaude(trigger, token, agent) {
+  const useLegacy = process.env.PENTAGON_BRIDGE_LEGACY_CLAUDE === "1";
+  if (!useLegacy) {
+    const dispatcherSpawn = runClaudeViaPythonDispatcher(trigger, token, agent);
+    const translated = translateDispatcherResult(dispatcherSpawn);
+    if (translated) {
+      return {
+        status: translated.status,
+        signal: translated.signal,
+        stdout: translated.stdout,
+        stderr: translated.stderr,
+        _viaDispatcher: true,
+        _translated: translated,
+      };
+    }
+  }
+  return runClaudeLegacyDirect(trigger, token);
+}
+
 function runByHarness(agent, trigger, token) {
   const harness = agent?.harness_id || "codex";
   if (harness === "claude-code") {
-    return { harness, run: runClaude(trigger, token) };
+    return { harness, run: runClaude(trigger, token, agent) };
   }
   return { harness, run: runCodex(trigger, token) };
 }
@@ -588,10 +698,25 @@ async function processCandidates(candidates) {
     let claudeError = null;
     let claudeUsage = null;
     if (harness === "claude-code") {
-      const parsed = finalClaudeMessage(run.stdout);
-      finalText = parsed.text;
-      claudeUsage = parsed.usage;
-      if (parsed.isError) claudeError = parsed;
+      // #28: when the dispatcher route succeeded, the run object carries a
+      // pre-translated payload; skip stream-json reparsing.
+      if (run?._viaDispatcher && run._translated) {
+        finalText = run._translated.finalText;
+        claudeUsage = run._translated.usage;
+        if (run._translated.error) {
+          claudeError = {
+            text: run._translated.error.text,
+            isError: true,
+            apiErrorStatus: run._translated.error.apiErrorStatus,
+            reason: run._translated.error.reason,
+          };
+        }
+      } else {
+        const parsed = finalClaudeMessage(run.stdout);
+        finalText = parsed.text;
+        claudeUsage = parsed.usage;
+        if (parsed.isError) claudeError = parsed;
+      }
     } else {
       finalText = finalAgentMessage(run.stdout);
     }

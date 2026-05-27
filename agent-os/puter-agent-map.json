@@ -1,0 +1,92 @@
+{
+  "generated_at": "2026-05-27T20:43:05.505Z",
+  "puter_url": "http://127.0.0.1:4100",
+  "agents": [
+    {
+      "agent_id": "8965cbc1-eed8-4c87-a04f-9f0b8b5febcb",
+      "agent_name": "Avery (Frame Architect)",
+      "puter_username": "avery",
+      "home_dir": "/users/avery",
+      "exists": false
+    },
+    {
+      "agent_id": "3170d32c-8ff8-46e7-811f-2fb2622ab3c5",
+      "agent_name": "Blake (Budget Marshal)",
+      "puter_username": "blake",
+      "home_dir": "/users/blake",
+      "exists": false
+    },
+    {
+      "agent_id": "9ce67d98-bc38-404b-a979-8db00379fbda",
+      "agent_name": "Carmen (Contract Owner)",
+      "puter_username": "carmen",
+      "home_dir": "/users/carmen",
+      "exists": false
+    },
+    {
+      "agent_id": "b4ae9fe0-e35d-4c19-ade0-3a3ff11b73c7",
+      "agent_name": "Casey (Compatibility Auditor)",
+      "puter_username": "casey",
+      "home_dir": "/users/casey",
+      "exists": false
+    },
+    {
+      "agent_id": "3401eaa3-6bde-4373-b418-a09e78f6bad4",
+      "agent_name": "Finn (Fork Debugger)",
+      "puter_username": "finn",
+      "home_dir": "/users/finn",
+      "exists": false
+    },
+    {
+      "agent_id": "e72c4e0f-7df1-4b7f-910b-d6f19b14542b",
+      "agent_name": "Grace (Gate Sentinel)",
+      "puter_username": "grace",
+      "home_dir": "/users/grace",
+      "exists": false
+    },
+    {
+      "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+      "agent_name": "Maya (Code Owner)",
+      "puter_username": "maya",
+      "home_dir": "/users/maya",
+      "exists": false
+    },
+    {
+      "agent_id": "9df8d807-6fb0-4a4d-85f8-b58115f06399",
+      "agent_name": "Parker (Performance Sentinel)",
+      "puter_username": "parker",
+      "home_dir": "/users/parker",
+      "exists": false
+    },
+    {
+      "agent_id": "642755a2-a869-440b-b4f7-e5a718e0fb8b",
+      "agent_name": "Priya (Goal Reaper)",
+      "puter_username": "priya",
+      "home_dir": "/users/priya",
+      "exists": false
+    },
+    {
+      "agent_id": "102631e7-87d1-432e-a31c-678d18467f58",
+      "agent_name": "Quinn (Test Adversary)",
+      "puter_username": "quinn",
+      "home_dir": "/users/quinn",
+      "exists": false
+    },
+    {
+      "agent_name": "ravi",
+      "puter_username": "ravi",
+      "home_dir": "/users/ravi",
+      "exists": false,
+      "provisioned_at": "2026-05-27T20:45:01.724Z",
+      "provisioned_via": "manual-curl-during-rate-limit-diagnose"
+    },
+    {
+      "agent_name": "riley",
+      "puter_username": "riley",
+      "home_dir": "/users/riley",
+      "exists": false,
+      "provisioned_at": "2026-05-27T20:45:01.725Z",
+      "provisioned_via": "manual-curl-during-rate-limit-diagnose"
+    }
+  ]
+}
