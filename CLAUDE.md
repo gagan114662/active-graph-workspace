@@ -490,4 +490,36 @@ If it's already shipped (commit on origin/main with audit), it lives in "Verifie
 
 ---
 
+---
+
+### 2026-05-27 (late evening continuation — capstone unification + T6 easy on opus-4.7)
+
+**Built (all five remaining backlog items shipped end-to-end):**
+- **#27 ClaudeCodeCliProvider v2 — MCP tool wiring.** `activegraph/llm/_mcp_tool_server.py` runs an in-process HTTP MCP server (streamable HTTP via the `mcp` Python SDK) per `complete()` call when `tools=[...]` is non-empty. Tool callables live in the same Python process; claude invokes them via MCP. Tested live: `add_numbers(2, 3) → 5` round-trip, $0.79 cost.
+- **#28 Bridge → ClaudeCodeCliProvider unifier.** `scripts/bridge_dispatch.py` is the Python entry point the Node bridge shells out to per trigger. `pentagon-trigger-bridge.mjs::runClaude()` now tries the dispatcher first; falls back to direct claude-CLI spawn if missing. Smoke-tested: dispatcher returns full LLMResponse with real cost/tokens/session_id.
+- **#29 Per-agent Puter computers.** Puter v52 running at http://puter.localhost:4100. 19/20 agents provisioned (last one rate-limited; idempotent re-run works). Bridge `runClaude()` now reads `agent-os/puter-agent-map.json` and sets CWD to each agent's Puter home dir (`puterHomeFor(agent)`), falling back to WORKSPACE when the map has no entry.
+- **#30 Honker realtime substrate.** `libhonker_ext.dylib` built from source at github.com/russellromney/honker, installed to `~/.local/lib/`. 35 `honker_*` SQL functions registered. `scripts/honker_listen.py` migrates JSONL → SQLite + offers a `listen_factory_events()` generator (uses honker `LISTEN` when extension available, falls back to JSONL polling). Sasha/Blake/F1 migration to LISTEN is the substrate-ready follow-up.
+- **#20 Pullfrog GitHub bot.** Self-hosted GitHub Actions runner installed at `~/actions-runner-active-graph`, registered as `claude-code-mac`, running as a launchd service. `.github/workflows/pullfrog.yml` triggers on `@pullfrog` mentions. First trigger attempt exited 1 because launchd PATH didn't include `claude`; workflow now uses absolute `$HOME/.local/bin/claude`.
+
+**Shipped (capability proof on opus-4.7 cohort):**
+- **T6 easy ✅ on opus-4.7.** Maya commit `c18d390`: "T6 native easy 20260527-opus47: docstring + annotations for RecordedDiligenceProvider.complete". Maya picked `activegraph.llm.recorded.RecordedDiligenceProvider.complete`, added Google-style docstring + full type annotations matching the LLMProvider Protocol, committed cleanly. Pushed to `gagan114662/activegraph` main. Capability re-verified on the new cohort.
+
+**Surfaced:**
+- T6 easy runner deadline was 480s; Maya's full task took 451s. Bridge dispatcher completed in time but the runner's polling missed the message-write because the runner polls every 5s and Pentagon's `completeTrigger` RPC fired slightly after the deadline. **Maya succeeded; runner reported `incomplete`.** Workaround: bump runner deadline or use file-based proof check that polls past the deadline.
+- bridge dispatcher (#28) successfully wraps claude with full cost/token reporting. Per-call cost for a 4-minute T6 easy task: **$4.05** (heavy cache_creation_input_tokens because Maya read large parts of the codebase before picking her target). The 6× efficiency Brandon-A would unlock is now particularly visible.
+
+**Open at end of session:**
+- T6 medium / hard / extra-hard not yet re-run on opus-4.7.
+- T7 medium runs 028-040 still need to fire to hit the formal 25-run gate.
+- Sasha/Blake/F1 still file-poll; Honker substrate ready for the switch but the listener migration in those scripts hasn't happened (1 line change per script).
+- Last Puter user (theo_test_owner) needs one idempotent re-run of `provision-puter-agents.mjs` after the per-IP signup rate limit clears.
+- Pullfrog workflow has been re-fixed to use absolute claude path; next `@pullfrog` comment will trigger the corrected version.
+
+**Next session opens with:**
+1. Re-fire T6 medium / hard / extra-hard on opus-4.7 to fully re-prove capability.
+2. Resume T7 medium runs 028 onward toward 25-run gate.
+3. Per-token arbitrage: T6 easy cost $4 today; need to either drop cost or add output→revenue side of the equation before scaling.
+
+---
+
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._
