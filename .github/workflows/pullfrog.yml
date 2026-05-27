@@ -53,11 +53,17 @@ jobs:
             "$(git log --oneline -50)" \
             "$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body --jq .body 2>/dev/null || gh pr view "$ISSUE_NUMBER" --repo "$REPO" --json body --jq .body)")
           unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_EXECPATH AI_AGENT
+          # Absolute paths because launchd's PATH doesn't include the
+          # operator's $HOME/.local/bin and $HOME/.bun/bin where the
+          # CLIs live for interactive shells.
+          CLAUDE="$HOME/.local/bin/claude"
+          if [ ! -x "$CLAUDE" ]; then CLAUDE=$(command -v claude || echo claude); fi
           RESPONSE=$(printf '%s\n\n--- context ---\n%s\n' "$PROMPT" "$CONTEXT" | \
-            claude -p \
+            "$CLAUDE" -p \
               --output-format text \
               --dangerously-skip-permissions \
               --model claude-opus-4-7 \
               --add-dir "$GITHUB_WORKSPACE" \
-              2>/dev/null)
+              2>&1 || echo "(claude exited with error; check runner logs)")
+          if [ -z "$RESPONSE" ]; then RESPONSE="(claude returned empty output — check runner logs at ~/Library/Logs/actions.runner.gagan114662-active-graph-workspace.claude-code-mac/)"; fi
           gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$RESPONSE"

@@ -240,8 +240,12 @@ function claudePrompt(trigger) {
 // scripts/bridge_dispatch.py so activegraph + bridge share one provider
 // implementation; this function stays for graceful degradation when the
 // dispatcher script is missing.
-function runClaudeLegacyDirect(trigger, token) {
+function runClaudeLegacyDirect(trigger, token, agent = null) {
   const claude = process.env.PENTAGON_CLAUDE || "/Users/gaganarora/.local/bin/claude";
+  // #29: prefer the agent's per-Puter-user sandbox CWD when the map has
+  // an entry; fall back to the workspace root otherwise so dispatch
+  // works even before Puter is provisioned.
+  const cwd = puterHomeFor(agent) || WORKSPACE;
   const mcpConfig = JSON.stringify({
     mcpServers: {
       pentagon: {
@@ -268,7 +272,7 @@ function runClaudeLegacyDirect(trigger, token) {
   return spawnSync(claude, args, {
     input: claudePrompt(trigger),
     encoding: "utf8",
-    cwd: WORKSPACE,
+    cwd,
     env,
     timeout: Number(arg("--claude-timeout-ms", arg("--codex-timeout-ms", "180000"))),
     maxBuffer: 10 * 1024 * 1024,
@@ -300,6 +304,7 @@ function runClaudeViaPythonDispatcher(trigger, token, agent) {
     model: agent?.model || "claude-opus-4-7",
     timeout_seconds: Number(arg("--claude-timeout-ms", arg("--codex-timeout-ms", "180000"))) / 1000,
     harness: agent?.harness_id || "claude-code",
+    puter_home: puterHomeFor(agent),  // #29: per-agent sandbox path
   };
   const env = { ...process.env };
   delete env.CLAUDECODE;
@@ -409,6 +414,27 @@ function finalClaudeMessage(stdout) {
   };
 }
 
+// #29 wiring: each agent has a Puter user with a dedicated home dir.
+// When the bridge dispatches to that agent, we set CWD to that dir so
+// the claude subprocess (and any tool calls underneath) read/write
+// inside the agent's sandbox, not the operator's global workspace.
+// Map lives at agent-os/puter-agent-map.json; missing entries fall
+// back to the workspace root so dispatch never blocks on the map being
+// incomplete.
+let _puterMap = null;
+function puterHomeFor(agent) {
+  if (_puterMap === null) {
+    try {
+      const raw = readFileSync(WORKSPACE + "/agent-os/puter-agent-map.json", "utf8");
+      const parsed = JSON.parse(raw);
+      _puterMap = new Map((parsed.agents || []).map((row) => [row.agent_name, row.home_dir]));
+    } catch {
+      _puterMap = new Map();
+    }
+  }
+  return _puterMap.get(agent?.name) || null;
+}
+
 // #28: prefer Python dispatcher (scripts/bridge_dispatch.py) which uses
 // activegraph's ClaudeCodeCliProvider under the hood. Falls back to the
 // legacy direct claude-CLI spawn if the dispatcher is unavailable or
@@ -431,7 +457,7 @@ function runClaude(trigger, token, agent) {
       };
     }
   }
-  return runClaudeLegacyDirect(trigger, token);
+  return runClaudeLegacyDirect(trigger, token, agent);
 }
 
 function runByHarness(agent, trigger, token) {
