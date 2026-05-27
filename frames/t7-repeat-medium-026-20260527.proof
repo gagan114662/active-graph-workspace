@@ -1,0 +1,14 @@
+hash=T7_REPEAT_MEDIUM_20260527_026
+run_seed=3c03f0e9-98b8-403b-b414-6632c7fe15dc
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=190af38
+uncovered_symbol=activegraph.runtime.diff.DivergentRelation.summary
+test_file=activegraph/tests/test_divergent_relation_summary_t7m_026_coverage.py
+new_test_count=4
+pytest_collect_before=778
+pytest_collect_after=782
+pytest_before=764
+pytest_after=768
+agent_commit_sha=190af38ed39f61366ebe4b7bdc4a6c34e4672d13
+ruff_target_exit=0
+verdict=native_medium_done

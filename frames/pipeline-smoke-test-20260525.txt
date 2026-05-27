@@ -1,0 +1,9 @@
+PIPELINE_SMOKE_TEST_20260525
+
+Maya, this is a minimal pipeline smoke test. Do NOT do any engineering work, do NOT edit files, do NOT commit, do NOT use any tools.
+
+Reply with exactly this line and nothing else:
+
+PIPELINE_SMOKE_TEST_OK 20260525
+
+Your single-line reply is the only output. After replying, your turn ends.

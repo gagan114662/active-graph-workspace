@@ -1,0 +1,95 @@
+{
+  "hash": "T7_REPEAT_EASY_20260525_009",
+  "level": "easy",
+  "target": {
+    "id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "name": "Maya (Code Owner)",
+    "directory": "/Users/gaganarora/Desktop/my projects/active_graph",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "harness_id": "codex",
+    "execution_mode": "local"
+  },
+  "sender": {
+    "id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "name": "Theo (Test Owner)",
+    "directory": "/Users/gaganarora/Desktop/my projects/active_graph",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "harness_id": "codex",
+    "execution_mode": "local"
+  },
+  "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+  "instruction_file": "frames/t7-repeat-easy-009-instruction-20260525.txt",
+  "expect_file": "activegraph/frames/t7-repeat-easy-009-20260525.proof",
+  "bridge_before": {
+    "ok": true
+  },
+  "native_watchdog": "enabled",
+  "native_watchdog_events": [],
+  "native_watchdog_last_restart_at": null,
+  "bridge_stop": {
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "bridge_after_stop": {
+    "ok": false,
+    "stdout": "",
+    "stderr": "Bad request.\nCould not find service \"run.pentagon.trigger-bridge\" in domain for user gui: 501\n"
+  },
+  "message": {
+    "id": "2477a396-9544-4397-9e77-fd93ce04600c",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "content": "RUN_SEED=d6b66b07-7b5d-4ce5-b974-e011d6dab181\nNATIVE_GAUNTLET EASY T7_REPEAT_EASY_20260525_009\n\nMaya, this is T7 repetition run 009 for the easy T6 task class in:\n/Users/gaganarora/Desktop/my projects/active_graph/activegraph\n\nPurpose: measure whether the T6 easy capability repeats on a fresh target.\n\nDo not reuse these prior easy targets:\n- activegraph.core.graph.Graph.store\n- activegraph.runtime.patterns.PatternMatcher.matches\n- activegraph.tools.cache.ToolCache.from_events\n- activegraph.packs.PackPrompt.from_body\n- activegraph.core.event.Event.to_dict\n- activegraph.behaviors.base.RelationBehavior.run\n- activegraph.core.clock.Clock.now\n- activegraph.core.ids.IDGen.object\n- activegraph.behaviors.base.Behavior.run\n\nWorktree discipline:\n- Work in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.\n- There may be unrelated operator changes in this repo. Do not revert, delete, or rewrite unrelated files.\n- Commit only the file you intentionally change for this run.\n\nTask:\n1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.\n2. Run the full pytest suite and capture the baseline summary line:\n     uv run pytest -q --tb=no > /tmp/t7-repeat-easy-009-pytest-before.out 2>&1; echo \"exit=$?\"; tail -3 /tmp/t7-repeat-easy-009-pytest-before.out\n   Record `pytest_before` as the integer count of passing tests.\n3. Pick ONE public function in activegraph/activegraph/ (not in tests/, not private with leading underscore) that has BOTH:\n     (a) no docstring, and\n     (b) at least one parameter OR the return value missing a type hint.\n4. Add a docstring matching activegraph/CONTRACT.md's documented format (Args / Returns / Raises sections as applicable) AND complete all missing annotations on that function. Do not change runtime behavior.\n5. Re-run pytest. `pytest_after` MUST be greater than or equal to `pytest_before`.\n6. Run `uv run ruff check <target_file>` for the file you changed; it must exit 0.\n7. Commit the target-file change in the activegraph inner repo. Commit message:\n     T7 easy 009: document and type <target_symbol>\n   Record the full commit SHA as `agent_commit_sha`.\n8. Create frames/t7-repeat-easy-009-20260525.proof with EXACTLY these keys, in this order:\n     hash=T7_REPEAT_EASY_20260525_009\n     run_seed=d6b66b07-7b5d-4ce5-b974-e011d6dab181\n     pwd=<pwd output>\n     head=<git short head after commit>\n     target_file=<relative path>:<line number>\n     target_symbol=<fully.qualified.name>\n     agent_commit_sha=<full sha that committed the target_file change>\n     pytest_before=<int>\n     pytest_after=<int>\n     ruff_target_exit=0\n     verdict=native_easy_done\n9. Reply exactly:\n   MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_EASY_20260525_009 EASY frames/t7-repeat-easy-009-20260525.proof\n",
+    "created_at": "2026-05-25T17:32:41.01891+00:00"
+  },
+  "initial_trigger": {
+    "id": "e00e6b73-0c15-430b-b86c-1d406d97c357",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "2477a396-9544-4397-9e77-fd93ce04600c",
+    "content": "RUN_SEED=d6b66b07-7b5d-4ce5-b974-e011d6dab181\nNATIVE_GAUNTLET EASY T7_REPEAT_EASY_20260525_009\n\nMaya, this is T7 repetition run 009 for the easy T6 task class in:\n/Users/gaganarora/Desktop/my projects/active_graph/activegraph\n\nPurpose: measure whether the T6 easy capability repeats on a fresh target.\n\nDo not reuse these prior easy targets:\n- activegraph.core.graph.Graph.store\n- activegraph.runtime.patterns.PatternMatcher.matches\n- activegraph.tools.cache.ToolCache.from_events\n- activegraph.packs.PackPrompt.from_body\n- activegraph.core.event.Event.to_dict\n- activegraph.behaviors.base.RelationBehavior.run\n- activegraph.core.clock.Clock.now\n- activegraph.core.ids.IDGen.object\n- activegraph.behaviors.base.Behavior.run\n\nWorktree discipline:\n- Work in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.\n- There may be unrelated operator changes in this repo. Do not revert, delete, or rewrite unrelated files.\n- Commit only the file you intentionally change for this run.\n\nTask:\n1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.\n2. Run the full pytest suite and capture the baseline summary line:\n     uv run pytest -q --tb=no > /tmp/t7-repeat-easy-009-pytest-before.out 2>&1; echo \"exit=$?\"; tail -3 /tmp/t7-repeat-easy-009-pytest-before.out\n   Record `pytest_before` as the integer count of passing tests.\n3. Pick ONE public function in activegraph/activegraph/ (not in tests/, not private with leading underscore) that has BOTH:\n     (a) no docstring, and\n     (b) at least one parameter OR the return value missing a type hint.\n4. Add a docstring matching activegraph/CONTRACT.md's documented format (Args / Returns / Raises sections as applicable) AND complete all missing annotations on that function. Do not change runtime behavior.\n5. Re-run pytest. `pytest_after` MUST be greater than or equal to `pytest_before`.\n6. Run `uv run ruff check <target_file>` for the file you changed; it must exit 0.\n7. Commit the target-file change in the activegraph inner repo. Commit message:\n     T7 easy 009: document and type <target_symbol>\n   Record the full commit SHA as `agent_commit_sha`.\n8. Create frames/t7-repeat-easy-009-20260525.proof with EXACTLY these keys, in this order:\n     hash=T7_REPEAT_EASY_20260525_009\n     run_seed=d6b66b07-7b5d-4ce5-b974-e011d6dab181\n     pwd=<pwd output>\n     head=<git short head after commit>\n     target_file=<relative path>:<line number>\n     target_symbol=<fully.qualified.name>\n     agent_commit_sha=<full sha that committed the target_file change>\n     pytest_before=<int>\n     pytest_after=<int>\n     ruff_target_exit=0\n     verdict=native_easy_done\n9. Reply exactly:\n   MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_EASY_20260525_009 EASY frames/t7-repeat-easy-009-20260525.proof\n",
+    "created_at": "2026-05-25T17:32:41.01891+00:00",
+    "claimed_at": null,
+    "completed_at": null
+  },
+  "final_trigger": {
+    "id": "e00e6b73-0c15-430b-b86c-1d406d97c357",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "2477a396-9544-4397-9e77-fd93ce04600c",
+    "content": "RUN_SEED=d6b66b07-7b5d-4ce5-b974-e011d6dab181\nNATIVE_GAUNTLET EASY T7_REPEAT_EASY_20260525_009\n\nMaya, this is T7 repetition run 009 for the easy T6 task class in:\n/Users/gaganarora/Desktop/my projects/active_graph/activegraph\n\nPurpose: measure whether the T6 easy capability repeats on a fresh target.\n\nDo not reuse these prior easy targets:\n- activegraph.core.graph.Graph.store\n- activegraph.runtime.patterns.PatternMatcher.matches\n- activegraph.tools.cache.ToolCache.from_events\n- activegraph.packs.PackPrompt.from_body\n- activegraph.core.event.Event.to_dict\n- activegraph.behaviors.base.RelationBehavior.run\n- activegraph.core.clock.Clock.now\n- activegraph.core.ids.IDGen.object\n- activegraph.behaviors.base.Behavior.run\n\nWorktree discipline:\n- Work in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.\n- There may be unrelated operator changes in this repo. Do not revert, delete, or rewrite unrelated files.\n- Commit only the file you intentionally change for this run.\n\nTask:\n1. cd into activegraph/. Confirm pwd and `git rev-parse --short HEAD`.\n2. Run the full pytest suite and capture the baseline summary line:\n     uv run pytest -q --tb=no > /tmp/t7-repeat-easy-009-pytest-before.out 2>&1; echo \"exit=$?\"; tail -3 /tmp/t7-repeat-easy-009-pytest-before.out\n   Record `pytest_before` as the integer count of passing tests.\n3. Pick ONE public function in activegraph/activegraph/ (not in tests/, not private with leading underscore) that has BOTH:\n     (a) no docstring, and\n     (b) at least one parameter OR the return value missing a type hint.\n4. Add a docstring matching activegraph/CONTRACT.md's documented format (Args / Returns / Raises sections as applicable) AND complete all missing annotations on that function. Do not change runtime behavior.\n5. Re-run pytest. `pytest_after` MUST be greater than or equal to `pytest_before`.\n6. Run `uv run ruff check <target_file>` for the file you changed; it must exit 0.\n7. Commit the target-file change in the activegraph inner repo. Commit message:\n     T7 easy 009: document and type <target_symbol>\n   Record the full commit SHA as `agent_commit_sha`.\n8. Create frames/t7-repeat-easy-009-20260525.proof with EXACTLY these keys, in this order:\n     hash=T7_REPEAT_EASY_20260525_009\n     run_seed=d6b66b07-7b5d-4ce5-b974-e011d6dab181\n     pwd=<pwd output>\n     head=<git short head after commit>\n     target_file=<relative path>:<line number>\n     target_symbol=<fully.qualified.name>\n     agent_commit_sha=<full sha that committed the target_file change>\n     pytest_before=<int>\n     pytest_after=<int>\n     ruff_target_exit=0\n     verdict=native_easy_done\n9. Reply exactly:\n   MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_EASY_20260525_009 EASY frames/t7-repeat-easy-009-20260525.proof\n",
+    "created_at": "2026-05-25T17:32:41.01891+00:00",
+    "claimed_at": "2026-05-25T17:32:41.232331+00:00",
+    "completed_at": "2026-05-25T17:34:48.827+00:00"
+  },
+  "response_rows": [
+    {
+      "id": "fc96a505-949d-42ad-950d-28fc84cbda45",
+      "content": "MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_EASY_20260525_009 EASY frames/t7-repeat-easy-009-20260525.proof",
+      "created_at": "2026-05-25T17:34:32.170774+00:00"
+    }
+  ],
+  "expected_file": {
+    "exists": true,
+    "contains_hash": true,
+    "content": "hash=T7_REPEAT_EASY_20260525_009\nrun_seed=d6b66b07-7b5d-4ce5-b974-e011d6dab181\npwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph\nhead=d0f5485\ntarget_file=activegraph/core/ids.py:67\ntarget_symbol=activegraph.core.ids.IDGen.event\nagent_commit_sha=d0f548517fb25c6c98ce71658ac6514b63954598\npytest_before=697\npytest_after=697\nruff_target_exit=0\nverdict=native_easy_done\n"
+  },
+  "activation_path": "agent_trigger",
+  "native_pass": true,
+  "verdict": "native_task_passed",
+  "bridge_restore": {
+    "kick_status": 0,
+    "kick_stdout": "",
+    "kick_stderr": "",
+    "state": {
+      "ok": true,
+      "stdout": "gui/501/run.pentagon.trigger-bridge = {\n\tactive count = 1\n\tpath = /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist\n\ttype = LaunchAgent\n\tstate = xpcproxy\n\n\tprogram = /opt/homebrew/bin/node\n\targuments = {\n\t\t/opt/homebrew/bin/node\n\t\t/Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs\n\t\t--loop\n\t\t--interval-ms\n\t\t1000\n\t\t--limit\n\t\t8\n\t\t--max-age-seconds\n\t\t180\n\t\t--codex-timeout-ms\n\t\t180000\n\t}\n\n\tworking directory = /Users/gaganarora/Desktop/my projects/active_graph\n\n\tstdout path = /Users/gaganarora/.pentagon/trigger-bridge.out.log\n\tstderr path = /Users/gaganarora/.pentagon/trigger-bridge.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /private/tmp/com.apple.launchd.DFXPJtlDGd/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tPATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin\n\t\tXPC_SERVICE_NAME => run.pentagon.trigger-bridge\n\t}\n\n\tdomain = gui/501 [100003]\n\tasid = 100003\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 2\n\tpid = 52476\n\timmediate reason = inefficient\n\tforks = 0\n\texecs = 0\n\tinitialized = 1\n\ttrampolined = 0\n\tstarted suspended = 0\n\tproxy started suspended = 0\n\tlast terminating signal = Terminated: 15\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\tprobabilistic guard malloc policy = {\n\t\tactivation rate = 1/1000\n\t\tsample rate = 1/0\n\t}\n\n\tproperties = keepalive | runatload | inferred program\n}\n",
+      "stderr": ""
+    }
+  }
+}

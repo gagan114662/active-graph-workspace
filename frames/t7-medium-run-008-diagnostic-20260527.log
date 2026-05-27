@@ -1,0 +1,173 @@
+# T7 Medium Run 008 Diagnostic - 2026-05-27
+
+DIAGNOSTIC ONLY: no code changes, no commits, no DB writes, no new T7 runs.
+
+## Bootstrap
+
+- Read CLAUDE.md in full.
+- Outer HEAD observed before investigation: 3f7d991, matching the goal expectation.
+- Source ledger: frames/t7-native-repetition-progress-medium-20260526.jsonl.
+- DB access used the same Pentagon plist/JWT + Supabase REST pattern as scripts/run-native-pentagon-task.mjs and scripts/verify-pentagon-autonomy-from-logs.mjs.
+- Full read-only scrape was collected to /tmp/t7m-008-diagnostic-data.json for reduction.
+
+## Part 1 - Instruction comparison
+
+| run | chars | lines | hash line | RUN_SEED | excluded targets | proof path line | ACK line |
+| --- | ---: | ---: | --- | --- | ---: | --- | --- |
+| 005 | 4285 | 66 | `NATIVE_GAUNTLET MEDIUM T7_REPEAT_MEDIUM_20260526_005` | `f56dea38-d843-424a-a67c-e8eb85911afa` | 4 | `12. Create frames/t7-repeat-medium-005-20260526.proof with EXACTLY these keys, in this order:` | `MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_MEDIUM_20260526_005 MEDIUM frames/t7-repeat-medium-005-20260526.proof` |
+| 006 | 4330 | 67 | `NATIVE_GAUNTLET MEDIUM T7_REPEAT_MEDIUM_20260526_006` | `dc8f307a-e9cb-420b-abe9-b4f828ec1b7b` | 5 | `12. Create frames/t7-repeat-medium-006-20260526.proof with EXACTLY these keys, in this order:` | `MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_MEDIUM_20260526_006 MEDIUM frames/t7-repeat-medium-006-20260526.proof` |
+| 007 | 4369 | 68 | `NATIVE_GAUNTLET MEDIUM T7_REPEAT_MEDIUM_20260526_007` | `f4ec6023-fa74-4dcc-b0fb-f587a8ac14c2` | 6 | `12. Create frames/t7-repeat-medium-007-20260526.proof with EXACTLY these keys, in this order:` | `MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_MEDIUM_20260526_007 MEDIUM frames/t7-repeat-medium-007-20260526.proof` |
+| 008 | 4405 | 69 | `NATIVE_GAUNTLET MEDIUM T7_REPEAT_MEDIUM_20260526_008` | `54c8a4d7-5f65-4724-9661-47324b734474` | 7 | `12. Create frames/t7-repeat-medium-008-20260526.proof with EXACTLY these keys, in this order:` | `MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_MEDIUM_20260526_008 MEDIUM frames/t7-repeat-medium-008-20260526.proof` |
+
+Finding: run 008 is structurally similar to runs 005-007. The only systematic differences are expected per-run substitutions: hash, RUN_SEED, run number, proof/test file names, commit message run number, and one additional excluded prior target. Character and line counts increase monotonically by the added target line and run-specific path/hash text.
+
+No evidence was found for a RUN_SEED collision, hash collision, malformed hash line, malformed ACK line, malformed proof line, missing worktree instruction, or wording change specific to run 008 original. Retry instructions are longer because they include `_RETRY_N` hash/path/test-file variants and retry wording, but the original 008 instruction is normal relative to 005-007.
+
+## Part 2 - Run 008 attempt traces from Supabase
+
+### original - T7_REPEAT_MEDIUM_20260526_008
+
+- Run log: `frames/t7-repeat-medium-008-run-20260526.log`
+- Trigger id: `af5d2671-a154-452d-8283-a897a33905c4`
+- Message id: `0a4e0b92-8133-4186-9c25-fdfc85f6b368`
+- Conversation id: `0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1`
+- agent_triggers row:
+  - created_at: `2026-05-26T22:19:02.485355+00:00`
+  - claimed_at: `2026-05-26T22:20:24.692903+00:00`
+  - completed_at: `2026-05-26T22:20:36.461+00:00`
+  - agent_id: `7b8c44b7-ddeb-4a35-87e4-2ae502fe9001`
+  - sender_id: `1343cc84-5a06-44b7-88f7-f2c3e82d7e1c`
+  - message_id: `0a4e0b92-8133-4186-9c25-fdfc85f6b368`
+  - error/note/status columns: none present in returned row; no non-empty error-like fields.
+- Timing: created->claimed 82.207s; claimed->completed 11.769s; created->completed 93.976s.
+- Runner classification: `infrastructure_retry` / `ghost_completion`.
+- Proof/response state: expected proof file missing; 0 runner hash-bearing response rows; 0 Supabase Maya messages in the attempt window.
+- Native-runner watchdog events: triggered at `2026-05-26T22:20:06.610Z`, restart completed in 7439ms with new Pentagon pid 6304, then one cooldown suppression.
+- Messages in window: only Theo's instruction message (len 4405, contains hash). No Maya partial output.
+
+### retry_1 - T7_REPEAT_MEDIUM_20260526_008_RETRY_1
+
+- Run log: `frames/t7-repeat-medium-008-retry-1-run-20260526.log`
+- Trigger id: `00153e73-6d54-456b-a895-6e15fc8aa26b`
+- Message id: `0dea9ea6-db4d-4763-8abd-d41c8dbcb092`
+- Conversation id: `0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1`
+- agent_triggers row:
+  - created_at: `2026-05-26T22:30:05.954563+00:00`
+  - claimed_at: `2026-05-26T22:30:06.338519+00:00`
+  - completed_at: `2026-05-26T22:30:17.829+00:00`
+  - agent_id: `7b8c44b7-ddeb-4a35-87e4-2ae502fe9001`
+  - sender_id: `1343cc84-5a06-44b7-88f7-f2c3e82d7e1c`
+  - message_id: `0dea9ea6-db4d-4763-8abd-d41c8dbcb092`
+  - error/note/status columns: none present in returned row; no non-empty error-like fields.
+- Timing: created->claimed 0.384s; claimed->completed 11.491s; created->completed 11.875s.
+- Runner classification: `infrastructure_retry` / `ghost_completion`.
+- Proof/response state: expected proof file missing; 0 runner hash-bearing response rows; 0 Supabase Maya messages in the attempt window.
+- Native-runner watchdog events: none.
+- Messages in window: only Theo's instruction message (len 4589, contains hash). No Maya partial output.
+
+### retry_2 - T7_REPEAT_MEDIUM_20260526_008_RETRY_2
+
+- Run log: `frames/t7-repeat-medium-008-retry-2-run-20260526.log`
+- Trigger id: `17cbcc5a-6aa6-4af6-8c5d-159a9845a634`
+- Message id: `03adfe30-1a02-4876-8033-3e2fc81e2100`
+- Conversation id: `0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1`
+- agent_triggers row:
+  - created_at: `2026-05-26T22:41:04.902731+00:00`
+  - claimed_at: `2026-05-26T22:42:26.333107+00:00`
+  - completed_at: `2026-05-26T22:42:37.962+00:00`
+  - agent_id: `7b8c44b7-ddeb-4a35-87e4-2ae502fe9001`
+  - sender_id: `1343cc84-5a06-44b7-88f7-f2c3e82d7e1c`
+  - message_id: `03adfe30-1a02-4876-8033-3e2fc81e2100`
+  - error/note/status columns: none present in returned row; no non-empty error-like fields.
+- Timing: created->claimed 81.431s; claimed->completed 11.629s; created->completed 93.060s.
+- Runner classification: `infrastructure_retry` / `ghost_completion`.
+- Proof/response state: expected proof file missing; 0 runner hash-bearing response rows; 0 Supabase Maya messages in the attempt window.
+- Native-runner watchdog events: triggered at `2026-05-26T22:42:07.577Z`, restart completed in 7360ms with new Pentagon pid 11010, then two cooldown suppressions.
+- Messages in window: only Theo's instruction message (len 4589, contains hash). No Maya partial output.
+
+### retry_3 - T7_REPEAT_MEDIUM_20260526_008_RETRY_3
+
+- Run log: `frames/t7-repeat-medium-008-retry-3-run-20260526.log`
+- Trigger id: `6fb5c1c0-4f7e-469b-ad18-d70ba2a72088`
+- Message id: `61db4d62-d678-4b1b-9b67-3be893687220`
+- Conversation id: `0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1`
+- agent_triggers row:
+  - created_at: `2026-05-26T22:52:01.570913+00:00`
+  - claimed_at: `2026-05-26T22:52:01.739823+00:00`
+  - completed_at: `2026-05-26T22:52:19.047+00:00`
+  - agent_id: `7b8c44b7-ddeb-4a35-87e4-2ae502fe9001`
+  - sender_id: `1343cc84-5a06-44b7-88f7-f2c3e82d7e1c`
+  - message_id: `61db4d62-d678-4b1b-9b67-3be893687220`
+  - error/note/status columns: none present in returned row; no non-empty error-like fields.
+- Timing: created->claimed 0.169s; claimed->completed 17.308s; created->completed 17.477s.
+- Runner classification: `infrastructure_retry` / `ghost_completion`.
+- Proof/response state: expected proof file missing; 0 runner hash-bearing response rows; 0 Supabase Maya messages in the attempt window.
+- Native-runner watchdog events: none.
+- Messages in window: only Theo's instruction message (len 4589, contains hash). No Maya partial output.
+
+DB-level shape summary: all four attempts have the same core DB shape: one Theo instruction message, one Maya-owned trigger row, claimed_at and completed_at populated, no Maya response message, no hash-bearing ACK row, no proof file, and no error/status/note fields in agent_triggers. The visible 93-94s vs 12-17s split is not a different claim-to-complete sub-mode: claim-to-complete is 11.491s, 11.629s, 11.769s, and 17.308s across all four attempts. The 93-94s attempts are longer only because created->claimed took about 81-82s and the native-runner watchdog restarted Pentagon after the trigger sat unclaimed for more than 60s. The 12-17s attempts claimed almost immediately and then ghost-completed quickly.
+
+For the 93-94s attempts specifically: no Maya message was present in Supabase during the attempt window, including non-hash partial output. The only message in each window was Theo's instruction.
+
+## Run 007 comparison
+
+- Run 007 trigger id: `f7fa6f20-9c17-4553-aec1-c4263707664f`
+- created_at: `2026-05-26T22:11:37.196823+00:00`
+- claimed_at: `2026-05-26T22:12:59.931186+00:00`
+- completed_at: `2026-05-26T22:15:46.57+00:00`
+- claimed->completed: 166.639s
+- Messages from run 007 instruction until run 008 start:
+  - `2026-05-26T22:11:37.196823+00:00` Theo instruction, len 4369, contains run007 hash.
+  - `2026-05-26T22:13:51.636949+00:00` Theo handoff.activation_proven note for run 006, len 1250, no run007 hash.
+  - `2026-05-26T22:15:32.565066+00:00` Maya ACK, len 104, contains run007 hash: `MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_MEDIUM_20260526_007 MEDIUM frames/t7-repeat-medium-007-20260526.proof`.
+- Run 007 native-runner watchdog events: restart triggered at `2026-05-26T22:12:41.507Z`, restart completed in 7411ms with new Pentagon pid 86303, followed by two cooldown suppressions.
+
+Run 007 had a normal Maya ACK message and proof, despite requiring a native-runner Pentagon restart after the trigger sat unclaimed. Run 008 original followed the same unclaimed-then-watchdog-restart pattern but ghost-completed after claim instead of producing work output.
+
+## Part 3 - Pentagon + bridge state correlation
+
+- Bridge err.log events between run 007 completion (2026-05-26T22:15:46.570Z) and run 008 first instruction creation (2026-05-26T22:19:02.485Z): 0.
+  - none found with parseable timestamps in that interval.
+- Bridge err.log interesting events (watchdog/JWT/ECONNRESET/refresh/expired/cooldown/restart/error) between run 007 completion and run 008 retry 3 completion: 0.
+  - none found in bridge err.log. The run-level watchdog events above were emitted by the native runner while it had stopped the bridge, so they live in the run logs, not bridge err.log.
+
+Current launchctl state excerpt:
+```
+active count = 1
+path = /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist
+state = running
+program = /opt/homebrew/bin/node
+stdout path = /Users/gaganarora/.pentagon/trigger-bridge.out.log
+stderr path = /Users/gaganarora/.pentagon/trigger-bridge.err.log
+runs = 2
+pid = 32195
+started suspended = 0
+proxy started suspended = 0
+last terminating signal = Terminated: 15
+```
+
+Current pgrep:
+```
+11010 /Applications/Pentagon.app/Contents/MacOS/Pentagon
+32195 /opt/homebrew/bin/node /Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs --loop --interval-ms 1000 --limit 8 --max-age-seconds 180 --codex-timeout-ms 180000
+```
+
+State-change finding: there is no bridge err.log evidence of JWT refresh, ECONNRESET, or bridge-side restart between run 007 completion and run 008 start. Pentagon did restart during run 007 at 22:12:41Z (native-runner watchdog, new pid 86303), and run 008 original restarted Pentagon again at 22:20:06Z only after its trigger went unclaimed. Thus there is evidence of poller degradation at the start of run 008 (unclaimed for more than 60s), but no independent evidence of a distinct bridge/Pentagon state change in the 3m16s gap after run 007 completed and before run 008 was fired.
+
+## Part 4 - Hypothesis ranking
+
+1. (d) Two sub-modes under `ghost_completion` - supported, but the split is pre-claim delay + ghost completion vs immediate claim + ghost completion, not Maya-ran-for-93s vs instant completion. DB shape after claim is the same; the pre-claim path differs and includes native-runner watchdog restarts on original and retry_2.
+2. (b) Pentagon state degraded - moderately supported. Run 008 original and retry_2 both needed watchdog restarts after unclaimed triggers, and all four attempts then ghost-completed. However, bridge err.log does not show JWT/ECONNRESET/refresh events or an explicit state transition between run 007 completion and run 008 start.
+3. (c) Sampling variance - possible but weaker. Four consecutive ghost completions is consistent with a bad transient state more than ordinary independent variance, especially because the instruction is structurally normal and two attempts showed poller unclaimed delay.
+4. (a) Instruction itself triggers Pentagon misbehavior - weak. The original run 008 instruction is a normal monotonic variant of runs 005-007. The only content difference is the extra excluded target and run/hash/seed substitutions.
+5. (e) Something else - possible unknown upstream Pentagon failure mode. The DB has no error/note/status columns to discriminate whether the claim-complete was a deliberate internal failure, a UI dispatch miss, or a worker-output persistence failure.
+
+## Recommended next action
+
+Do not split the classifier yet on the current evidence. Keep `ghost_completion` as the parent class, but annotate future diagnostics with `created_to_claim_seconds`, `claim_to_complete_seconds`, and whether a native-runner watchdog restart occurred. For this run, treat 008 as exhausted infrastructure and either skip/resume at 009 after an operator-managed Pentagon restart/state reset, or investigate Pentagon internals if the operator needs root cause before continuing. If this pattern recurs after a fresh app restart, then split classifier subcauses into `ghost_completion_after_watchdog_claim` and `ghost_completion_immediate_claim` or similar.
+
+## Raw command evidence
+
+- `node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-medium-20260526.jsonl` after batch commit reported pass_count=7, agent_failure_count=0, infra_retry_count=4, total_run_attempts=11.
+- `node scripts/t7-repetition-harness.mjs --ledger frames/t7-native-repetition-progress-medium-20260526.jsonl --retry-decision --run-idx 8` reported action=escalate, reason=max_infrastructure_retries_exhausted, infrastructure_attempts=4.
+- `/tmp/t7m-008-diagnostic-data.json` contains the full collected JSON evidence from the read-only DB/log scrape for this report.

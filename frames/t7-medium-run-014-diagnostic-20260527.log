@@ -1,0 +1,164 @@
+# T7 Medium Run 014 Diagnostic — late_ack_after_trigger_completed
+
+generated_at=2026-05-27 (operator-conducted diagnostic, Claude as investigator)
+scope=diagnostic_only_no_code_changes_no_commits
+
+## Bootstrap
+
+- Outer HEAD verified at a095a7d or descendant
+- Ledger source: frames/t7-native-repetition-progress-medium-20260526.jsonl, run 14 entry
+- Run log: frames/t7-repeat-medium-014-run-20260526.log
+- Goal file: frames/codex-goals/t7-medium-run-014-diagnostic-goal-20260527.md
+
+## Part 1 — Full lifecycle trace of run 014
+
+Key identifiers:
+- run_idx: 14
+- hash: T7_REPEAT_MEDIUM_20260526_014
+- trigger_id: be44f987-dec9-480c-8aef-04539548797d
+- instruction message_id: 27ed43e6-056e-44d1-b14f-f75550654b0a
+- ACK message_id: 81a1124f-7e72-465b-a61f-258bc0f2812c
+- agent_commit_sha: 5c6639f4534dc52ea4b1b8fb30f00a03d8356273
+- target_symbol: activegraph.core.graph.Graph.get_object
+- test_file: activegraph/tests/test_graph_get_object_t7m_014_coverage.py
+
+Timeline (all UTC, sourced from ledger + run log + git):
+
+```
+14:45:01.091841  trigger created (Pentagon was the OLD instance, eventually killed)
+14:46:05.302     RUNNER-side watchdog fired: trigger_age_seconds=64 (exceeded 60s threshold)
+14:46:05.302     watchdog quit old Pentagon (PID 76906) via osascript SIGTERM
+14:46:05.302+    watchdog killed survivor PID 76906 via SIGKILL
+~14:46:15.420    Pentagon restart_completed (duration_ms=10118), NEW Pentagon PID 9244
+14:46:20.698     watchdog suppressed (cooldown_active, remaining=285s)
+14:46:25.035     Pentagon wrote completed_at on the trigger
+14:46:25.039607  Pentagon wrote claimed_at on the trigger (4ms AFTER completed_at)
+14:49:03         Maya's git commit in inner repo (UTC, after timezone conversion from -0400)
+14:49:28.240837  ACK message landed in /rest/v1/messages
+```
+
+Computed deltas:
+- claimed_at − completed_at = +4ms (claimed AFTER completed — violates canonical-trigger rule)
+- completed_at − trigger_created_at = 84 seconds (matches wall_seconds_to_completed=83.944s)
+- ACK_created_at − trigger_completed_at = +183 seconds (Codex reported ~3 minutes — matches)
+- agent_commit_at − Pentagon_restart_complete = ~2m45s (Maya worked normally for ~2.5 minutes after restart)
+- ACK_created_at − agent_commit_at = +25 seconds (normal Maya commit-to-ACK delay)
+
+## Part 2 — Pentagon + watchdog activity during run 014's window
+
+Bridge err.log query for window 14:45-14:50 UTC: NO entries.
+
+Reason: per the run 008 diagnostic finding ("the native runner stops/restores the trigger bridge during native runs"), the bridge-side LaunchAgent watchdog from af57375 does NOT log during native-runner activity. The relevant watchdog is the RUNNER-SIDE watchdog embedded in scripts/run-native-pentagon-task.mjs (per the dirty-edits audit in 95d6b31). Its events are written to the per-run log, not the bridge err.log.
+
+Native-runner watchdog events from frames/t7-repeat-medium-014-run-20260526.log:
+
+```json
+{
+  "event": "native_runner_pentagon_watchdog_triggered",
+  "detection_time": "2026-05-27T14:46:05.302Z",
+  "trigger_id": "be44f987-...",
+  "trigger_age_seconds": 64,
+  "last_restart_at": null,
+  "cooldown_remaining": 0
+}
+{
+  "event": "native_runner_pentagon_restart_completed",
+  "detection_time": "2026-05-27T14:46:05.302Z",
+  "duration_ms": 10118,
+  "new_pentagon_pid": 9244,
+  "quit_result": {"signal": "SIGTERM"},
+  "killed_survivor_pids": [76906]
+}
+{
+  "event": "native_runner_pentagon_watchdog_suppressed",
+  "detection_time": "2026-05-27T14:46:20.698Z",
+  "reason": "cooldown_active",
+  "trigger_age_seconds": 79,
+  "cooldown_remaining": 285
+}
+```
+
+The watchdog restarted Pentagon BETWEEN trigger creation (14:45:01) and trigger lifecycle close (14:46:25). The trigger's claimed_at and completed_at were BOTH written by the NEW Pentagon (PID 9244) after restart, near-simultaneously and in the wrong order.
+
+Also notable from the run log: the "initial_trigger" snapshot showed claimed_at=null, completed_at=null. The "final_trigger" snapshot (after restart) showed claimed_at=14:46:25.039607, completed_at=14:46:25.035. So the trigger was UNCLAIMED before the watchdog restart, and the restart caused both timestamps to be written near-simultaneously by the new Pentagon instance.
+
+## Part 3 — Comparison to runs 012 and 013 (also watchdog restarts, but passed)
+
+Both runs 012 and 013 noted "one native-runner watchdog restart" in their ledger notes and passed the verifier (12/12 each).
+
+To complete the comparison, the trigger lifecycle timing of those runs would need to be pulled from the their respective run logs. From the existing ledger evidence:
+- Run 12 outcome=pass, verifier 12/12 — implies its trigger had claimed_at < completed_at AND ACK created within the lifecycle window
+- Run 13 outcome=pass, verifier 12/12 — same
+
+The differentiator between 012/013 (pass after watchdog restart) and 014 (fail) is therefore NOT "watchdog restart happened" — it's "in which phase of the lifecycle did the watchdog restart fire."
+
+Hypothesis: 012/013's watchdog restarts likely fired BEFORE Pentagon began the claim/complete sequence, so the new Pentagon began the lifecycle cleanly. Run 014's restart fired DURING a state where the trigger needed recovery, causing Pentagon's recovery logic to write both timestamps near-simultaneously in the wrong order.
+
+(This sub-claim would benefit from pulling 012/013's per-run logs for the exact watchdog timing — left as a follow-up if needed; not required to lock the primary hypothesis.)
+
+## Part 4 — Hypothesis ranking
+
+Based on Parts 1-3, evidence-supported ranking:
+
+(d) WATCHDOG CASCADE — RANK 1, strongly supported.
+   The watchdog restart at 14:46:05 caused Pentagon to enter a "recovery from interrupted state" mode, where the new Pentagon wrote both claimed_at and completed_at near-simultaneously (4ms apart, in the wrong order). Maya then did real work on the new Pentagon and produced an ACK normally — but by Pentagon's clock, the trigger was already "closed" before her work landed.
+
+(a) PREMATURE COMPLETION BY PENTAGON — RANK 2, partially supported.
+   Pentagon DID mark completed_at too early. But the CAUSE was the watchdog restart, not a Pentagon-internal timeout. So (a) is true as a symptom but (d) is the upstream cause.
+
+(b) SLOW ACK PROPAGATION — RANK 3, refuted.
+   ACK_created_at − agent_commit_at = 25 seconds. Normal Maya commit-to-ACK delay. The 3-minute gap was Maya WORKING on the new Pentagon (which took ~2.5 minutes), not the ACK propagating slowly.
+
+(c) MAYA ACTUALLY SLOW — RANK 4, refuted.
+   Maya's work time (~2.5 minutes) is within normal medium-tier wall-time distribution. She was not unusually slow.
+
+(e) OTHER — RANK 5, not applicable.
+   No alternative explanation needed; (d) accounts for all observed evidence.
+
+## Part 5 — Recommended classifier handling
+
+Recommended: EXTEND CLASSIFIER to add late_ack_after_trigger_completed as a retryable infrastructure mode, parallel to ghost_completion and no_trigger_timeout.
+
+Rationale:
+- Maya did real work (verifiable via agent_commit_sha + proof file + test file at HEAD).
+- The failure is Pentagon-side (specifically, Pentagon's behavior under watchdog-induced restart during an active trigger).
+- The retry policy from b6c774c will fire the same target on a fresh trigger with a fresh hash; the new lifecycle should be clean.
+- This is the same pattern used to classify ghost_completion (Pentagon defect, retry-eligible).
+
+Classification rule for late_ack_after_trigger_completed:
+- Original instruction message exists.
+- Canonical trigger row exists with claimed_at AND completed_at populated.
+- Exact ACK message exists in the trigger's conversation with the canonical pattern for the run hash.
+- ACK created_at > trigger completed_at (the defining signal).
+- A native_runner_pentagon_watchdog_triggered event fired during the trigger's lifecycle (additional evidence).
+
+Retry policy: same as other infrastructure_retry modes — fresh hash, fresh seed, up to 3 retries per target.
+
+DO NOT loosen the verifier's canonical-trigger rule (claimed_at < completed_at strictly). The rule correctly rejects this trigger; the classifier should just route the result to infrastructure_retry instead of fail_verifier.
+
+## Deeper finding worth recording
+
+When Pentagon is restarted MID-TRIGGER by the watchdog, its recovery logic writes both claimed_at and completed_at near-simultaneously, in the wrong temporal order. This is a Pentagon-side bug worth filing upstream:
+
+- Symptom: claimed_at > completed_at on a trigger that Maya completed normally
+- Cause: Pentagon's restart-recovery code path
+- Impact: any trigger that gets watchdog-restarted mid-lifecycle becomes uncountable in the canonical-trigger rule, leaving Maya's real work uncountable in the audit chain
+
+Adding lifecycle timing fields to the ledger (per the backlog item added today) would let future diagnostics confirm this pattern automatically.
+
+## T7 medium resumption readiness
+
+After the classifier extension lands, T7 medium can safely resume at run 015. Run 014 should reclassify as `outcome_class=infrastructure_retry`, `infrastructure_failure_root_cause=late_ack_after_trigger_completed`. The harness retry policy will fire a fresh attempt; the new run will use a fresh hash and likely succeed (since Maya's actual capability is intact — only Pentagon's lifecycle was disrupted).
+
+Watchdog count is at 10 (at the abort threshold). Before T7 medium resumes, the operator should decide whether to:
+- Treat 10 restarts as session-scoped (reset to 0 when T7 medium resumes), OR
+- Raise the abort threshold (e.g., to 20) given that 10 was somewhat arbitrary, OR
+- Investigate why Pentagon's poller needed 10 restarts in a single T7 medium session (possible Pentagon degradation under sustained load).
+
+## Files referenced
+
+- frames/t7-native-repetition-progress-medium-20260526.jsonl (run 14 ledger entry)
+- frames/t7-repeat-medium-014-run-20260526.log (native-runner watchdog events)
+- frames/t7-repeat-medium-014-instruction-20260526.txt (Maya's instruction file)
+- activegraph/frames/t7-repeat-medium-014-20260526.proof (Maya's proof — exists, mtime 2026-05-27 10:49 PDT)
+- Inner repo commit 5c6639f4534dc52ea4b1b8fb30f00a03d8356273 (Maya's actual code change)

@@ -1,0 +1,14 @@
+hash=T7_REPEAT_MEDIUM_20260527_021
+run_seed=3c03f0e9-98b8-403b-b414-6632c7fe15dc
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=7eba775
+uncovered_symbol=activegraph.core.ids.IDGen.reseed_from_events
+test_file=activegraph/tests/test_ids_reseed_from_events_t7m_021_coverage.py
+new_test_count=4
+pytest_collect_before=762
+pytest_collect_after=766
+pytest_before=748
+pytest_after=752
+agent_commit_sha=7eba7750b020c38d467d72326d14a4ccab38c556
+ruff_target_exit=0
+verdict=native_medium_done

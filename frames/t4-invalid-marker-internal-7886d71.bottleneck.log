@@ -1,0 +1,16 @@
+event: bottleneck.detected
+frame: t4-openai-tool-shape-translation
+complexity: medium
+source: review
+symptom: >
+  CONTRACT #12 kept invalid_args_error out of persisted llm.responded.tool_calls[],
+  but LLMCache.from_events still cached the persisted {"_raw": ...} tool call after
+  tool.invalid_input. A zero-field Pydantic tool then accepted the cached args and
+  emitted object.created on replay.
+owner: Code Owner
+feedback_action: regression test + cache gate
+evidence:
+  - Quinn: frames/t4-invalid-marker-internal-7886d71.adversary.log
+  - commit: 62015ed Bypass durable cache for invalid tool input
+  - command: ../venv/bin/pytest tests/test_provider_tool_parity.py -q -> 12 passed in 0.04s
+  - command: ../venv/bin/pytest -q tests/test_provider_tool_parity.py tests/test_llm_replay.py tests/test_openai_tool_shape.py tests/test_llm_tool_loop.py tests/test_v1_0_3_tool_multiturn.py tests/test_tool_replay.py -> 48 passed in 0.16s

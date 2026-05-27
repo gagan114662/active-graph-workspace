@@ -1,8 +1,30 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
+import { join as pathJoin } from "node:path";
 
 const ROOT = "/Users/gaganarora/Desktop/my projects/active_graph";
+
+const COHORT_CONFIG_PATH = pathJoin(ROOT, "agent-os/agent-cohort.json");
+const COHORT_DEFAULTS = {
+  cohort_name: "gpt-5.5-codex-2026-05-22",
+  provider: "codex",
+  model: "gpt-5.5",
+  harness_id: "codex",
+  execution_mode: "local",
+  pentagon_default_model: "gpt-5.5",
+};
+function loadCohortExpectations() {
+  if (!existsSync(COHORT_CONFIG_PATH)) return { ...COHORT_DEFAULTS };
+  try {
+    const raw = readFileSync(COHORT_CONFIG_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return { cohort_name: parsed.cohort_name ?? COHORT_DEFAULTS.cohort_name, ...COHORT_DEFAULTS, ...(parsed.expected ?? {}) };
+  } catch {
+    return { ...COHORT_DEFAULTS };
+  }
+}
+const EXPECTED_COHORT = loadCohortExpectations();
 const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
 const PENTAGON_BIN = "/Applications/Pentagon.app/Contents/MacOS/Pentagon";
 const BRIDGE_LOG = "/Users/gaganarora/.pentagon/trigger-bridge.out.log";
@@ -761,17 +783,17 @@ async function verifyLiveRows() {
     "/rest/v1/agents?select=id,name,provider,model,harness_id,directory,execution_mode,base_directory,base_branch,deleted_at&deleted_at=is.null&limit=200"
   );
   const activeGraphAgents = agents.filter((agent) => agent.directory === ROOT);
-  const wrongModels = activeGraphAgents.filter((agent) => agent.model !== "gpt-5.5");
-  const wrongProviders = activeGraphAgents.filter((agent) => agent.provider !== "codex");
-  const wrongHarnesses = activeGraphAgents.filter((agent) => agent.harness_id !== "codex");
-  const wrongExecutionModes = activeGraphAgents.filter((agent) => agent.execution_mode !== "local");
+  const wrongModels = activeGraphAgents.filter((agent) => agent.model !== EXPECTED_COHORT.model);
+  const wrongProviders = activeGraphAgents.filter((agent) => agent.provider !== EXPECTED_COHORT.provider);
+  const wrongHarnesses = activeGraphAgents.filter((agent) => agent.harness_id !== EXPECTED_COHORT.harness_id);
+  const wrongExecutionModes = activeGraphAgents.filter((agent) => agent.execution_mode !== EXPECTED_COHORT.execution_mode);
   const branchMetadataRows = activeGraphAgents.filter((agent) => agent.base_directory || agent.base_branch);
   must("live DB active_graph agent rows present", activeGraphAgents.length >= 20, "count=" + activeGraphAgents.length);
   must("live DB active_graph agent rows have exact repo directory", activeGraphAgents.every((agent) => agent.directory === ROOT), JSON.stringify(activeGraphAgents.map((agent) => ({ name: agent.name, directory: agent.directory }))));
-  must("live DB all active_graph agents are gpt-5.5", wrongModels.length === 0, JSON.stringify(wrongModels));
-  must("live DB all active_graph agents use codex provider", wrongProviders.length === 0, JSON.stringify(wrongProviders));
-  must("live DB all active_graph agents use codex harness", wrongHarnesses.length === 0, JSON.stringify(wrongHarnesses));
-  must("live DB all active_graph agents use local execution", wrongExecutionModes.length === 0, JSON.stringify(wrongExecutionModes));
+  must(`live DB all active_graph agents are model=${EXPECTED_COHORT.model}`, wrongModels.length === 0, JSON.stringify(wrongModels));
+  must(`live DB all active_graph agents use provider=${EXPECTED_COHORT.provider}`, wrongProviders.length === 0, JSON.stringify(wrongProviders));
+  must(`live DB all active_graph agents use harness=${EXPECTED_COHORT.harness_id}`, wrongHarnesses.length === 0, JSON.stringify(wrongHarnesses));
+  must(`live DB all active_graph agents use execution_mode=${EXPECTED_COHORT.execution_mode}`, wrongExecutionModes.length === 0, JSON.stringify(wrongExecutionModes));
   record(true, "live DB active_graph clone branch metadata rows", branchMetadataRows.length ? JSON.stringify(branchMetadataRows) : "none exposed");
 }
 
@@ -1975,7 +1997,7 @@ async function main() {
   must("LaunchAgent has no recorded crash exit", !launchd.stdout.includes("last exit code = 1"), launchd.stdout);
 
   const defaultModel = command("defaults", ["read", "run.pentagon.app", "pentagon.defaultModel"]);
-  must("Pentagon default model is gpt-5.5", defaultModel.stdout.trim() === "gpt-5.5", defaultModel.stdout.trim());
+  must(`Pentagon default model is ${EXPECTED_COHORT.pentagon_default_model}`, defaultModel.stdout.trim() === EXPECTED_COHORT.pentagon_default_model, defaultModel.stdout.trim());
 
   const bridgeRuntimeLog = file(BRIDGE_LOG);
   must("bridge runtime log exists", bridgeRuntimeLog, BRIDGE_LOG);

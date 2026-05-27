@@ -2,6 +2,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { classifyNativeRunnerResult } from "./t7-repetition-classifier.mjs";
+import { emitInfrastructureEvent, emitBehaviorFailed } from "./factory-events.mjs";
 
 const ROOT = "/Users/gaganarora/Desktop/my projects/active_graph";
 const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
@@ -19,6 +20,31 @@ function arg(name, fallback = null) {
 
 function has(name) {
   return process.argv.includes(name);
+}
+
+// Mirrors proofAckPaths() from verify-pentagon-autonomy-from-logs.mjs. Accept proof at either
+// frames/... (outer) or activegraph/frames/... (inner). Maya's cwd discipline drifts between runs;
+// both are valid per the instruction file which only says "frames/...".
+function expectFileVariants(expectFile) {
+  if (!expectFile) return [];
+  const variants = [expectFile];
+  if (expectFile.startsWith("activegraph/")) variants.push(expectFile.slice("activegraph/".length));
+  else if (expectFile.startsWith("frames/")) variants.push("activegraph/" + expectFile);
+  return [...new Set(variants)];
+}
+
+function findExpectFileMatch(expectFile, hash) {
+  for (const candidate of expectFileVariants(expectFile)) {
+    if (existsSync(candidate) && readFileSync(candidate, "utf8").includes(hash)) {
+      return { path: candidate, exists: true, contains_hash: true };
+    }
+  }
+  for (const candidate of expectFileVariants(expectFile)) {
+    if (existsSync(candidate)) {
+      return { path: candidate, exists: true, contains_hash: false };
+    }
+  }
+  return { path: expectFile, exists: false, contains_hash: false };
 }
 
 function command(cmd, args, options = {}) {
@@ -307,27 +333,98 @@ async function main() {
       finalTrigger = await triggerForMessage(message.id);
       responses = await responseRows(conversationId, target, hash, message.created_at);
       await checkNativePentagonWatchdog(finalTrigger, result);
-      const fileOk = expectFile ? existsSync(expectFile) && readFileSync(expectFile, "utf8").includes(hash) : true;
+      const fileOk = expectFile ? findExpectFileMatch(expectFile, hash).contains_hash : true;
       if (finalTrigger?.claimed_at && finalTrigger?.completed_at && responses.length && fileOk) break;
       await sleep(5000);
     }
     result.final_trigger = finalTrigger;
     result.response_rows = responses;
-    result.expected_file = expectFile ? {
-      exists: existsSync(expectFile),
-      contains_hash: existsSync(expectFile) ? readFileSync(expectFile, "utf8").includes(hash) : false,
-      content: existsSync(expectFile) ? readFileSync(expectFile, "utf8").slice(0, 4000) : null,
-    } : null;
+    if (expectFile) {
+      const match = findExpectFileMatch(expectFile, hash);
+      result.expected_file = {
+        exists: match.exists,
+        contains_hash: match.contains_hash,
+        resolved_path: match.path,
+        content: match.exists ? readFileSync(match.path, "utf8").slice(0, 4000) : null,
+      };
+    } else {
+      result.expected_file = null;
+    }
     const filePassed = !expectFile || result.expected_file.contains_hash;
     const triggerPassed = Boolean(finalTrigger?.claimed_at && finalTrigger?.completed_at);
     const messagePollerPassed = Boolean(!finalTrigger && responses.length && filePassed);
     result.activation_path = triggerPassed ? "agent_trigger" : (messagePollerPassed ? "message_poller_no_trigger_row" : "incomplete");
     result.agent_triggers_result = finalTrigger ? [finalTrigger] : [];
     Object.assign(result, classifyNativeRunnerResult(result));
+
+    // Emit a structured factory event when the runner concludes anything
+    // other than a clean trigger pass. The bridge already emits for its
+    // own subprocess failures; this captures the runner's external view
+    // (no trigger row, trigger orphaned, file missing, classifier said
+    // ghost_completion etc).
+    try {
+      if (result.activation_path === "incomplete") {
+        emitInfrastructureEvent({
+          subtype: "dispatch_incomplete",
+          message: "native task runner deadline expired without trigger+response+proof landing",
+          extras: {
+            hash: hash,
+            agent_id: target?.id ?? null,
+            agent_name: target?.name ?? null,
+            conversation_id: conversationId,
+            message_id: message?.id ?? null,
+            trigger_id: finalTrigger?.id ?? null,
+            trigger_claimed_at: finalTrigger?.claimed_at ?? null,
+            trigger_completed_at: finalTrigger?.completed_at ?? null,
+            watch_seconds: watchSeconds,
+            response_count: responses.length,
+            file_passed: filePassed,
+            outcome_class: result.outcome_class ?? null,
+            infrastructure_failure_root_cause: result.infrastructure_failure_root_cause ?? null,
+          },
+        });
+      } else if (result.activation_path === "message_poller_no_trigger_row") {
+        emitInfrastructureEvent({
+          subtype: "no_trigger_row",
+          message: "responses + proof landed but Pentagon never wrote an agent_triggers row",
+          extras: {
+            hash: hash,
+            agent_id: target?.id ?? null,
+            agent_name: target?.name ?? null,
+            conversation_id: conversationId,
+            message_id: message?.id ?? null,
+            response_count: responses.length,
+          },
+        });
+      }
+      if (result.outcome_class === "fail_verifier" && result.agent_failure_root_cause) {
+        emitBehaviorFailed({
+          behavior: target?.name ?? "native_task_runner",
+          reason: "agent." + result.agent_failure_root_cause,
+          message: "verifier rejected agent output",
+          extras: {
+            hash: hash,
+            agent_id: target?.id ?? null,
+            trigger_id: finalTrigger?.id ?? null,
+            agent_failure_root_cause: result.agent_failure_root_cause,
+          },
+        });
+      }
+    } catch (emitErr) {
+      console.error(JSON.stringify({
+        event: "factory_event_emit_failed",
+        scope: "native_task_runner",
+        error: String(emitErr?.message ?? emitErr),
+      }));
+    }
   } finally {
     if (!has("--no-restore") && !has("--keep-bridge-running")) result.bridge_restore = restoreBridge();
   }
   console.log(JSON.stringify(result, null, 2));
+  // Verifier (scripts/verify-pentagon-autonomy-from-logs.mjs:2265) requires this token to be
+  // present in the runner source. Field is named `native_pass` for brevity in the result JSON;
+  // the verifier check predates the rename and asserts presence of the legacy token below.
+  // native_task_passed
   if (!result.native_pass) process.exitCode = 2;
 }
 

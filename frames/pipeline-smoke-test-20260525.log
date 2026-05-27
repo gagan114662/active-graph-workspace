@@ -1,0 +1,86 @@
+{
+  "hash": "PIPELINE_SMOKE_TEST_20260525",
+  "level": "easy",
+  "target": {
+    "id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "name": "Maya (Code Owner)",
+    "directory": "/Users/gaganarora/Desktop/my projects/active_graph",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "harness_id": "codex",
+    "execution_mode": "local"
+  },
+  "sender": {
+    "id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "name": "Theo (Test Owner)",
+    "directory": "/Users/gaganarora/Desktop/my projects/active_graph",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "harness_id": "codex",
+    "execution_mode": "local"
+  },
+  "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+  "instruction_file": "frames/pipeline-smoke-test-20260525.txt",
+  "expect_file": "frames/pipeline-smoke-test-noop.expect",
+  "bridge_before": {
+    "ok": true
+  },
+  "bridge_stop": {
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "bridge_after_stop": {
+    "ok": false,
+    "stdout": "",
+    "stderr": "Bad request.\nCould not find service \"run.pentagon.trigger-bridge\" in domain for user gui: 501\n"
+  },
+  "message": {
+    "id": "692c02a1-3b6b-4d91-b973-a004aebdf486",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "content": "PIPELINE_SMOKE_TEST_20260525\n\nMaya, this is a minimal pipeline smoke test. Do NOT do any engineering work, do NOT edit files, do NOT commit, do NOT use any tools.\n\nReply with exactly this line and nothing else:\n\nPIPELINE_SMOKE_TEST_OK 20260525\n\nYour single-line reply is the only output. After replying, your turn ends.\n",
+    "created_at": "2026-05-25T13:45:42.454601+00:00"
+  },
+  "initial_trigger": {
+    "id": "301e950f-4fc9-488f-905d-8c690b386e67",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "692c02a1-3b6b-4d91-b973-a004aebdf486",
+    "content": "PIPELINE_SMOKE_TEST_20260525\n\nMaya, this is a minimal pipeline smoke test. Do NOT do any engineering work, do NOT edit files, do NOT commit, do NOT use any tools.\n\nReply with exactly this line and nothing else:\n\nPIPELINE_SMOKE_TEST_OK 20260525\n\nYour single-line reply is the only output. After replying, your turn ends.\n",
+    "created_at": "2026-05-25T13:45:42.454601+00:00",
+    "claimed_at": null,
+    "completed_at": null
+  },
+  "final_trigger": {
+    "id": "301e950f-4fc9-488f-905d-8c690b386e67",
+    "conversation_id": "0d996a94-45a6-4ef6-b8bd-45bc3f84d7e1",
+    "agent_id": "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",
+    "sender_id": "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",
+    "message_id": "692c02a1-3b6b-4d91-b973-a004aebdf486",
+    "content": "PIPELINE_SMOKE_TEST_20260525\n\nMaya, this is a minimal pipeline smoke test. Do NOT do any engineering work, do NOT edit files, do NOT commit, do NOT use any tools.\n\nReply with exactly this line and nothing else:\n\nPIPELINE_SMOKE_TEST_OK 20260525\n\nYour single-line reply is the only output. After replying, your turn ends.\n",
+    "created_at": "2026-05-25T13:45:42.454601+00:00",
+    "claimed_at": "2026-05-25T13:45:42.604285+00:00",
+    "completed_at": "2026-05-25T13:45:54.921+00:00"
+  },
+  "response_rows": [],
+  "expected_file": {
+    "exists": false,
+    "contains_hash": false,
+    "content": null
+  },
+  "activation_path": "agent_trigger",
+  "native_pass": false,
+  "verdict": "native_task_failed_or_incomplete",
+  "bridge_restore": {
+    "kick_status": 0,
+    "kick_stdout": "",
+    "kick_stderr": "",
+    "state": {
+      "ok": true,
+      "stdout": "gui/501/run.pentagon.trigger-bridge = {\n\tactive count = 1\n\tpath = /Users/gaganarora/Library/LaunchAgents/run.pentagon.trigger-bridge.plist\n\ttype = LaunchAgent\n\tstate = xpcproxy\n\n\tprogram = /opt/homebrew/bin/node\n\targuments = {\n\t\t/opt/homebrew/bin/node\n\t\t/Users/gaganarora/Desktop/my projects/active_graph/scripts/pentagon-trigger-bridge.mjs\n\t\t--loop\n\t\t--interval-ms\n\t\t1000\n\t\t--limit\n\t\t8\n\t\t--max-age-seconds\n\t\t180\n\t\t--codex-timeout-ms\n\t\t180000\n\t}\n\n\tworking directory = /Users/gaganarora/Desktop/my projects/active_graph\n\n\tstdout path = /Users/gaganarora/.pentagon/trigger-bridge.out.log\n\tstderr path = /Users/gaganarora/.pentagon/trigger-bridge.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /private/tmp/com.apple.launchd.DFXPJtlDGd/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tPATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin\n\t\tXPC_SERVICE_NAME => run.pentagon.trigger-bridge\n\t}\n\n\tdomain = gui/501 [100003]\n\tasid = 100003\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 2\n\tpid = 97835\n\timmediate reason = inefficient\n\tforks = 0\n\texecs = 0\n\tinitialized = 1\n\ttrampolined = 0\n\tstarted suspended = 0\n\tproxy started suspended = 0\n\tlast terminating signal = Terminated: 15\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\tprobabilistic guard malloc policy = {\n\t\tactivation rate = 1/1000\n\t\tsample rate = 1/0\n\t}\n\n\tproperties = keepalive | runatload | inferred program\n}\n",
+      "stderr": ""
+    }
+  }
+}

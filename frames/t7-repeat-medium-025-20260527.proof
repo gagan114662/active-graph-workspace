@@ -1,0 +1,14 @@
+hash=T7_REPEAT_MEDIUM_20260527_025
+run_seed=3c03f0e9-98b8-403b-b414-6632c7fe15dc
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=f5fc300
+uncovered_symbol=activegraph.core.graph.Object.to_dict
+test_file=activegraph/tests/test_object_to_dict_t7m_025_coverage.py
+new_test_count=3
+pytest_collect_before=775
+pytest_collect_after=778
+pytest_before=761
+pytest_after=764
+agent_commit_sha=f5fc30019b2c8fdd938e2ac951f4994a0a24bf1a
+ruff_target_exit=0
+verdict=native_medium_done

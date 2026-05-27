@@ -26,3 +26,6 @@ node_modules/
 .env
 .env.local
 .env.*.local
+
+# Local review worktrees from /ultrareview etc.
+.review-worktrees/

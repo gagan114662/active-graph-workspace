@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "cohort_name": "opus-4.7-claude-code-2026-05-27",
+  "expected": {
+    "provider": "claude-code",
+    "model": "claude-opus-4-7",
+    "harness_id": "claude-code",
+    "execution_mode": "local",
+    "pentagon_default_model": "claude-opus-4-7[1m]"
+  },
+  "notes_on_model_string": "Pentagon uses 'claude-opus-4-7[1m]' (with [1m] suffix for 1M-context variant) for its pentagon.defaultModel preference, but the per-agent model column uses 'claude-opus-4-7' (no suffix). Verifier checks these as two separate fields.",
+  "previous_cohort": {
+    "cohort_name": "gpt-5.5-codex-2026-05-22",
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "harness_id": "codex",
+    "execution_mode": "local",
+    "pentagon_default_model": "gpt-5.5"
+  },
+  "rationale": "Migrated 2026-05-27. Forcing function: Codex CLI account credit exhaustion blocked T7 medium runs 015+, exposing Codex billing as the deepest dependency. Carmen canary on bridge runClaude() confirmed end-to-end dispatch works for claude-code/opus-4.7. Pentagon binary has full ClaudeCodeProvider/ClaudeStreamParserAdapter/ClaudeLaunchBuilder support; bridge runClaude() handles dispatch (Pentagon native poller has been silently non-functional for active_graph workspace and the bridge is the actual dispatcher).",
+  "scope": "All active_graph Pentagon agents (originally 20, all 5 active + 15 on-demand specialists).",
+  "verification": {
+    "live_db_check_source": "scripts/verify-pentagon-autonomy-from-logs.mjs lines 764-766",
+    "pentagon_default_model_check_source": "scripts/verify-pentagon-autonomy-from-logs.mjs line 1978",
+    "frozen_historical_evidence": "Historical log files at scripts/verify-pentagon-autonomy-from-logs.mjs lines 2166/2168/2201 retain the 2026-05-23 gpt-5.5/codex snapshot. These pin history and are NOT updated by cohort migration."
+  }
+}
