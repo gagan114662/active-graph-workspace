@@ -1,0 +1,125 @@
+# Classifier Extension Self-Test — late_ack_after_trigger_completed
+
+generated_at=2026-05-27
+goal=frames/codex-goals/classifier-extend-late-ack-after-trigger-completed-goal-20260527.md
+
+## Scope
+
+Adds `INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED` to the classifier, detection
+function, harness-side default `defaultLateAckResolver` (filesystem + git
+work-at-HEAD check), and integration into `decideRetryAction` so that late-ack
+runs whose work is already at HEAD resolve to `final_pass_via_late_ack`
+instead of unnecessarily retrying.
+
+Verifier was NOT modified.
+
+## Unit tests
+
+command:
+  node --test scripts/runner-classify-infra-failure.test.mjs
+
+result=PASS, 12/12 tests pass, 0 failures.
+
+New tests added:
+- `classifier reclassifies late_ack_after_trigger_completed from fail_verifier to infra_retry`
+- `classifier does NOT reclassify normal passing run as late_ack (ack < completed)`
+- `harness retry policy resolves late_ack to final_pass when work is at HEAD`
+- `harness retry policy retries late_ack when work is NOT at HEAD`
+- `T7 medium ledger run 014 reclassifies to infrastructure_retry with late_ack root cause`
+
+## T7 medium ledger reclassification
+
+WITH late-ack resolution (default in harness CLI):
+```
+pass_count: 13
+agent_failure_count: 0
+infra_retry_count: 4
+late_ack_resolved_count: 1
+total_run_attempts: 17
+pass_rate_percent: 100.0
+infrastructure_failure_rate_percent: 23.5
+```
+
+WITHOUT late-ack resolution (`--no-resolve-late-ack`):
+```
+pass_count: 12
+agent_failure_count: 0
+infra_retry_count: 5
+total_run_attempts: 17
+pass_rate_percent: 100.0
+infrastructure_failure_rate_percent: 29.4
+```
+
+Both views agree on agent_failure_count=0 (Maya was previously mis-attributed
+as the cause of run 014; the classifier extension correctly attributes it to
+the Pentagon defect). The difference is whether the work-at-HEAD evidence
+demotes run 014 from `infrastructure_retry` to `pass`.
+
+## T7 easy regression (no change)
+
+```
+pass_count: 21
+agent_failure_count: 1
+infra_retry_count: 5
+late_ack_resolved_count: 0
+total_run_attempts: 27
+pass_rate_percent: 95.5
+infrastructure_failure_rate_percent: 18.5
+```
+
+Identical to the pre-change values. The T7 easy ledger has zero rows that match
+the late-ack signature (verified empirically: ack_created_at < completed_at for
+all passing runs; delta range -65.668s to -0.156s, all negative).
+
+## T6 regrades
+
+```
+T6 easy: exit 0
+T6 medium: exit 0
+T6 hard: exit 0
+T6 extra-hard: exit 0
+```
+
+All four regrades pass with their original verdicts. Verifier behavior
+unchanged.
+
+## Bad fixtures still fail
+
+```
+t6-easy-proof-fixture-bad: exit 1
+t6-hard-proof-fixture-bad-ack-contradiction: exit 1
+t6-hard-proof-fixture-bad-no-canonical-ack: exit 1
+```
+
+All bad fixtures correctly fail. No accidental greens.
+
+## Verifier file untouched
+
+`git diff -- scripts/verify-pentagon-autonomy-from-logs.mjs` is empty.
+Canonical-trigger rule, ACK uniqueness rule, audit chain rule — all
+unchanged.
+
+## Run 014 final classification
+
+After the extension:
+- `outcome_class = infrastructure_retry`
+- `infrastructure_failure_root_cause = late_ack_after_trigger_completed`
+- `late_ack_evidence.ack_to_completed_delta_ms = 183205`
+- With work-at-HEAD resolution: marked `pass` with `late_ack_resolved=true`
+
+The harness special case fired for run 014: Maya's commit `5c6639f` is in
+the inner repo, her test file `activegraph/tests/test_graph_get_object_t7m_014_coverage.py`
+is at HEAD, and her proof file `activegraph/frames/t7-repeat-medium-014-20260526.proof`
+exists on disk. All three work-at-HEAD signals pass; run 014 resolves to pass.
+
+## Watchdog count semantics note
+
+The T7 medium goal's abort condition #4 counts watchdog restarts across the
+whole batch. Currently at 10 (the abort threshold). After this classifier
+extension lands, the operator still needs to decide before resuming T7 medium:
+- Reset the watchdog count to 0 for the new batch (treat as session-scoped), OR
+- Raise the threshold to 20, OR
+- Investigate Pentagon's poller stress under sustained load.
+
+This decision is OUT OF SCOPE for the classifier extension and belongs in
+the T7 medium resume goal.

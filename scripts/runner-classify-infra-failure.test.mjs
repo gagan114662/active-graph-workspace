@@ -8,6 +8,7 @@ import {
   INFRA_ROOT_GHOST_COMPLETION,
   INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW,
   INFRA_ROOT_NO_TRIGGER_TIMEOUT,
+  INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED,
   classifyNativeRunnerResult,
   classifyT7LedgerRows,
   computeT7ProgressMetrics,
@@ -175,4 +176,109 @@ test("retry policy treats ghost completion and no-trigger timeout as retryable i
   assert.equal(timeoutDecision.action, "retry");
   assert.equal(timeoutDecision.reason, "infrastructure_retry");
   assert.equal(timeoutDecision.retry.hash, "T7_REPEAT_EASY_20260525_022_RETRY_1");
+});
+
+test("classifier reclassifies late_ack_after_trigger_completed from fail_verifier to infra_retry", () => {
+  const lateAckRow = {
+    run_idx: 14,
+    hash: "T7_REPEAT_MEDIUM_20260526_014",
+    outcome: "fail_verifier",
+    outcome_class: "fail_verifier",
+    agent_failure_root_cause: "late_ack_after_trigger_completed",
+    trigger_id: "be44f987-dec9-480c-8aef-04539548797d",
+    claimed_at: "2026-05-27T14:46:25.039607+00:00",
+    completed_at: "2026-05-27T14:46:25.035+00:00",
+    ack_id: "81a1124f-7e72-465b-a61f-258bc0f2812c",
+    ack_created_at: "2026-05-27T14:49:28.240837+00:00",
+    proof_file: "activegraph/frames/t7-repeat-medium-014-20260526.proof",
+    agent_commit_sha: "5c6639f4534dc52ea4b1b8fb30f00a03d8356273",
+    test_file: "activegraph/tests/test_graph_get_object_t7m_014_coverage.py",
+  };
+  const [classified] = classifyT7LedgerRows([lateAckRow]);
+  assert.equal(classified.outcome_class, OUTCOME_INFRASTRUCTURE_RETRY);
+  assert.equal(classified.infrastructure_failure_root_cause, INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED);
+  assert.equal(classified.late_ack_evidence.ack_to_completed_delta_ms, 183205);
+  assert.equal(classified.late_ack_evidence.proof_file, "activegraph/frames/t7-repeat-medium-014-20260526.proof");
+});
+
+test("classifier does NOT reclassify normal passing run as late_ack (ack < completed)", () => {
+  const normalPassRow = {
+    run_idx: 1,
+    hash: "T7_REPEAT_EASY_20260525_001",
+    outcome: "pass",
+    outcome_class: "pass",
+    trigger_id: "some-uuid",
+    claimed_at: "2026-05-25T20:00:00.000+00:00",
+    completed_at: "2026-05-25T20:05:00.000+00:00",
+    ack_id: "ack-uuid",
+    ack_created_at: "2026-05-25T20:04:55.000+00:00",  // BEFORE completed_at (normal)
+    proof_file: "activegraph/frames/t7-repeat-easy-001.proof",
+    agent_commit_sha: "abc123",
+  };
+  const [classified] = classifyT7LedgerRows([normalPassRow]);
+  assert.equal(classified.outcome_class, OUTCOME_PASS);
+});
+
+test("harness retry policy resolves late_ack to final_pass when work is at HEAD", () => {
+  const lateAckAttempt = {
+    run_idx: 14,
+    hash: "T7_REPEAT_MEDIUM_20260526_014",
+    outcome: "fail_verifier",
+    outcome_class: "fail_verifier",
+    agent_failure_root_cause: "late_ack_after_trigger_completed",
+    trigger_id: "be44f987-dec9-480c-8aef-04539548797d",
+    claimed_at: "2026-05-27T14:46:25.039607+00:00",
+    completed_at: "2026-05-27T14:46:25.035+00:00",
+    ack_id: "81a1124f-7e72-465b-a61f-258bc0f2812c",
+    ack_created_at: "2026-05-27T14:49:28.240837+00:00",
+    proof_file: "activegraph/frames/t7-repeat-medium-014-20260526.proof",
+    agent_commit_sha: "5c6639f4534dc52ea4b1b8fb30f00a03d8356273",
+    test_file: "activegraph/tests/test_graph_get_object_t7m_014_coverage.py",
+  };
+  const decision = decideRetryAction([lateAckAttempt], {
+    lateAckResolver: () => ({ resolved: true, reason: "work_at_head", checks: { mocked: true } }),
+  });
+  assert.equal(decision.action, "final_pass_via_late_ack");
+  assert.equal(decision.reason, "late_ack_work_at_head");
+  assert.equal(decision.final_row.outcome_class, OUTCOME_PASS);
+  assert.equal(decision.final_row.late_ack_resolved, true);
+});
+
+test("harness retry policy retries late_ack when work is NOT at HEAD", () => {
+  const lateAckAttempt = {
+    run_idx: 14,
+    hash: "T7_REPEAT_MEDIUM_20260526_014",
+    target_symbol: "activegraph.core.graph.Graph.get_object",
+    outcome: "fail_verifier",
+    outcome_class: "fail_verifier",
+    agent_failure_root_cause: "late_ack_after_trigger_completed",
+    trigger_id: "be44f987-dec9-480c-8aef-04539548797d",
+    claimed_at: "2026-05-27T14:46:25.039607+00:00",
+    completed_at: "2026-05-27T14:46:25.035+00:00",
+    ack_id: "81a1124f-7e72-465b-a61f-258bc0f2812c",
+    ack_created_at: "2026-05-27T14:49:28.240837+00:00",
+    proof_file: "activegraph/frames/t7-repeat-medium-014-20260526.proof",
+    agent_commit_sha: "5c6639f4534dc52ea4b1b8fb30f00a03d8356273",
+    test_file: "activegraph/tests/test_graph_get_object_t7m_014_coverage.py",
+  };
+  const decision = decideRetryAction([lateAckAttempt], {
+    lateAckResolver: () => ({ resolved: false, reason: "commit_not_in_inner_repo" }),
+    seedFactory: () => "late-ack-retry-seed",
+  });
+  assert.equal(decision.action, "retry");
+  assert.equal(decision.retry.hash, "T7_REPEAT_MEDIUM_20260526_014_RETRY_1");
+  assert.equal(decision.retry.target_symbol, "activegraph.core.graph.Graph.get_object");
+});
+
+test("T7 medium ledger run 014 reclassifies to infrastructure_retry with late_ack root cause", () => {
+  const rows = readFileSync("frames/t7-native-repetition-progress-medium-20260526.jsonl", "utf8")
+    .trim()
+    .split(/\n/)
+    .map((line) => JSON.parse(line));
+  const classified = classifyT7LedgerRows(rows);
+  const run014 = classified.find((row) => row.run_idx === 14);
+  assert.equal(run014.outcome_class, OUTCOME_INFRASTRUCTURE_RETRY);
+  assert.equal(run014.infrastructure_failure_root_cause, INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED);
+  assert.ok(run014.late_ack_evidence);
+  assert.ok(run014.late_ack_evidence.ack_to_completed_delta_ms > 100000);
 });

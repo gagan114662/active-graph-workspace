@@ -7,6 +7,7 @@ export const OUTCOME_INCOMPLETE = "incomplete";
 export const INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW = "message_poller_no_trigger_row";
 export const INFRA_ROOT_GHOST_COMPLETION = "ghost_completion";
 export const INFRA_ROOT_NO_TRIGGER_TIMEOUT = "no_trigger_timeout";
+export const INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED = "late_ack_after_trigger_completed";
 export const MAX_INFRASTRUCTURE_RETRIES = 3;
 
 export function classifyNativeRunnerResult(result) {
@@ -106,6 +107,16 @@ export function classifyT7LedgerRow(row, runnerResult = null) {
     return { ...row, outcome_class: OUTCOME_PASS };
   }
   if (row?.outcome_class === OUTCOME_FAIL_VERIFIER) {
+    const failNotes = String(row?.notes ?? "");
+    if (looksLikeLateAckAfterTriggerCompleted(row, failNotes)) {
+      return {
+        ...row,
+        outcome: OUTCOME_INFRASTRUCTURE_RETRY,
+        outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
+        infrastructure_failure_root_cause: INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED,
+        late_ack_evidence: lateAckEvidence(row),
+      };
+    }
     return {
       ...row,
       outcome_class: OUTCOME_FAIL_VERIFIER,
@@ -162,6 +173,16 @@ export function classifyT7LedgerRow(row, runnerResult = null) {
     };
   }
 
+  if (looksLikeLateAckAfterTriggerCompleted(row, notes)) {
+    return {
+      ...row,
+      outcome: OUTCOME_INFRASTRUCTURE_RETRY,
+      outcome_class: OUTCOME_INFRASTRUCTURE_RETRY,
+      infrastructure_failure_root_cause: INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED,
+      late_ack_evidence: lateAckEvidence(row),
+    };
+  }
+
   if (row?.outcome === OUTCOME_PASS || row?.verifier_exit === 0) {
     return { ...row, outcome_class: OUTCOME_PASS };
   }
@@ -179,6 +200,7 @@ export function classifyT7LedgerRow(row, runnerResult = null) {
 
 export function inferInfrastructureRootCause(row) {
   const notes = String(row?.notes ?? "");
+  if (looksLikeLateAckAfterTriggerCompleted(row, notes)) return INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED;
   if (looksLikeGhostCompletion(row, notes)) return INFRA_ROOT_GHOST_COMPLETION;
   if (looksLikeNoTriggerTimeout(row, notes)) return INFRA_ROOT_NO_TRIGGER_TIMEOUT;
   if (hasMessagePollerWorkEvidence(row, notes)) return INFRA_ROOT_MESSAGE_POLLER_NO_TRIGGER_ROW;
@@ -205,6 +227,57 @@ function looksLikeNoTriggerTimeout(row, notes = String(row?.notes ?? "")) {
   const noWorkEvidence = !hasMessagePollerWorkEvidence(row, notes);
   const timeoutEvidence = /no agent_triggers row.*no hash-bearing response rows.*no proof file|no trigger row.*no proof.*no ACK|runner deadline/i.test(notes);
   return missingTrigger && noWorkEvidence && timeoutEvidence;
+}
+
+function looksLikeLateAckAfterTriggerCompleted(row, notes = String(row?.notes ?? "")) {
+  const hintedByRoot = row?.agent_failure_root_cause === INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED ||
+    row?.infrastructure_failure_root_cause === INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED;
+  const hintedByNotes = /late_ack_after_trigger_completed|ACK row was created after the canonical trigger completed/i.test(notes);
+
+  const triggerComplete = Boolean(row?.trigger_id && row?.claimed_at && row?.completed_at);
+  const ackPresent = Boolean(row?.ack_id && row?.ack_created_at);
+  if (!triggerComplete || !ackPresent) {
+    return hintedByRoot;
+  }
+
+  const completedTime = Date.parse(row.completed_at);
+  const ackTime = Date.parse(row.ack_created_at);
+  if (!Number.isFinite(completedTime) || !Number.isFinite(ackTime)) {
+    return hintedByRoot;
+  }
+  const ackAfterCompleted = ackTime > completedTime;
+
+  const workEvidence = Boolean(row?.proof_file && row?.agent_commit_sha);
+
+  if (hintedByRoot && workEvidence) return true;
+  if (hintedByNotes && workEvidence && ackAfterCompleted) return true;
+  if (ackAfterCompleted && workEvidence) return true;
+  return false;
+}
+
+function lateAckEvidence(row) {
+  const completedTime = Date.parse(row?.completed_at ?? "");
+  const ackTime = Date.parse(row?.ack_created_at ?? "");
+  return {
+    trigger_id: row?.trigger_id ?? null,
+    claimed_at: row?.claimed_at ?? null,
+    completed_at: row?.completed_at ?? null,
+    ack_id: row?.ack_id ?? null,
+    ack_created_at: row?.ack_created_at ?? null,
+    ack_to_completed_delta_ms: Number.isFinite(completedTime) && Number.isFinite(ackTime)
+      ? ackTime - completedTime
+      : null,
+    agent_commit_sha: row?.agent_commit_sha ?? null,
+    test_file: row?.test_file ?? null,
+    proof_file: row?.proof_file ?? null,
+    native_runner_watchdog_triggered_at: row?.native_runner_watchdog_triggered_at ?? null,
+  };
+}
+
+// Default-noop work-at-HEAD resolver. The harness layer provides a real
+// implementation that calls git + fs. Tests inject their own.
+export function noopLateAckResolver() {
+  return { resolved: false, reason: "no_resolver_provided" };
 }
 
 export function inferAgentFailureRootCause(row) {
@@ -249,7 +322,7 @@ export function buildRetryAttempt({ originalRow, retryNumber, seed = randomUUID(
   };
 }
 
-export function decideRetryAction(attemptRows, { maxRetries = MAX_INFRASTRUCTURE_RETRIES, seedFactory = randomUUID } = {}) {
+export function decideRetryAction(attemptRows, { maxRetries = MAX_INFRASTRUCTURE_RETRIES, seedFactory = randomUUID, lateAckResolver = noopLateAckResolver } = {}) {
   if (!attemptRows.length) return { action: "start" };
   const classifiedRows = classifyT7LedgerRows(attemptRows);
   const last = classifiedRows[classifiedRows.length - 1];
@@ -263,6 +336,22 @@ export function decideRetryAction(attemptRows, { maxRetries = MAX_INFRASTRUCTURE
   }
   if (last.outcome_class !== OUTCOME_INFRASTRUCTURE_RETRY) {
     return { action: "incomplete", final_row: last };
+  }
+
+  // Special case: late_ack_after_trigger_completed. Maya's work may already
+  // be at HEAD (commit landed, test file committed). If so, the audit chain
+  // is recoverable without re-running the agent. Resolver does the fs/git
+  // check; tests inject a fake resolver.
+  if (last.infrastructure_failure_root_cause === INFRA_ROOT_LATE_ACK_AFTER_TRIGGER_COMPLETED) {
+    const resolution = lateAckResolver(last) ?? { resolved: false, reason: "resolver_returned_nothing" };
+    if (resolution.resolved) {
+      return {
+        action: "final_pass_via_late_ack",
+        reason: "late_ack_work_at_head",
+        late_ack_resolution: resolution,
+        final_row: { ...last, outcome_class: OUTCOME_PASS, late_ack_resolved: true },
+      };
+    }
   }
 
   const infraAttempts = classifiedRows.filter((row) => row.outcome_class === OUTCOME_INFRASTRUCTURE_RETRY).length;
