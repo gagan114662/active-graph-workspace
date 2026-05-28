@@ -35,7 +35,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { installCrashGuard } from "./factory-crash-guard.mjs";
 import { subscribeToFactoryEvents } from "./honker-subscribe.mjs";
-import { emitTodoCreated } from "./factory-events.mjs";
+import { emitTodoCreated, emitRoutingSkipped } from "./factory-events.mjs";
 
 installCrashGuard("sasha-skeptic");
 
@@ -47,73 +47,22 @@ installCrashGuard("sasha-skeptic");
 // apply deterministically, instead of a code edit that requires a daemon
 // restart. The config is reloaded each tick (cheap; ~2KB read) so the
 // next-event-after-edit picks up new rules without a restart.
-import { readFileSync as _readFileSyncSasha, existsSync as _existsSyncSasha } from "node:fs";
-const ROUTING_CONFIG_PATH = process.env.FACTORY_ROUTING_CONFIG ||
-  "/Users/gaganarora/Desktop/my projects/active_graph/agent-os/factory-routing-config.json";
+// Routing decision logic lives in scripts/factory-routing.mjs — the SINGLE
+// source of truth shared with factory-replay.mjs. Sasha is the PRODUCER of
+// routing decisions; replay is the verifier. They must use the identical
+// decideRoute() or replay can't faithfully reproduce production (the old
+// hand-synced copies had already drifted). See factory-routing.mjs for the
+// determinism contract.
+import { decideRoute, loadRoutingConfig } from "./factory-routing.mjs";
 
-let _cachedRouting = null;
-let _cachedRoutingMtime = 0;
-function loadRoutingConfig() {
-  if (!_existsSyncSasha(ROUTING_CONFIG_PATH)) return null;
-  try {
-    const stat = _readFileSyncSasha(ROUTING_CONFIG_PATH).length;  // cheap freshness check
-    if (_cachedRouting && stat === _cachedRoutingMtime) return _cachedRouting;
-    _cachedRouting = JSON.parse(_readFileSyncSasha(ROUTING_CONFIG_PATH, "utf8"));
-    _cachedRoutingMtime = stat;
-    return _cachedRouting;
-  } catch {
-    return _cachedRouting;  // keep last good config if reload fails
-  }
-}
-
-function matchPredicate(when, event) {
-  if (!when) return false;
-  if (when.always === true) return true;
-  const reason = event?.payload?.reason || null;
-  const behavior = event?.payload?.behavior || null;
-  if ("extras.synthetic" in when) {
-    if ((event?.payload?.synthetic === true) !== (when["extras.synthetic"] === true)) return false;
-  }
-  if ("extras.canary_authorized" in when) {
-    if ((event?.payload?.canary_authorized === true) !== (when["extras.canary_authorized"] === true)) return false;
-  }
-  if (when.reason_equals !== undefined && reason !== when.reason_equals) return false;
-  if (when.reason_prefix !== undefined && !(reason && reason.startsWith(when.reason_prefix))) return false;
-  if (when.behavior_equals !== undefined && behavior !== when.behavior_equals) return false;
-  return true;
-}
-
+// Backward-compatible wrapper used by callers that only need route-or-null.
+// Returns {agent, priority, canary, matched_rule} on a route decision, or null
+// on a skip. Callers needing the full decision (config version/hash, skip rule)
+// should call decideRoute(event, loadRoutingConfig()) directly.
 function routeFailureToAgent(event) {
-  // Support legacy string-only callers (reason as bare string).
-  if (typeof event === "string") event = { payload: { reason: event } };
-  const config = loadRoutingConfig();
-  if (config?.rules?.length) {
-    for (const rule of config.rules) {
-      if (!matchPredicate(rule.when, event)) continue;
-      if (rule.skip_todo) return null;
-      if (rule.route) return {
-        agent: rule.route.agent,
-        priority: rule.route.priority,
-        canary: rule.route.canary === true,
-        matched_rule: rule.name,
-      };
-    }
-  }
-  // Fall back to the original hardcoded ladder if config is missing/empty.
-  const reason = event?.payload?.reason;
-  const synthetic = event?.payload?.synthetic === true;
-  const canaryAuthorized = event?.payload?.canary_authorized === true;
-  if (synthetic && !canaryAuthorized) return null;
-  if (synthetic && canaryAuthorized) return { agent: "sasha", priority: "p2", canary: true };
-  if (!reason) return { agent: "sasha", priority: "p2" };
-  if (reason === "llm.rate_limited") return null;
-  if (reason === "llm.network_error") return null;
-  if (reason === "llm.provider_error") return { agent: "sasha", priority: "p1" };
-  if (reason.startsWith("agent.")) return { agent: "sasha", priority: "p1" };
-  if (reason === "verifier.check_failed") return { agent: "maya", priority: "p1" };
-  if (reason === "script.crash") return { agent: "maya", priority: "p1" };
-  if (reason.startsWith("infrastructure.")) return { agent: "sasha", priority: "p2" };
-  return { agent: "sasha", priority: "p2" };
+  const d = decideRoute(event, loadRoutingConfig());
+  if (d.decision === "skip") return null;
+  return { agent: d.agent, priority: d.priority, canary: d.canary === true, matched_rule: d.matched_rule };
 }
 
 function todoTitleFor(event) {
@@ -134,20 +83,45 @@ function dedupKeyFor(event) {
 }
 
 function maybeCreateTodo(event) {
-  const routed = routeFailureToAgent(event);
-  if (!routed) return null;
+  const d = decideRoute(event, loadRoutingConfig());
   const reason = event.payload?.reason;
+  // SKIP: record the decision so every routing outcome (route AND skip) is
+  // auditable and deterministically replayable, pinned to the config version.
+  if (d.decision === "skip") {
+    try {
+      emitRoutingSkipped({
+        failure_event_id: event.id,
+        matched_rule: d.matched_rule,
+        routing_config_version: d.config_version,
+        routing_config_hash: d.config_hash,
+        failure_reason: reason,
+        extras: {
+          source_event_type: event.type,
+          source_behavior: event.payload?.behavior || null,
+        },
+      });
+    } catch (err) {
+      console.error("[sasha] emitRoutingSkipped failed:", err.message);
+    }
+    return null;
+  }
+  // ROUTE: emit the todo, stamping the exact config version/hash + matched rule
+  // that produced this decision (the determinism pin for replay).
   try {
     return emitTodoCreated({
       failure_event_id: event.id,
       dedup_key: dedupKeyFor(event),
-      recommended_agent: routed.agent,
-      priority: routed.priority,
+      recommended_agent: d.agent,
+      priority: d.priority,
       title: todoTitleFor(event),
       failure_reason: reason,
       extras: {
         source_event_type: event.type,
         source_behavior: event.payload?.behavior || null,
+        routing_config_version: d.config_version,
+        routing_config_hash: d.config_hash,
+        routing_rule_name: d.matched_rule,
+        routing_canary: d.canary === true,
       },
     });
   } catch (err) {
@@ -272,9 +246,25 @@ function pauseBridge(reason, event) {
   }, PAUSE_SECONDS * 1000);
 }
 
+// Event types that represent FAILURES the flywheel should triage. Failures are
+// emitted in two historical shapes: type=behavior.failed (reason carries the
+// code) AND type=script.crash / type=verifier.check_failed (the type IS the
+// code, reason carries the exception class e.g. script.Error). Before this fix
+// only behavior.failed was processed, so crashes + verifier hard-fails emitted
+// as their own type were logged yet never entered the flywheel (9 crashes + 1
+// verifier failure confirmed in the live log). Advisory verifier WARN types
+// (satisfaction_of_search_risk, pattern_contradicted_by_unread_source) are
+// deliberately excluded: they are logged for audit but not auto-dispatched, to
+// avoid cost/cascade risk on advisory signals.
+const FLYWHEEL_FAILURE_TYPES = new Set([
+  "behavior.failed",
+  "script.crash",
+  "verifier.check_failed",
+]);
+
 function processEvent(event) {
   counts.events_seen++;
-  if (event.type !== "behavior.failed") return;
+  if (!FLYWHEEL_FAILURE_TYPES.has(event.type)) return;
   const reason = event.payload?.reason || "";
 
   if (reason === "llm.rate_limited") {
@@ -284,7 +274,13 @@ function processEvent(event) {
 
   // For all other failure types: log the action AND emit a todo.created
   // event for the flywheel. Phoenix-todo-keeper picks them up downstream.
-  if (reason.startsWith("agent.")) {
+  if (event.type === "script.crash" || reason === "script.crash") {
+    logAction("script_crash_alert", event, "routing to maya for fix");
+    counts.script_crashes = (counts.script_crashes || 0) + 1;
+  } else if (event.type === "verifier.check_failed" || reason === "verifier.check_failed") {
+    logAction("verifier_failure_alert", event, "routing to maya for fix");
+    counts.verifier_failures = (counts.verifier_failures || 0) + 1;
+  } else if (reason.startsWith("agent.")) {
     logAction("agent_failure_alert", event, "logged for human review");
     counts.agent_failure_alerts++;
   } else if (reason.startsWith("infrastructure.")) {

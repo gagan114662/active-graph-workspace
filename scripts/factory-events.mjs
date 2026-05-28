@@ -21,6 +21,7 @@ import { appendFileSync, readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { judgePinnedModel } from "./judge-rubric.mjs";
 
 const DEFAULT_PATH = resolve(
   process.env.FACTORY_EVENTS_PATH || "frames/factory-events.jsonl"
@@ -35,7 +36,7 @@ const DEFAULT_PATH = resolve(
 // sort BEFORE new ones (evt_0 < evt_1).
 const PID_PADDED = String(process.pid).padStart(6, "0");
 let _procSeq = 0;
-function nextId() {
+export function nextId() {
   const ts = String(Date.now()).padStart(15, "0");
   _procSeq++;
   const seq = String(_procSeq).padStart(4, "0");
@@ -237,6 +238,44 @@ export function emitTodoCompleted({
 }
 
 /**
+ * Emit a routing.skipped event — a SKIP decision the flywheel made.
+ *
+ * Route decisions are already recorded (todo.created). Skip decisions used to
+ * be invisible (Sasha just returned null), so the replay harness could only
+ * INFER a skip from the absence of a todo, and could never know which config
+ * version produced it — making skip-case divergences unclassifiable. Recording
+ * the matched rule + config version/hash here makes EVERY routing decision
+ * (route AND skip) auditable and deterministically replayable.
+ *
+ * This event type is intentionally NOT a flywheel failure type, so it never
+ * re-enters routing (no loop).
+ */
+export function emitRoutingSkipped({
+  failure_event_id,
+  matched_rule,
+  routing_config_version = null,
+  routing_config_hash = null,
+  failure_reason = null,
+  extras = {},
+  path,
+}) {
+  if (!failure_event_id) throw new Error("emitRoutingSkipped: failure_event_id required");
+  return emitFactoryEvent({
+    type: "routing.skipped",
+    behavior: "factory-flywheel",
+    extras: {
+      failure_event_id,
+      matched_rule: matched_rule ?? null,
+      routing_config_version,
+      routing_config_hash,
+      failure_reason,
+      ...extras,
+    },
+    path,
+  });
+}
+
+/**
  * Emit a SYNTHETIC factory event — test scaffolding, probes, smoke tests.
  *
  * Designed after the 2026-05-28 synthetic-test contamination incident: an
@@ -288,12 +327,24 @@ export function emitJudgeError({
   downstream_evidence_event_id,
   error_kind,  // "false_pass" | "false_fail" | "protocol_drift" | "skipped_when_needed"
   message,
+  judge_model = null,
+  judge_model_pinned_at = null,
   extras = {},
   path,
 }) {
   if (!judge) throw new Error("emitJudgeError: judge required");
   if (!original_verdict_event_id) throw new Error("emitJudgeError: original_verdict_event_id required");
   if (!error_kind) throw new Error("emitJudgeError: error_kind required");
+  // H3: record WHICH judge model was wrong so accuracy is tracked per model
+  // version (the judge-promotion gate's premise). Auto-resolve from the rubric
+  // when the caller doesn't supply it, so it can't be forgotten.
+  if (judge_model === null) {
+    try {
+      const pinned = judgePinnedModel(judge);
+      judge_model = pinned.judge_model;
+      judge_model_pinned_at = judge_model_pinned_at ?? pinned.judge_model_pinned_at;
+    } catch {}
+  }
   return emitFactoryEvent({
     type: "judge.error",
     behavior: "factory-eval-the-eval",
@@ -304,6 +355,8 @@ export function emitJudgeError({
       original_verdict_event_id,
       downstream_evidence_event_id,
       error_kind,
+      judge_model,
+      judge_model_pinned_at,
       ...extras,
     },
     path,

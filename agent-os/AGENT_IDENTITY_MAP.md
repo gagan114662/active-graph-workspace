@@ -72,3 +72,48 @@ The 20 Pentagon agents migrate from "provisioned but unused" to "active in gaunt
 4. Helper script (or runner option) to dispatch the new agents in sequence within the gauntlet flow.
 
 The remaining 12 agents (Taylor, Simone, Parker, Casey, Carmen, Avery, Priya, T5d, Finn, Ravi — plus the script-level-only Sasha and Blake getting their Pentagon-agent role too) will be wired in subsequent passes.
+
+---
+
+## Staffing roadmap (2026-05-28, pt.10 — "make the team A+")
+
+Honest staffing status after the team performance review. Of 20 agents, **5 are actively
+exercised** (Maya, Quinn, Sofia, Sam, Riley); the rest are provisioned but dormant.
+
+### Tier 1 — parser-ready, enforcement gated on Pentagon RLS (Gap A)
+**Theo, Rowan, Grace.** Their ACK parsers exist and are correct
+(`verify-pentagon-autonomy-from-logs.mjs:900/914/928`); templates exist (`frames/templates/`).
+What blocks turning them into live gauntlet members:
+- **Pentagon RLS (Gap A)** blocks REST inserts to `conversations`/`conversation_participants`,
+  so dispatching a reviewer needs a pre-seeded 2-party `Theo↔<agent>` conversation via the
+  Pentagon `find_conversation` MCP. Until RLS is unblocked, reviewers can't dispatch at scale.
+- Adding **mandatory** `verifyT6XAck` checks before reviewers actually dispatch would FAIL every
+  existing T6 green (no reviewer ACK present). Correct path: fixture-tested enforcers wired
+  **WARN-only** first, then flip to `must()` (behind `--require-reviewers`) once reviewers are
+  routinely dispatched — the standard "tighten, never loosen" staging.
+- **Next step:** (1) operator unblocks RLS (`frames/codex-goals/pentagon-rls-investigation-20260528.md`);
+  (2) build good/bad fixtures + fixture-tested `verifyT6{Theo,Rowan,Grace}Ack`; (3) chain dispatch
+  after Maya's commit; (4) WARN → must once green at scale.
+
+### Tier 2 — need a new task class first (wire when the tier arrives)
+- **Simone** (Security) → T13 adversarial-input tasks.
+- **Parker** (Performance) → T8 PERF family.
+- **Casey** (Compatibility) → T8 DEPRECATION/REFACTOR family.
+
+### Tier 3 — need an ACK contract + template + a gradeable artifact step
+- **Sasha** (Spec Skeptic) — runs as a flywheel daemon today; a Pentagon gauntlet role needs a
+  spec-review ACK contract.
+- **Carmen** (Contract Owner), **Avery** (Frame Architect), **Taylor** (Trace Archivist) —
+  doc/contract roles; need an ACK contract + a gauntlet step emitting a gradeable doc artifact.
+- **Priya** (Goal Reaper / verdict) — needs a verdict ACK contract (overlaps the verifier's pass/fail).
+- **Blake** (Budget) — runs as a daemon; a gauntlet role needs a cost-gate ACK.
+
+### Tier 4 — no work until the relevant flows exist
+- **Finn** (Fork Debugger), **Ravi** (Replay Validator) — need fork/replay flows in gauntlet runs.
+- **T5d** (Activation Engineer) — largely obsoleted by the `af57375` Pentagon watchdog.
+
+**Bottom line for "all-star team":** the active 5 do the real engineering. The fastest path to A+
+team *performance* (not just headcount) is making those 5 dramatically more efficient + safe — the
+research-packet 6× lever, the impl pool (remove the Maya SPOF), SkillOpt skill-optimization, and the
+Sentinel harm gate — all UNBLOCKED. Reviewer headcount is real but RLS-gated, staged here rather than
+forced in untested.

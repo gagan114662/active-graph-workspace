@@ -41,7 +41,7 @@ Input format (stdin, JSON):
     "token": "jwt for Pentagon MCP",
     "mcp_url": "https://auth.pentagon.run/functions/v1/mcp",
     "prompt": "full prompt text the bridge would normally pipe to claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "timeout_seconds": 540,
     "harness": "claude-code"
   }
@@ -56,7 +56,7 @@ Output format (stdout, JSON):
     "latency_seconds": N.NN,
     "finish_reason": "end_turn|stop_sequence|...",
     "session_id": "claude-session-id",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "cache_read_input_tokens": N,
     "cache_creation_input_tokens": N,
     "error_reason": "llm.rate_limited|llm.network_error|...",
@@ -130,8 +130,12 @@ def _emit(event_type: str, **kwargs: Any) -> None:
             factory_events.emit_factory_event(type="llm.responded", **kwargs)
         else:
             factory_events.emit_factory_event(type=event_type, **kwargs)
-    except Exception:
-        pass  # Never let event emission break the dispatch.
+    except Exception as exc:  # noqa: BLE001
+        # Never let event emission break the dispatch — but make the broken
+        # pipeline visible (H13). A silently-failing emitter is the exact thing
+        # the event log exists to catch.
+        sys.stderr.write(f"[bridge_dispatch] event emission failed: {event_type}: {exc}\n")
+        sys.stderr.flush()
 
 
 def main() -> int:
@@ -154,7 +158,7 @@ def main() -> int:
     token = payload.get("token") or ""
     mcp_url = payload.get("mcp_url") or ""
     prompt = payload.get("prompt") or ""
-    model = payload.get("model") or "claude-opus-4-7"
+    model = payload.get("model") or "claude-opus-4-8"
     timeout_seconds = float(payload.get("timeout_seconds") or 540)
 
     mcp_config = None

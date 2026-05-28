@@ -44,6 +44,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import sys
 import time
 from pathlib import Path
 from typing import Iterator, Optional
@@ -115,8 +116,10 @@ def migrate_jsonl_to_sqlite(
                     (ev["id"], ev["created_at"], ev["type"], json.dumps(ev.get("payload") or {})),
                 )
                 count += 1
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001
+                # Don't let one bad row abort the migration, but make it visible (H13).
+                sys.stderr.write(f"[honker_listen] migration insert failed for id={ev.get('id')}: {exc}\n")
+                sys.stderr.flush()
     conn.commit()
     conn.close()
     return count

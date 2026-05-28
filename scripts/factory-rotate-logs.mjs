@@ -20,6 +20,7 @@ import { existsSync, statSync, readFileSync, writeFileSync, renameSync, mkdirSyn
 import { resolve, dirname } from "node:path";
 import { createGzip } from "node:zlib";
 import { pipeline } from "node:stream/promises";
+import { emitFactoryEvent } from "./factory-events.mjs";
 
 const FACTORY_EVENTS_PATH = resolve(process.env.FACTORY_EVENTS_PATH || "frames/factory-events.jsonl");
 const FACTORY_TODOS_PATH = resolve(process.env.FACTORY_TODOS_PATH || "frames/factory-todos.jsonl");
@@ -136,4 +137,18 @@ async function main() {
   setInterval(panicCheck, 5000);
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+  console.error(err);
+  // H9: emit the daemon's own crash so a dead rotation daemon is visible (else
+  // the log silently stops rotating and grows unbounded). Wrapped defensively.
+  try {
+    emitFactoryEvent({
+      type: "script.crash",
+      behavior: "factory-rotate-logs",
+      reason: `script.${err?.name || "Error"}`,
+      message: String(err?.message || err),
+      extras: { fatal: true, stack: String(err?.stack || "").slice(0, 2000) },
+    });
+  } catch {}
+  process.exit(1);
+});

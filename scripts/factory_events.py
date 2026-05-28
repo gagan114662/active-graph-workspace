@@ -25,8 +25,8 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import os
-import re
 import threading
+import time
 import traceback as _tb
 from pathlib import Path
 from typing import Any, Optional
@@ -34,8 +34,17 @@ from typing import Any, Optional
 
 _PATH_DEFAULT = "frames/factory-events.jsonl"
 _LOCK = threading.Lock()
-_NEXT_SEQ: Optional[int] = None
-_SEQ_RE = re.compile(r"^evt_(\d+)$")
+# Collision-resistant event IDs matching scripts/factory-events.mjs nextId():
+#   evt_<unix_ms padded 15>_<pid padded 6>_<proc-seq padded 4>
+# The previous evt_<seq:06d> scheme rescanned the JSONL for the max sequence
+# and collided across concurrent writers (bridge_dispatch.py +
+# claude_code_cli.py + this module). Honker's INSERT OR IGNORE then SILENTLY
+# DROPPED the colliding row, so a failure could be emitted yet never logged —
+# a direct violation of "all failures logged as events". Lexicographically
+# sortable, so the Honker watcher's `WHERE id > last_id ORDER BY id ASC` stays
+# correct, and any legacy evt_000xxx id sorts before every new id.
+_PID_PADDED = str(os.getpid()).rjust(6, "0")
+_PROC_SEQ = 0
 
 
 def _resolve_path(path: Optional[str] = None) -> Path:
@@ -54,30 +63,16 @@ def _resolve_path(path: Optional[str] = None) -> Path:
     return (cwd / _PATH_DEFAULT).resolve()
 
 
-def _next_sequence(path: Path) -> int:
-    global _NEXT_SEQ
-    if _NEXT_SEQ is not None:
-        _NEXT_SEQ += 1
-        return _NEXT_SEQ
-    max_seq = 0
-    if path.exists():
-        try:
-            with path.open("r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    m = _SEQ_RE.match(str(event.get("id", "")))
-                    if m:
-                        max_seq = max(max_seq, int(m.group(1)))
-        except OSError:
-            pass
-    _NEXT_SEQ = max_seq + 1
-    return _NEXT_SEQ
+def _next_event_id() -> str:
+    """Return a collision-resistant event id. Caller must hold ``_LOCK``.
+
+    Mirrors ``nextId()`` in scripts/factory-events.mjs so Node and Python
+    writers share one monotonic, collision-resistant id space.
+    """
+    global _PROC_SEQ
+    _PROC_SEQ += 1
+    ts = str(time.time_ns() // 1_000_000).rjust(15, "0")
+    return f"evt_{ts}_{_PID_PADDED}_{_PROC_SEQ:04d}"
 
 
 def _iso_now() -> str:
@@ -108,9 +103,8 @@ def emit_factory_event(
     if extras:
         payload.update(extras)
     with _LOCK:
-        seq = _next_sequence(target)
         record = {
-            "id": f"evt_{seq:06d}",
+            "id": _next_event_id(),
             "created_at": _iso_now(),
             "type": type,
             "payload": payload,

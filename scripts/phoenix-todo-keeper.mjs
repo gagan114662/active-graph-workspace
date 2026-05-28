@@ -73,6 +73,18 @@ const DISPATCH_WINDOW_MS = Number(arg("--dispatch-window-ms", "60000"));
 // COOLDOWN_MS (default 5m). Auto-resets on first success.
 const DISPATCH_CIRCUIT_THRESHOLD = Number(arg("--dispatch-circuit-threshold", "3"));
 const DISPATCH_CIRCUIT_COOLDOWN_MS = Number(arg("--dispatch-circuit-cooldown-ms", "300000"));
+// C3/C4: the review gate FAILS CLOSED by default. Reviewer-dispatch failure,
+// review timeout, or a malformed reply parks the todo in needs_review (no
+// ungated commit) unless the operator explicitly opts into degraded
+// auto-commit. Set --allow-ungated-fallback (or FACTORY_ALLOW_UNGATED_FALLBACK=1)
+// to restore the old land-anyway behavior.
+const ALLOW_UNGATED_FALLBACK = has("--allow-ungated-fallback") ||
+  process.env.FACTORY_ALLOW_UNGATED_FALLBACK === "1";
+// Sentinel safety gate: a `safety.blocked` verdict ALWAYS blocks the push.
+// With --require-safety (or FACTORY_REQUIRE_SAFETY=1) the push also requires an
+// explicit `safety.allowed` — fail-closed for unattended autodispatch.
+const REQUIRE_SAFETY = has("--require-safety") ||
+  process.env.FACTORY_REQUIRE_SAFETY === "1";
 
 const counts = {
   events_seen: 0,
@@ -743,7 +755,8 @@ function handleDiffProposed(event) {
         message: String(err.message || err).slice(0, 280),
         extras: { todo_id: row.id, reviewer: "rowan" },
       });
-      commitAndPushFromWorktree(row, dedupKey, event, worktreePath);
+      // C3: fail closed — do NOT auto-land an unreviewed commit.
+      handleReviewBypass(row, dedupKey, event, "dispatch_failed");
     });
   // Phase 1 done — actual commit deferred to phase 2.
   return;
@@ -781,11 +794,11 @@ function handleReviewMalformed(event) {
     status: "phoenix_review_malformed_fallback",
     todo_id: row.id,
   }));
-  row.review_verdict = "MALFORMED_FALLBACK";
   row.review_judge = "rowan";
   row.review_completed_at = event.created_at;
   rewriteAllTodos();
-  commitAndPushFromWorktree(row, dedupKey, event, row.worktree_path);
+  // C3: malformed reviewer reply = no valid verdict. Fail closed.
+  handleReviewBypass(row, dedupKey, event, "malformed");
 }
 
 // Periodic check: any row stuck in awaiting_review past the timeout falls
@@ -800,7 +813,6 @@ function scanStuckReviews() {
     const age = now - Date.parse(row.diff_attempted_at);
     if (age < REVIEW_TIMEOUT_MS) continue;
     row.review_timeout_handled = true;
-    row.review_verdict = "TIMEOUT_FALLBACK";
     row.review_judge = "rowan";
     row.review_completed_at = new Date().toISOString();
     rewriteAllTodos();
@@ -808,7 +820,7 @@ function scanStuckReviews() {
       type: "judge.error",
       behavior: "factory-eval-the-eval",
       reason: "judge.skipped_when_needed",
-      message: `review timeout after ${Math.round(age/1000)}s — falling back to direct commit`,
+      message: `review timeout after ${Math.round(age/1000)}s`,
       extras: {
         judge: "rowan",
         original_verdict_event_id: row.review_verdict_event_id || null,
@@ -819,14 +831,12 @@ function scanStuckReviews() {
       },
     });
     console.log(JSON.stringify({
-      status: "phoenix_review_timeout_fallback",
+      status: "phoenix_review_timeout",
       todo_id: row.id,
       age_ms: age,
     }));
-    if (row.worktree_path) {
-      // Fake event to satisfy commitAndPushFromWorktree signature
-      commitAndPushFromWorktree(row, dedupKey, { id: row.source_event_id || row.id, type: "synthetic-timeout" }, row.worktree_path);
-    }
+    // C3: timeout = no verdict. Fail closed (park for operator) unless opted in.
+    handleReviewBypass(row, dedupKey, { id: row.source_event_id || row.id, type: "synthetic-timeout" }, "timeout");
   }
 }
 
@@ -876,6 +886,53 @@ function handleReviewCompleted(event) {
   }
 }
 
+// C3/C4: the review gate must FAIL CLOSED. Reviewer-dispatch failure, review
+// timeout, and malformed replies previously all fell back to landing an UNGATED
+// commit with no human in the loop. Now they emit a dedicated
+// flywheel.review.bypassed event and park the todo in a terminal needs_review
+// state requiring operator approval — unless --allow-ungated-fallback is set,
+// which restores the degraded land-anyway behavior (still emitting the event
+// for audit).
+function handleReviewBypass(row, dedupKey, event, subReason) {
+  emitFactoryEvent({
+    type: "flywheel.review.bypassed",
+    behavior: "factory-flywheel",
+    reason: `review.${subReason}`,
+    message: `review bypassed (${subReason}) for todo ${row.id}; allow_ungated_fallback=${ALLOW_UNGATED_FALLBACK}`,
+    extras: {
+      todo_event_id: row.id,
+      sub_reason: subReason,
+      judge: row.review_reviewer_agent_key || "rowan",
+      allow_ungated_fallback: ALLOW_UNGATED_FALLBACK,
+      worktree_path: row.worktree_path || null,
+    },
+  });
+  if (ALLOW_UNGATED_FALLBACK) {
+    // Operator opted into degraded auto-commit.
+    if (row.worktree_path) {
+      commitAndPushFromWorktree(row, dedupKey, event, row.worktree_path);
+    } else {
+      releaseActionLock(row.id);
+    }
+    return;
+  }
+  // Fail closed: park for operator review. Preserve the worktree (it holds the
+  // staged diff for later approval) and release the per-todo lock so an
+  // operator-approved retry can proceed.
+  row.action_phase = "needs_review";
+  row.review_verdict = `BYPASSED_${subReason.toUpperCase()}`;
+  row.review_completed_at = new Date().toISOString();
+  row.needs_review_reason = subReason;
+  rewriteAllTodos();
+  releaseActionLock(row.id);
+  console.log(JSON.stringify({
+    status: "phoenix_review_bypassed_needs_review",
+    todo_id: row.id,
+    sub_reason: subReason,
+    worktree_path: row.worktree_path || null,
+  }));
+}
+
 function commitAndPushFromWorktree(row, dedupKey, event, worktreePath) {
   // Per-fix-branch lock (Gap F). Serializes `git update-ref` + `git push`
   // on the day's flywheel-fixes branch so two concurrent commit-and-push
@@ -898,7 +955,38 @@ function commitAndPushFromWorktree(row, dedupKey, event, worktreePath) {
   }
 }
 
+// Latest Sentinel safety verdict for a todo, read from the event log.
+// Returns "blocked" | "allowed" | null (no verdict yet).
+function safetyVerdictForTodo(todoId) {
+  try {
+    const eventsPath = resolve(process.env.FACTORY_EVENTS_PATH || "frames/factory-events.jsonl");
+    if (!existsSync(eventsPath)) return null;
+    let verdict = null;
+    for (const line of readFileSync(eventsPath, "utf8").split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      let ev; try { ev = JSON.parse(line); } catch { continue; }
+      if ((ev.type === "safety.blocked" || ev.type === "safety.allowed") &&
+          ev.payload?.todo_event_id === todoId) {
+        verdict = ev.type === "safety.blocked" ? "blocked" : "allowed";
+      }
+    }
+    return verdict;
+  } catch { return null; }
+}
+
 function commitAndPushFromWorktreeImpl(row, dedupKey, event, worktreePath) {
+  // SAFETY GATE (Sentinel harm monitor). Fail closed: NEVER push a diff the
+  // Sentinel flagged as harmful (secret, destructive shell, exfiltration, etc.).
+  // With --require-safety, also refuse to push without an explicit ALLOW.
+  const safety = safetyVerdictForTodo(row.id);
+  if (safety === "blocked") {
+    rejectAttempt(row, dedupKey, event, "blocked by Sentinel safety monitor: harmful diff", worktreePath);
+    return;
+  }
+  if (REQUIRE_SAFETY && safety !== "allowed") {
+    handleReviewBypass(row, dedupKey, event, "safety_unverified");
+    return;
+  }
   // CRUD-replay-safety (Gap I / Task #28). Capture worktree state hash BEFORE
   // any mutation, then again after, and emit a state-mutation event so the
   // commit can be replayed deterministically from the event log alone.
@@ -993,6 +1081,15 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
         prCreated = true;
       } else {
         console.error("[phoenix] gh pr create failed:", create.stderr?.slice(0, 300));
+        // H14: surface PR-creation failure as an event (was previously only a
+        // console line). The commit pushed but no PR exists for the operator.
+        emitFactoryEvent({
+          type: "flywheel.pr.create_failed",
+          behavior: "factory-flywheel",
+          reason: "flywheel.pr_create_failed",
+          message: String(create.stderr || "gh pr create failed").slice(0, 300),
+          extras: { todo_event_id: row.id, branch, sha },
+        });
       }
     }
   }
@@ -1016,8 +1113,18 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
     },
   });
 
-  row.completed_at = new Date().toISOString();
-  row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch}${pushed ? " (pushed)" : " (push failed)"}${prUrl ? " PR: " + prUrl : ""}`;
+  // H14: only COMPLETE the todo when the commit actually reached the remote.
+  // A push failure leaves the commit local-only — the work is NOT done, so
+  // marking it completed would orphan the commit and stop any retry. Park it in
+  // a needs_push state instead so the operator (or a future retry) can finish.
+  if (pushed) {
+    row.completed_at = new Date().toISOString();
+    row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch} (pushed)${prUrl ? " PR: " + prUrl : ""}`;
+    counts.todos_completed++;
+  } else {
+    row.action_phase = "needs_push";
+    row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch} — PUSH FAILED, NOT completed (local only)`;
+  }
   row.flywheel_commit_sha = sha;
   row.flywheel_branch = branch;
   row.flywheel_push_succeeded = pushed;
@@ -1025,7 +1132,6 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
   row.flywheel_pr_created_at = prCreated ? new Date().toISOString() : null;
   row.state_before_hash = stateBefore;
   row.state_after_hash = stateAfter;
-  counts.todos_completed++;
   rewriteAllTodos();
 
   emitFactoryEvent({
@@ -1040,6 +1146,13 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
       review_judge: row.review_judge || null,
       review_verdict: row.review_verdict || null,
       rationale: row.diff_rationale || null,
+      // C6: carry the same CRUD-replay state hashes the state.git_commit event
+      // has, so crud-replay-verifier can't be fooled into trusting a hashless
+      // mutation record (the two events now agree).
+      mutation_kind: "git_commit",
+      state_before_hash: stateBefore,
+      state_after_hash: stateAfter,
+      crud_replay_safe: Boolean(stateBefore && stateAfter),
     },
   });
 
@@ -1062,26 +1175,49 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
   }
 }
 
+// Map a free-text rejection reason to a stable category code so analysis
+// doesn't need substring parsing of payload.message (P1d). Order matters —
+// check the most specific phrases first.
+function categorizeRejection(reason) {
+  const r = String(reason || "").toLowerCase();
+  if (r.includes("empty diff")) return "empty_diff";
+  if (r.includes("apply") || r.includes("patch does not apply") || r.includes("corrupt patch") || r.includes("no valid patch")) return "apply_failed";
+  if (r.includes("test") || r.includes("pytest")) return "tests_failed";
+  if (r.includes("commit")) return "commit_failed";
+  if (r.includes("worktree")) return "worktree_failed";
+  if (r.includes("lock")) return "lock_contention";
+  return "other";
+}
+
 function rejectAttempt(row, dedupKey, sourceEvent, reason, worktreePath = null) {
   // Release the per-todo action lock so this slot is reusable. The lock
   // exists only while the action is in flight; rejection terminates the
   // action.
   if (row?.id) releaseActionLock(row.id);
+  const category = categorizeRejection(reason);
+  // P1d: synthetic test fixtures pollute the throughput signal. Tag them so
+  // analysis can exclude them (derive from the source event or the row).
+  const isSynthetic = Boolean(sourceEvent?.payload?.synthetic || row?.synthetic || row?.source_event_type === "synthetic-timeout");
   row.completed_at = new Date().toISOString();
   row.completion_evidence = `attempt_rejected: ${reason}`;
   row.flywheel_rejection_reason = reason;
+  row.flywheel_rejection_category = category;
   counts.todos_completed++;
   rewriteAllTodos();
   emitFactoryEvent({
     type: "flywheel.attempt.rejected",
     behavior: "factory-flywheel",
-    reason: "flywheel.attempt_rejected",
+    // P1d: the real cause now lives in reason (was the constant
+    // "flywheel.attempt_rejected", forcing substring parsing of message).
+    reason: `flywheel.${category}`,
     message: reason.slice(0, 280),
     extras: {
       todo_event_id: row.id,
       dedup_key: row.dedup_key,
       source_event_id: sourceEvent.id,
       worktree_path: worktreePath,
+      rejection_category: category,
+      synthetic: isSynthetic,
     },
   });
   console.log(JSON.stringify({

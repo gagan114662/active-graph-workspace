@@ -42,6 +42,7 @@ const DAEMONS = [
   { label: "run.factory.sasha-skeptic", role: "monitors failures, emits todo.created" },
   { label: "run.factory.blake-budget-marshal", role: "watches cost, can pause bridge on cap breach" },
   { label: "run.factory.phoenix-todo-keeper", role: "maintains todo list, dispatches via Pentagon REST" },
+  { label: "run.factory.safety-monitor", role: "Sentinel — vetoes harmful diffs before push (harm gate)" },
 ];
 
 function checkDaemon(label) {

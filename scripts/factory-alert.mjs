@@ -214,4 +214,19 @@ async function main() {
   setInterval(panicCheck, 5000);
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+  console.error(err);
+  // H9: the .catch pre-empts the crash-guard's unhandledRejection handler, so
+  // emit explicitly. The alerting daemon dying is exactly the failure operators
+  // most need surfaced. Wrapped so a broken emitter can't re-throw.
+  try {
+    emitFactoryEvent({
+      type: "script.crash",
+      behavior: "factory-alert",
+      reason: `script.${err?.name || "Error"}`,
+      message: String(err?.message || err),
+      extras: { fatal: true, stack: String(err?.stack || "").slice(0, 2000) },
+    });
+  } catch {}
+  process.exit(1);
+});

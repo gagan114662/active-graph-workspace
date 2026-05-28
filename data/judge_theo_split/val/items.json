@@ -1,0 +1,13 @@
+[
+  {
+    "id": "theo-gt-002",
+    "input": {
+      "test_diff": "--- a/tests/test_graph.py\n+++ b/tests/test_graph.py\n@@ -10,2 +10,4 @@\n+    def test_graph_works(self):\n+        assert Graph()",
+      "target": "activegraph.core.graph.Graph",
+      "test_summary": "+1 test added, 699 passed"
+    },
+    "expected_verdict": "FAIL",
+    "expected_top_finding": "test asserts only truthiness of a Graph instance \u2014 does not exercise behavior",
+    "rationale": "Test exists but proves nothing. Tautological assertion."
+  }
+]

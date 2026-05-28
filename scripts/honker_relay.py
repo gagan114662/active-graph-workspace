@@ -67,7 +67,38 @@ def open_conn() -> sqlite3.Connection:
     return conn
 
 
-def insert_lines(conn: sqlite3.Connection, lines: list[str]) -> int:
+def _report_collision(ev: dict, existing_payload: str) -> None:
+    """Make a SILENT DROP LOUD (audit C2). INSERT OR IGNORE discards a row whose
+    id already exists. That is benign when the payload is identical (the relay
+    re-read the JSONL after a restart), but a REAL collision (same id, different
+    payload) means an emitted event was lost from the SQLite mirror with no
+    trace. Log to stderr AND append a durable infrastructure event (which gets a
+    fresh, non-colliding id via the fixed _next_event_id scheme)."""
+    sys.stderr.write(
+        f"[honker_relay] EVENT ID COLLISION id={ev.get('id')} "
+        f"incoming_type={ev.get('type')} — incoming event LOST from SQLite mirror "
+        f"(stored payload differs from incoming)\n"
+    )
+    sys.stderr.flush()
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import factory_events as fe  # lazy: a broken emitter must not crash the relay
+        fe.emit_infrastructure(
+            subtype="event_id_collision",
+            message=f"honker relay dropped a colliding event id={ev.get('id')}",
+            extras={
+                "colliding_id": ev.get("id"),
+                "incoming_type": ev.get("type"),
+                "incoming_payload": json.dumps(ev.get("payload") or {})[:1000],
+                "stored_payload": str(existing_payload)[:1000],
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 — never let collision logging break the relay
+        sys.stderr.write(f"[honker_relay] failed to emit collision event: {exc}\n")
+        sys.stderr.flush()
+
+
+def insert_lines(conn: sqlite3.Connection, lines: list[str], report_collisions: bool = True) -> int:
     inserted = 0
     for line in lines:
         line = line.strip()
@@ -78,18 +109,30 @@ def insert_lines(conn: sqlite3.Connection, lines: list[str]) -> int:
         except json.JSONDecodeError:
             continue
         try:
+            incoming_payload = json.dumps(ev.get("payload") or {})
             cur = conn.execute(
                 "INSERT OR IGNORE INTO factory_events (id, created_at, type, payload) "
                 "VALUES (?, ?, ?, ?)",
-                (
-                    ev["id"],
-                    ev["created_at"],
-                    ev["type"],
-                    json.dumps(ev.get("payload") or {}),
-                ),
+                (ev["id"], ev["created_at"], ev["type"], incoming_payload),
             )
             if cur.rowcount:
                 inserted += 1
+            elif report_collisions:
+                # id already present: benign duplicate (identical) or real
+                # collision (differing payload = lost event). Only flag the latter,
+                # and ONLY on the live tail — the initial full-file migration
+                # re-reads history that contains known-legacy evt_<seq:06d> ids
+                # which genuinely collided pre-fix; re-flagging those on every
+                # restart would emit hundreds of noise events. Legacy ids
+                # (no '_' separator) are never flagged regardless.
+                evid = str(ev.get("id", ""))
+                is_legacy = "_" not in evid  # new scheme is evt_<ms>_<pid>_<seq>
+                if not is_legacy:
+                    row = conn.execute(
+                        "SELECT payload FROM factory_events WHERE id = ?", (ev["id"],)
+                    ).fetchone()
+                    if row is not None and row[0] != incoming_payload:
+                        _report_collision(ev, row[0])
         except KeyError:
             continue
     if inserted:
@@ -108,7 +151,9 @@ def main() -> int:
     if JSONL.exists():
         with JSONL.open() as f:
             initial = f.read()
-        first_pass = insert_lines(conn, initial.split("\n"))
+        # Initial full-file migration re-reads history (incl. known-legacy
+        # colliding ids) — never report collisions here, only on the live tail.
+        first_pass = insert_lines(conn, initial.split("\n"), report_collisions=False)
         last_offset = JSONL.stat().st_size
         print(
             json.dumps(

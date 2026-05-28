@@ -10,6 +10,8 @@ import {
   emitTodoCompleted,
   emitFactoryEvent,
 } from "./factory-events.mjs";
+import { judgePinnedModel } from "./judge-rubric.mjs";
+import { generateResearchPacket } from "./research-packet.mjs";
 
 // Detect the closed-loop flywheel envelope in trigger content. Phoenix
 // dispatches todos as messages that start with "FLYWHEEL_TODO <todo_id>";
@@ -216,6 +218,23 @@ async function completeTrigger(triggerId) {
   return rows?.[0] ?? null;
 }
 
+// Count active participants in a conversation. Used by the cascade guard:
+// a >2-participant conversation fans one dispatch out to N triggers. Mirrors
+// the participant query in pentagon-rest.mjs::findOrCreateConversation. On any
+// query error returns 0 (fail-open to NOT block dispatch on a transient read
+// failure — the guard only suppresses on a confident >2 count).
+async function conversationParticipantCount(conversationId) {
+  try {
+    const rows = await request(
+      `/rest/v1/conversation_participants?conversation_id=eq.${conversationId}` +
+        `&left_at=is.null&deleted_at=is.null&select=user_id&limit=500`
+    );
+    return Array.isArray(rows) ? rows.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function persistAgentMessage(trigger, content) {
   const trimmed = String(content ?? "").trim();
   if (!trimmed || trimmed === "[no-response]") return null;
@@ -237,6 +256,33 @@ async function persistAgentMessage(trigger, content) {
   return rows?.[0] ?? null;
 }
 
+// Brandon-A 6× lever: pre-supply context (recent commits in the target area,
+// recent similar failures, relevant CLAUDE.md section) so the agent doesn't
+// crawl the whole repo before acting — the cache_creation_input_tokens cost
+// driver that made one T6-easy task cost $4. Extracts a target symbol/file from
+// the trigger content. Best-effort: any failure yields no packet (never blocks
+// dispatch). This was previously wired only into Phoenix's flywheel dispatch
+// (pentagon-rest.mjs::dispatchTodo), NOT the high-volume gauntlet path.
+function researchPacketFor(trigger) {
+  try {
+    const content = String(trigger.content || "");
+    // Dotted symbol like activegraph.core.graph.Graph.all_objects (preferred).
+    const symbolMatch = /\b((?:activegraph|scripts)[\w]*(?:\.[A-Za-z_]\w*){2,})/.exec(content);
+    const fileMatch = /(\b[\w][\w/.\-]*\.(?:py|mjs|js|ts|sql))\b/.exec(content);
+    if (!symbolMatch && !fileMatch) return "";
+    const packet = generateResearchPacket({
+      targetSymbol: symbolMatch ? symbolMatch[1] : undefined,
+      targetFile: fileMatch ? fileMatch[1] : undefined,
+      compact: true,
+      limit: 3,
+    });
+    if (!packet || packet.startsWith("(no research-packet")) return "";
+    return "\n\nPRE-FLIGHT RESEARCH PACKET (use this instead of crawling the repo):\n" + packet + "\n";
+  } catch {
+    return "";
+  }
+}
+
 function codexPrompt(trigger) {
   return [
     "You are the Pentagon target agent for this claimed trigger.",
@@ -253,6 +299,7 @@ function codexPrompt(trigger) {
     "",
     "Message:",
     trigger.content,
+    researchPacketFor(trigger),
   ].join("\n");
 }
 
@@ -366,7 +413,7 @@ function runClaudeViaPythonDispatcher(trigger, token, agent) {
     token,
     mcp_url: MCP_URL,
     prompt: claudePrompt(trigger),
-    model: agent?.model || "claude-opus-4-7",
+    model: agent?.model || "claude-opus-4-8",
     timeout_seconds: Number(arg("--claude-timeout-ms", arg("--codex-timeout-ms", "180000"))) / 1000,
     harness: agent?.harness_id || "claude-code",
     puter_home: puterHomeFor(agent),  // #29: per-agent sandbox path
@@ -756,7 +803,42 @@ async function processCandidates(candidates) {
       continue;
     }
 
-    const claimed = candidate.claimed_at ? candidate : await claimTrigger(candidate.id);
+    // C1: wrap the entire per-candidate body so an unhandled rejection in any
+    // awaited call (claimTrigger / mintAgentToken / agentById /
+    // persistAgentMessage / completeTrigger) cannot crash the candidate loop
+    // and leave the trigger orphaned (claimed_at set, completed_at null) with
+    // NO factory event. The catch (loop end) emits + releases the claim.
+    let claimed = null;
+    try {
+    // Cascade guard: Pentagon creates one agent_trigger per non-sender
+    // participant when a message lands, and the bridge re-posts each agent's
+    // reply back into the conversation. In a >2-participant conversation that
+    // fans a single dispatch out to N triggers and self-perpetuates (the
+    // documented Maya↔Theo cascade that burned real $). Phoenix's dispatch
+    // path enforces exactly-2 participants, but the bridge claim path did not —
+    // so a reply into a polluted conv still cascaded. Skip + record it here,
+    // BEFORE claiming, so we never feed the fan-out.
+    if (candidate.conversation_id) {
+      const pcount = await conversationParticipantCount(candidate.conversation_id);
+      if (pcount > 2) {
+        try {
+          emitInfrastructureEvent({
+            subtype: "cascade_suppressed",
+            message: `skipped trigger in ${pcount}-participant conversation to prevent fan-out cascade`,
+            extras: {
+              trigger_id: candidate.id,
+              conversation_id: candidate.conversation_id,
+              participant_count: pcount,
+              agent_id: candidate.agent_id ?? null,
+            },
+          });
+        } catch {}
+        results.push({ status: "cascade_suppressed", trigger: summarizeTrigger(candidate), participant_count: pcount });
+        continue;
+      }
+    }
+
+    claimed = candidate.claimed_at ? candidate : await claimTrigger(candidate.id);
     if (!claimed) {
       results.push({ status: "already_claimed_or_missing", trigger: summarizeTrigger(candidate) });
       continue;
@@ -818,6 +900,18 @@ async function processCandidates(candidates) {
       finalText = finalAgentMessage(run.stdout);
     }
 
+    // H11: a claude dispatch that exits 0 but yields no parseable final message
+    // is a SILENT DROP — persistAgentMessage(null) no-ops and the run is
+    // recorded as completed with no output and no error. Treat it as a failure.
+    if (harness === "claude-code" && run.status === 0 && !claudeError &&
+        (finalText === null || finalText === undefined)) {
+      claudeError = {
+        text: "subprocess exited 0 but produced no parseable final message",
+        isError: true,
+        apiErrorStatus: null,
+        reason: "llm.stream_parse_error",
+      };
+    }
     const subprocessOk = run.status === 0 && !claudeError;
     if (subprocessOk) {
       const persistedMessage = await persistAgentMessage(claimed, finalText);
@@ -861,6 +955,11 @@ async function processCandidates(candidates) {
                       parseTheoTestReviewAck(finalText, flywheelReviewId) ||
                       parseGraceGateAck(finalText, flywheelReviewId);
           if (ack) {
+            // C5/H3: pin the judge's model + pin-date onto the verdict so
+            // replay can tell "rowan@opus-4-7 was wrong" from
+            // "rowan@opus-4-8 was wrong", and judge-replay has the fields it
+            // reads. Falls back to the dispatched agent's model if no rubric.
+            const pinned = judgePinnedModel(ack.judge);
             emitFactoryEvent({
               type: "flywheel.review.completed",
               behavior: "factory-flywheel",
@@ -869,6 +968,8 @@ async function processCandidates(candidates) {
                 judge: ack.judge,
                 verdict: ack.verdict,
                 ack: ack,
+                judge_model: pinned.judge_model ?? agent?.model ?? null,
+                judge_model_pinned_at: pinned.judge_model_pinned_at ?? null,
                 reviewer_agent_id: claimed.agent_id,
                 reviewer_agent_name: agent?.name ?? null,
                 trigger_id: claimed.id,
@@ -1004,9 +1105,16 @@ async function processCandidates(candidates) {
       // activegraph-shaped event log alongside successful runs, not just
       // in the bridge's stdout JSON. Reason codes match what
       // ClaudeCodeCliProvider raises so both dispatch paths look uniform.
-      const failureReason = harness === "claude-code"
-        ? (claudeError?.apiErrorStatus === 429 ? "llm.rate_limited" : "llm.network_error")
-        : "llm.provider_error";
+      // Honor an explicit reason from the dispatcher/parse layer first (H11
+      // stream_parse_error, dispatcher-translated reasons), then distinguish a
+      // SIGTERM timeout kill from a real network error (H10), else fall back.
+      const failureReason = claudeError?.reason
+        ? claudeError.reason
+        : harness === "claude-code"
+          ? (claudeError?.apiErrorStatus === 429 ? "llm.rate_limited"
+             : run.signal === "SIGTERM" ? "llm.timeout"
+             : "llm.network_error")
+          : (run.signal === "SIGTERM" ? "llm.timeout" : "llm.provider_error");
       try {
         emitBehaviorFailed({
           behavior: `bridge.${harness === "claude-code" ? "runClaude" : "runCodex"}`,
@@ -1049,6 +1157,45 @@ async function processCandidates(candidates) {
         stdout_tail: String(run.stdout ?? "").slice(-2000),
         stderr_tail: String(run.stderr ?? "").slice(-2000),
       });
+    }
+    } catch (candidateErr) {
+      // C1: an unhandled rejection anywhere in the per-candidate body above
+      // would otherwise crash processCandidates and leave the trigger orphaned
+      // with no event. Emit a structured failure and release the claim so it
+      // can be retried.
+      try {
+        emitInfrastructureEvent({
+          subtype: "candidate_processing_error",
+          message: `unhandled error processing trigger ${candidate.id}: ${String(candidateErr?.message ?? candidateErr)}`,
+          extras: {
+            trigger_id: candidate.id,
+            agent_id: candidate.agent_id ?? null,
+            conversation_id: candidate.conversation_id ?? null,
+            was_claimed: Boolean(claimed),
+            error: String(candidateErr?.message ?? candidateErr),
+            stack_tail: String(candidateErr?.stack ?? "").split(/\r?\n/).slice(-4).join("\n"),
+          },
+        });
+      } catch {}
+      if (claimed) {
+        try { await completeTrigger(claimed.id); }
+        catch (relErr) {
+          try {
+            emitInfrastructureEvent({
+              subtype: "trigger_release_failed",
+              message: `completeTrigger failed in candidate catch: ${String(relErr?.message ?? relErr)}`,
+              extras: { trigger_id: claimed.id, underlying_error: String(relErr?.message ?? relErr) },
+            });
+          } catch {}
+        }
+      }
+      results.push({
+        status: "candidate_error",
+        trigger: summarizeTrigger(candidate),
+        was_claimed: Boolean(claimed),
+        error: String(candidateErr?.message ?? candidateErr),
+      });
+      continue;
     }
   }
   return results;

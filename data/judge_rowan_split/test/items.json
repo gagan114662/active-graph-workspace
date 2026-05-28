@@ -1,0 +1,17 @@
+[
+  {
+    "id": "rowan-gt-001",
+    "input": {
+      "diff": "--- a/activegraph/llm/recorded.py\n+++ b/activegraph/llm/recorded.py\n@@ -10,7 +10,11 @@ class RecordedDiligenceProvider:\n     def __init__(self, recording_path: str):\n         self.recording_path = recording_path\n \n-    def complete(self, prompt: str) -> str:\n+    def complete(self, prompt: str) -> str:\n+        \"\"\"Return the recorded response for the given prompt.\n+\n+        Reads from self.recording_path; raises FileNotFoundError if missing.\n+        \"\"\"\n         with open(self.recording_path) as f:\n             return f.read()",
+      "rationale": "Add docstring to RecordedDiligenceProvider.complete",
+      "failure_context": {
+        "reason": "agent.missing_docstring",
+        "behavior": "activegraph.llm.recorded"
+      },
+      "test_summary": "698 passed, 13 skipped"
+    },
+    "expected_verdict": "PASS",
+    "expected_top_finding": "docstring added, signature preserved, no unrelated changes",
+    "rationale": "narrow, minimal, no scope creep, no contract violation \u2014 classic clean docstring add"
+  }
+]

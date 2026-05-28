@@ -42,8 +42,15 @@ function detectSilentlyDiedPredecessors(scriptLabel) {
     if (ev.payload?.behavior !== scriptLabel) continue;
     if (ev.type === "script.started") {
       orphans.set(ev.payload?.pid, ev);
-    } else if (ev.type === "script.shutdown" || ev.type === "script.crash" || ev.type === "script.silently_died") {
+    } else if (ev.type === "script.shutdown" || ev.type === "script.crash") {
       orphans.delete(ev.payload?.pid);
+    } else if (ev.type === "script.silently_died") {
+      // Bug A fix: a silently_died event records the dead pid in
+      // extras.dead_pid (-> payload.dead_pid), NOT payload.pid. Clearing by
+      // payload.pid (undefined) meant a once-reported orphan was NEVER cleared,
+      // so it was re-emitted on every single launch (122 events from ~5 real
+      // deaths). Clear by dead_pid so a reported death stays reported once.
+      orphans.delete(ev.payload?.dead_pid);
     }
   }
   for (const orphan of orphans.values()) {
@@ -111,7 +118,10 @@ export function installCrashGuard(scriptLabel) {
     }
   }
 
+  let shutdownEmitted = false;
   function emitShutdown(signal) {
+    if (shutdownEmitted) return;  // avoid signal+exit double-emit
+    shutdownEmitted = true;
     try {
       emitFactoryEvent({
         type: "script.shutdown",
@@ -148,7 +158,13 @@ export function installCrashGuard(scriptLabel) {
   }
   // process.exit() called by app code — emit shutdown synchronously via
   // an exit handler. (`process.on('exit')` only allows sync work.)
+  // Bug B fix: emit shutdown on ANY exit code, not just 0. A non-zero exit is
+  // still a CLEAN process termination (the process ran its exit path) — not a
+  // SIGKILL/OOM. Single-shot scripts like run-native-pentagon-task.mjs exit
+  // with code 2, which previously never emitted shutdown and thus orphaned
+  // forever, re-flagged as silently_died on every launch (78 of the 122).
+  // Only a true hard-kill (no terminal event at all) should be silently_died.
   process.on("exit", (code) => {
-    if (code === 0) emitShutdown("process.exit");
+    emitShutdown(code === 0 ? "process.exit" : `process.exit:${code}`);
   });
 }

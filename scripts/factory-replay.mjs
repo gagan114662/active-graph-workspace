@@ -38,6 +38,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { decideRoute } from "./factory-routing.mjs";
 
 const EVENTS_PATH = resolve(
   process.env.FACTORY_EVENTS_PATH || "frames/factory-events.jsonl"
@@ -80,30 +81,23 @@ for (const line of readFileSync(EVENTS_PATH, "utf8").split(/\r?\n/)) {
   } catch {}
 }
 
-// --- routing predicate (mirrored from sasha-skeptic.mjs::matchPredicate) ---
-// Kept in sync intentionally; future refactor: extract to shared module.
-
-function matchPredicate(when, event) {
-  if (!when) return false;
-  if (when.always === true) return true;
-  const reason = event?.payload?.reason || null;
-  const behavior = event?.payload?.behavior || null;
-  if ("extras.synthetic" in when) {
-    if ((event?.payload?.synthetic === true) !== (when["extras.synthetic"] === true)) return false;
-  }
-  if (when.reason_equals !== undefined && reason !== when.reason_equals) return false;
-  if (when.reason_prefix !== undefined && !(reason && reason.startsWith(when.reason_prefix))) return false;
-  if (when.behavior_equals !== undefined && behavior !== when.behavior_equals) return false;
-  return true;
-}
+// --- routing decision (SHARED with sasha-skeptic.mjs via factory-routing.mjs) ---
+// The producer (Sasha) and the replayer (this file) MUST use the identical
+// decideRoute() or replay is not faithful to production. This adapter just maps
+// decideRoute()'s {decision:"route"|"skip"} shape onto the replay vocabulary
+// ("skip_todo") and surfaces the config version the decision was made against.
+const REPLAY_FAILURE_TYPES = new Set([
+  "behavior.failed",
+  "script.crash",
+  "verifier.check_failed",
+]);
 
 function routeReplay(event, config) {
-  for (const rule of config.rules || []) {
-    if (!matchPredicate(rule.when, event)) continue;
-    if (rule.skip_todo) return { decision: "skip_todo", rule: rule.name };
-    if (rule.route) return { decision: "route", agent: rule.route.agent, priority: rule.route.priority, rule: rule.name };
+  const d = decideRoute(event, config);
+  if (d.decision === "skip") {
+    return { decision: "skip_todo", rule: d.matched_rule, config_version: d.config_version };
   }
-  return { decision: "fallthrough", rule: null };
+  return { decision: "route", agent: d.agent, priority: d.priority, rule: d.matched_rule, config_version: d.config_version };
 }
 
 // --- replay modes ---
@@ -113,72 +107,96 @@ function routingDeterminismReplay() {
     return { error: `routing config not found at ${ROUTING_CONFIG_PATH}` };
   }
   const config = JSON.parse(readFileSync(ROUTING_CONFIG_PATH, "utf8"));
-  // Index todo.created events by failure_event_id so we can find what
-  // ACTUALLY happened for each historical failure.
+  const currentVersion = config.version ?? null;
+
+  // Index the RECORDED decisions by failure_event_id. Route decisions are
+  // recorded as todo.created; skip decisions as routing.skipped. Each carries
+  // the config version it was decided under (the determinism pin).
   const todoByFailure = new Map();
+  const skipByFailure = new Map();
   for (const ev of events) {
-    if (ev.type !== "todo.created") continue;
     const failId = ev.payload?.failure_event_id;
-    if (failId) todoByFailure.set(failId, ev);
+    if (!failId) continue;
+    if (ev.type === "todo.created") todoByFailure.set(failId, ev);
+    else if (ev.type === "routing.skipped") skipByFailure.set(failId, ev);
   }
 
   const results = {
     mode: "routing-determinism",
     window: SINCE_SPEC,
+    current_config_version: currentVersion,
     events_scanned: events.length,
     failures_seen: 0,
     actual_routed: 0,
     actual_skipped: 0,
+    actual_unknown: 0,        // pre-fix events with no recorded decision
     replay_routed: 0,
     replay_skipped: 0,
-    divergences: [],
+    // A divergence is only a BUG when the recorded decision used the SAME config
+    // version as the current one. Different version => the rules legitimately
+    // changed (expected). No recorded version => legacy pre-pin event.
+    real_nondeterminism: [],
+    expected_config_evolution: [],
+    legacy_unstamped: [],
   };
+
   for (const ev of events) {
-    if (ev.type !== "behavior.failed") continue;
+    if (!REPLAY_FAILURE_TYPES.has(ev.type)) continue;
     results.failures_seen++;
-    const actualTodo = todoByFailure.get(ev.id);
-    const actualAgent = actualTodo?.payload?.recommended_agent || null;
-    const actualPriority = actualTodo?.payload?.priority || null;
-    const actualDecision = actualTodo ? "route" : "skip_todo";
-    if (actualDecision === "route") results.actual_routed++;
-    else results.actual_skipped++;
+
+    const todo = todoByFailure.get(ev.id);
+    const skip = skipByFailure.get(ev.id);
+    let actualDecision, actualAgent = null, actualPriority = null, recordedVersion = null;
+    if (todo) {
+      actualDecision = "route";
+      actualAgent = todo.payload?.recommended_agent || null;
+      actualPriority = todo.payload?.priority || null;
+      recordedVersion = todo.payload?.routing_config_version ?? null;
+      results.actual_routed++;
+    } else if (skip) {
+      actualDecision = "skip_todo";
+      recordedVersion = skip.payload?.routing_config_version ?? null;
+      results.actual_skipped++;
+    } else {
+      // No recorded decision at all (pre-fix: skip was inferred by absence).
+      actualDecision = "skip_todo";
+      recordedVersion = null;
+      results.actual_unknown++;
+    }
 
     const replay = routeReplay(ev, config);
     if (replay.decision === "route") results.replay_routed++;
     else results.replay_skipped++;
 
-    // Divergence: actual vs replayed differ in any way.
-    let divergent = false;
-    let reason_strings = [];
-    if (replay.decision !== actualDecision) {
-      divergent = true;
-      reason_strings.push(`decision: actual=${actualDecision} replay=${replay.decision}`);
-    }
+    const reasons = [];
+    if (replay.decision !== actualDecision) reasons.push(`decision: actual=${actualDecision} replay=${replay.decision}`);
     if (replay.decision === "route" && actualDecision === "route") {
-      if (replay.agent !== actualAgent) {
-        divergent = true;
-        reason_strings.push(`agent: actual=${actualAgent} replay=${replay.agent}`);
-      }
-      if (replay.priority !== actualPriority) {
-        divergent = true;
-        reason_strings.push(`priority: actual=${actualPriority} replay=${replay.priority}`);
-      }
+      if (replay.agent !== actualAgent) reasons.push(`agent: actual=${actualAgent} replay=${replay.agent}`);
+      if (replay.priority !== actualPriority) reasons.push(`priority: actual=${actualPriority} replay=${replay.priority}`);
     }
-    if (divergent) {
-      results.divergences.push({
-        failure_event_id: ev.id,
-        reason_code: ev.payload?.reason || null,
-        behavior: ev.payload?.behavior || null,
-        actual: { decision: actualDecision, agent: actualAgent, priority: actualPriority },
-        replay: replay,
-        reasons: reason_strings,
-      });
-    }
+    if (reasons.length === 0) continue;  // deterministic — no divergence
+
+    const entry = {
+      failure_event_id: ev.id,
+      reason_code: ev.payload?.reason || null,
+      behavior: ev.payload?.behavior || null,
+      recorded_config_version: recordedVersion,
+      current_config_version: currentVersion,
+      actual: { decision: actualDecision, agent: actualAgent, priority: actualPriority },
+      replay: { decision: replay.decision, agent: replay.agent ?? null, priority: replay.priority ?? null, rule: replay.rule },
+      reasons,
+    };
+
+    if (recordedVersion === null) results.legacy_unstamped.push(entry);
+    else if (recordedVersion !== currentVersion) results.expected_config_evolution.push(entry);
+    else results.real_nondeterminism.push(entry);
   }
-  results.divergence_count = results.divergences.length;
-  results.divergence_rate = results.failures_seen
-    ? Number((results.divergence_count / results.failures_seen).toFixed(3))
-    : 0;
+
+  results.real_nondeterminism_count = results.real_nondeterminism.length;
+  results.expected_config_evolution_count = results.expected_config_evolution.length;
+  results.legacy_unstamped_count = results.legacy_unstamped.length;
+  // The determinism guarantee: zero divergences under an UNCHANGED config.
+  results.deterministic = results.real_nondeterminism_count === 0;
   return results;
 }
 
@@ -310,30 +328,48 @@ switch (MODE) {
     process.exit(2);
 }
 
+// Exit non-zero when a real determinism violation is found, so this doubles as
+// a CI gate. Only routing-determinism has a hard pass/fail today.
+function determinismExitCode() {
+  if (MODE === "routing-determinism" && !report.error) {
+    return report.real_nondeterminism_count > 0 ? 1 : 0;
+  }
+  return 0;
+}
+
 if (AS_JSON) {
   console.log(JSON.stringify(report, null, 2));
-  process.exit(0);
+  process.exit(determinismExitCode());
 }
 
 console.log(`FACTORY REPLAY — mode=${MODE}, window=${SINCE_SPEC}`);
 console.log("");
 if (MODE === "routing-determinism") {
+  if (report.error) { console.error(report.error); process.exit(2); }
+  console.log(`Config version: ${report.current_config_version}`);
   console.log(`Failures scanned: ${report.failures_seen}`);
   console.log(`  Actual routed:    ${report.actual_routed}`);
   console.log(`  Actual skipped:   ${report.actual_skipped}`);
+  console.log(`  Actual unknown:   ${report.actual_unknown}  (pre-pin legacy events)`);
   console.log(`  Replay routed:    ${report.replay_routed}`);
   console.log(`  Replay skipped:   ${report.replay_skipped}`);
   console.log("");
-  console.log(`Divergences: ${report.divergence_count} (${(report.divergence_rate * 100).toFixed(1)}% of failures)`);
-  if (report.divergence_count > 0) {
+  console.log(`REAL non-determinism (same config version, different decision): ${report.real_nondeterminism_count}`);
+  console.log(`Expected config evolution (version changed):                   ${report.expected_config_evolution_count}`);
+  console.log(`Legacy unstamped (no recorded config version):                 ${report.legacy_unstamped_count}`);
+  if (report.real_nondeterminism_count > 0) {
     console.log("");
-    console.log("First 10 divergences:");
-    for (const d of report.divergences.slice(0, 10)) {
-      console.log(`  ${d.failure_event_id} reason=${d.reason_code} behavior=${d.behavior}`);
+    console.log("⚠ REAL NON-DETERMINISM (these are bugs in the decision function):");
+    for (const d of report.real_nondeterminism.slice(0, 10)) {
+      console.log(`  ${d.failure_event_id} reason=${d.reason_code} behavior=${d.behavior} (cfg v${d.recorded_config_version})`);
       for (const r of d.reasons) console.log(`    - ${r}`);
     }
   } else {
-    console.log("(current routing config produces same decisions as historical config — DETERMINISTIC ✓)");
+    console.log("");
+    console.log("DETERMINISTIC ✓ — every decision made under the current config version replays identically.");
+    if (report.expected_config_evolution_count > 0) {
+      console.log(`  (${report.expected_config_evolution_count} divergences are explained by config version changes — not bugs.)`);
+    }
   }
 } else if (MODE === "action-determinism") {
   console.log(`Diff proposals seen: ${report.proposals_seen}`);
@@ -351,3 +387,5 @@ if (MODE === "routing-determinism") {
 } else {
   console.log(JSON.stringify(report, null, 2));
 }
+
+process.exit(determinismExitCode());

@@ -30,6 +30,7 @@ LABELS=(
   "run.factory.sasha-skeptic"
   "run.factory.blake-budget-marshal"
   "run.factory.phoenix-todo-keeper"
+  "run.factory.safety-monitor"
   "run.factory.rotate-logs"
   "run.factory.alert"
   "run.factory.f1-daemon"

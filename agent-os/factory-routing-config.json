@@ -1,7 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "last_updated": "2026-05-28",
-  "purpose": "Routing rules consumed by sasha-skeptic.mjs::routeFailureToAgent(event). Reading from JSON instead of hardcoded logic makes config changes a versioned data delta (task #18 from frames/codex-goals/factory-fully-autonomous-goal-20260528.md), which factory-learn.mjs can propose and apply deterministically.",
+  "purpose": "Routing rules consumed by the shared decideRoute() in scripts/factory-routing.mjs (imported by both sasha-skeptic.mjs as the producer and factory-replay.mjs as the replayer — single source of truth). Reading from JSON instead of hardcoded logic makes config changes a versioned data delta (task #18 from frames/codex-goals/factory-fully-autonomous-goal-20260528.md) that factory-learn.mjs can propose and apply deterministically. Every routing DECISION is stamped with this `version` + a content hash on the resulting todo.created / routing.skipped event, so replay can classify a divergence as expected-config-evolution (version differs) vs real-nondeterminism (version matches, decision differs). v2: added type_equals/type_prefix predicates + script_crash_type_to_maya + verifier_check_failed_type_to_maya so failures emitted as type=script.crash / type=verifier.check_failed (not type=behavior.failed) finally enter the flywheel.",
   "rules": [
     {
       "name": "learned_script_crash_test_behavior_sasha",
@@ -99,6 +99,28 @@
       "rationale": "Script crashes are bugs in factory tooling. Maya fixes them."
     },
     {
+      "name": "script_crash_type_to_maya",
+      "when": {
+        "type_equals": "script.crash"
+      },
+      "route": {
+        "agent": "maya",
+        "priority": "p1"
+      },
+      "rationale": "Crash-guard + Python emit_script_crash write type=script.crash with reason=script.<ExceptionClass> (e.g. script.Error). The reason-based script_crash_to_maya rule above never matches those, so before this rule 9 real crashes were logged but never entered the flywheel. Match on the event TYPE to catch every crash regardless of the exception-class reason."
+    },
+    {
+      "name": "verifier_check_failed_type_to_maya",
+      "when": {
+        "type_equals": "verifier.check_failed"
+      },
+      "route": {
+        "agent": "maya",
+        "priority": "p1"
+      },
+      "rationale": "Same gap as crashes: verifier.check_failed is sometimes emitted as type=verifier.check_failed (not type=behavior.failed reason=verifier.check_failed). Match on type so the verifier's hard failures always reach Maya."
+    },
+    {
       "name": "phoenix_dispatch_failed_to_sasha",
       "when": {
         "reason_equals": "phoenix.dispatch_failed"
@@ -108,6 +130,28 @@
         "priority": "p1"
       },
       "rationale": "Meta-flywheel: dispatch failures may indicate Pentagon REST issues. Sasha investigates."
+    },
+    {
+      "name": "llm_stream_parse_error_to_sasha",
+      "when": {
+        "reason_equals": "llm.stream_parse_error"
+      },
+      "route": {
+        "agent": "sasha",
+        "priority": "p1"
+      },
+      "rationale": "H11: a dispatch that exited 0 but produced no parseable final message is a real silent-drop defect in the stream/dispatch layer — Sasha investigates (p1), not a transient skip."
+    },
+    {
+      "name": "llm_timeout_to_sasha",
+      "when": {
+        "reason_equals": "llm.timeout"
+      },
+      "route": {
+        "agent": "sasha",
+        "priority": "p2"
+      },
+      "rationale": "H10: SIGTERM timeout kills are distinct from network errors. Surfaced at p2 (visible triage) rather than skipped, because a recurring timeout usually means the deadline is too short for the task. Dedup + circuit breaker bound the cost."
     },
     {
       "name": "infrastructure_to_sasha",
@@ -142,9 +186,12 @@
     },
     "when_predicates": {
       "extras.synthetic": "matches event.payload.synthetic === <value>",
+      "extras.canary_authorized": "matches event.payload.canary_authorized === <value>",
       "reason_equals": "matches event.payload.reason === <value>",
       "reason_prefix": "matches event.payload.reason starts with <value>",
       "behavior_equals": "matches event.payload.behavior === <value>",
+      "type_equals": "matches event.type === <value>",
+      "type_prefix": "matches event.type starts with <value>",
       "always": "true matches every event (catch-all)"
     },
     "priority_values": [

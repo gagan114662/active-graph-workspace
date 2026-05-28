@@ -1,0 +1,13 @@
+[
+  {
+    "id": "grace-gt-001",
+    "input": {
+      "git_status": "M frames/factory-events.jsonl\nM frames/factory-events.sqlite",
+      "commit_message": "flywheel: fix script.crash",
+      "cwd_clean": false
+    },
+    "expected_verdict": "OPEN",
+    "expected_top_finding": "untracked log files are runtime state \u2014 OK to leave; pass through with warning",
+    "rationale": "Log artifacts modified is normal. Grace should pass through but flag."
+  }
+]

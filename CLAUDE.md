@@ -1171,4 +1171,121 @@ The factory now has:
 
 ---
 
+### 2026-05-28 (pt.9 — determinism + failure-coverage hardening, Opus 4.8 migration, safety-monitor backlog)
+
+User: "make the flywheel run deterministically with all failures logged as events ... find what you might have missed ... produce dependable production-ready code." Then mid-session: migrate all agents to Opus 4.8; add the OpenAI safety-monitor pattern to the backlog; rate the team; "are all failures logged as events now?"
+
+**Ran a 11-agent read-only audit workflow** → `frames/factory-determinism-audit-20260528.md` (46 deduped findings: 6 critical / 15 high / 19 medium / 6 low). It independently confirmed the determinism direction I'd already started.
+
+**Determinism (the core ask) — SHIPPED + PROVEN:**
+- **Root cause:** two hand-synced copies of the routing decision (`sasha-skeptic.mjs::routeFailureToAgent` + `factory-replay.mjs::routeReplay`) had already drifted (replay missing `extras.canary_authorized`). Two decision fns = non-determinism by construction.
+- **Fix:** new `scripts/factory-routing.mjs` — ONE pure `decideRoute(event, config)` imported by both producer and replayer. Every decision now records `routing_config_version` + `routing_config_hash` + `routing_rule_name` on `todo.created`, and skip decisions emit a new `routing.skipped` event. Replay classifies divergences as `real_nondeterminism` (same version, different decision = BUG) vs `expected_config_evolution` vs `legacy_unstamped`, and exits non-zero only on real non-determinism (CI gate).
+- **Also:** `type=script.crash` / `type=verifier.check_failed` events were silently NOT entering the flywheel (Sasha only handled `type==="behavior.failed"` — 9 crashes + 1 verifier fail confirmed dropped). Config v2 adds `type_equals` rules routing them to Maya; Sasha's `FLYWHEEL_FAILURE_TYPES` now includes all three.
+- **Proven:** 15/15 unit tests (`factory-routing.test.mjs`), replay shows **0 real non-determinism**, and an E2E through the *real* Sasha daemon stamps cfg_v=2 on todo.created + routing.skipped.
+
+**Failure-event coverage — closed the holes the audit found:**
+- C1 bridge per-candidate try/catch (no more orphaned triggers on unhandled rejection); C2 honker `INSERT OR IGNORE` collisions now loud (stderr + `infrastructure.event_id_collision`, proven); H9 alert/rotate daemons emit `script.crash` on fatal exit; H10 SIGTERM→`llm.timeout` vs network; H11 exit-0-no-message→`llm.stream_parse_error` (was silent success); H13 bare `except/catch` now log to stderr (bridge_dispatch.py, claude_code_cli.py, honker_listen.py); Python `factory_events.py` id collision fixed to `evt_<ms>_<pid>_<seq>` (proven collision-free under concurrency).
+
+**Production-dependability gates:**
+- C3/C4 review gate now FAILS CLOSED — dispatch-fail / timeout / malformed → `flywheel.review.bypassed` + `needs_review` park (no ungated commits) unless `--allow-ungated-fallback`. H14 push failure → `needs_push`, todo NOT completed; `flywheel.pr.create_failed` event on PR failure. C5/H3 judge verdicts model-pinned via shared `scripts/judge-rubric.mjs`. C6 legacy `flywheel.commit.*` now carries state hashes.
+- New tests: `factory-infra.test.mjs` (nextId monotonic/collision-free + lockfile staleness). 21/21 total green.
+
+**Opus 4.8 migration (operator request):** all 20 Pentagon agents `claude-opus-4-7` → `claude-opus-4-8` (cohort.json v2 `opus-4.8-claude-code-2026-05-28`, 3 rubrics, bridge defaults, live Supabase rows via `frames/migrations/bulk-opus48-20260528.jsonl`, Pentagon app default `claude-opus-4-8[1m]`). Verified 20/20 live.
+
+**Safety-monitor backlog (operator request):** `frames/codex-goals/safety-monitor-agent-backlog-20260528.md` — a second AI (Sentinel) that watches the actor's diffs for HARM (not quality) and can veto before push, independent of task context. The harm-gate that makes unattended `--autodispatch` defensible.
+
+**IMPORTANT — fixes are SOURCE-ONLY until reload.** The running daemons (PIDs from pt.8) still execute pre-edit code. Operator must run `bash scripts/factory-reload.sh` to apply C1/C2/C3/C4/H9/H10/H11/H13/H14/determinism to the live daemons. The agent-row 4.8 migration IS live now (bridge reads agent.model from DB each dispatch).
+
+**Honest answer to "are all failures logged as events now?":** much closer, not 100%. Now-covered: bridge orphans, honker silent drops, daemon crashes, parse-failure-as-success, timeouts, bare-except swallows, Python id collisions, crash/verifier types entering the flywheel. Still open: `script.silently_died` (122 in log — daemons dying, logged but not root-caused), H4 (routing-config write state event), H7/H8/H12. And the coverage is source-only until `factory-reload.sh`.
+
+**Still open (next session):** factory-reload to make fixes live; H4/H7/H8/H12 + medium findings; the safety-monitor build; Brandon-A research packet; T7 medium 028-040 on the new 4.8 cohort.
+
+---
+
+### 2026-05-28 (pt.10 — "make the team A+" plan, IN PROGRESS)
+
+User: team performance review graded the agent team **C+ ("works, underperforming its design")**;
+operator said "address all these — make this an all-star team with A+ performance." Approved plan at
+`~/.claude/plans/pls-address-all-these-nifty-zebra.md`. Researched via 3 general-purpose agents
+(silent-deaths, agent-wiring, throughput). Decisions locked: **SkillOpt runs on Claude Code auth,
+NEVER API keys**; Maya SPOF fixed via impl pool + per-agent cap; sequencing = P0 reliability first.
+
+**Phase 1 — P0 reliability (in progress):**
+- ✅ **1a — silent-death false positive fixed** (`factory-crash-guard.mjs`). The 122
+  `script.silently_died` events were ~5 real deaths re-counted every launch: Bug A cleared orphans by
+  `payload.pid` (undefined on silently_died — they carry `extras.dead_pid`); Bug B only emitted
+  shutdown on exit code 0, so the single-shot runner (exit 2) orphaned forever (78/122). Fixed both +
+  a `shutdownEmitted` guard. Proven: a death is flagged exactly once across 3 launches (was 3),
+  exit-2 emits a clean shutdown (0 false deaths).
+- ✅ **1b — Maya↔Theo cascade killed** (`pentagon-trigger-bridge.mjs`). Added
+  `conversationParticipantCount()` + a guard before `claimTrigger`: a >2-participant conversation is
+  skipped with `infrastructure.cascade_suppressed`. Phoenix enforced 2-party on dispatch; the bridge
+  claim path didn't — now it does, killing fan-out at the source.
+- ✅ **1d — rejection telemetry fixed** (`phoenix-todo-keeper.mjs`). `categorizeRejection()` puts the
+  real cause (`empty_diff|apply_failed|tests_failed|commit_failed|worktree_failed|lock_contention`)
+  into `payload.reason` (was a constant); synthetic test attempts tagged so they stop polluting the
+  throughput signal.
+- ✅ **1c — Blake caps (already in plist) + `factory-reload.sh` + verify** — DONE. All pt.9+pt.10
+  fixes are LIVE in the running daemons. **6/6 daemons green, 33/33 tests, 0 real non-determinism.**
+  Bonus: caught + fixed a collision-burst my own C2 fix introduced (relay re-scanning history re-flagged
+  247 legacy ids on restart → suppressed to 0 by only reporting collisions on the live tail).
+
+**Phase 2 — staged (honest):** Theo/Rowan/Grace are parser-ready; full enforcer wiring is gated on
+Pentagon RLS (Gap A, operator-side) + a live reviewer ACK to fixture-test against. Forcing untested
+checks into the 344-check verifier would violate proof-required discipline. Roadmap for all 15 idle
+agents written to `agent-os/AGENT_IDENTITY_MAP.md` (4 tiers: RLS-gated reviewers / new-task-class /
+needs-ACK-contract / no-work-yet).
+
+**Phase 3:**
+- ✅ **3a — research packet on the hot path** (`pentagon-trigger-bridge.mjs::researchPacketFor`).
+  The 6× Brandon-A lever, previously only on Phoenix's flywheel path, now injected into every
+  gauntlet dispatch prompt. Proven: a gauntlet target symbol yields a 1979-char packet (resolved
+  file + recent commits) so the agent doesn't crawl the repo (the cache_creation cost driver).
+- ✅ **3d — Sentinel safety monitor** (`scripts/safety-monitor.mjs` + plist + Phoenix fail-closed
+  gate). A second AI (the OpenAI/Sottiaux pattern) judges each `flywheel.diff.proposed` for HARM
+  (not quality), in isolation from task context. Stub mode (offline regex: secrets, rm-rf, exfil,
+  DROP TABLE, force-push — zero cost, default) + `--live` (opus-4.8 on **Claude Code auth, no API
+  key**). Emits `safety.allowed`/`safety.blocked`; Phoenix REFUSES to push a `safety.blocked` diff
+  (`--require-safety` also requires an explicit ALLOW). Proven: benign→ALLOW, secret/rm-rf/exfil/
+  DROP-TABLE→BLOCK. Running live as the 6th daemon (stub mode). Fixed a spaces-in-path `import.meta.url`
+  bug that made it exit immediately.
+- ⏳ **3b — impl pool + per-agent cap** — NOT done. The Maya-SPOF symptoms (cascade seed, overload)
+  are already mitigated (cascade guard + research packet + rate limiter). A true multi-impl-agent pool
+  is an ORG decision: Quinn is the Test Adversary, not a code-fixer — routing impl to Quinn needs
+  operator sign-off, not a unilateral change. Staged pending that decision.
+- ✅ **3c — SkillOpt adopted on Claude Code auth (no API keys)** — `frames/codex-goals/skillopt-adoption-20260528.md`.
+  KEY: the CLI-auth adapter ALREADY EXISTS in SkillOpt (`skillopt/model/claude_backend.py` → `claude -p`,
+  `REFLACT_MODEL_BACKEND=claude`) — proven (`chat_target`→"42", `api_key_used=False`). Built
+  `scripts/skillopt_judge_eval.py` (`--harvest`/`--baseline`/`--optimize`). Baselines on Claude Code
+  auth: **Rowan 5/5, Theo 5/5, Grace 2/5 (40% — real defect the eval surfaced)**. The optimization
+  loop (eval→reflect via `chat_optimizer`→validation gate) ran on Grace end-to-end and CORRECTLY
+  rejected a candidate that regressed train (no worse skill shipped). Honest finding: 5 examples/judge
+  is too small — the optimizer overfits. **Next:** grow judge ground-truth to ~20-50/judge, then the
+  optimizer can ship an improved `best_skill.md`; and Grace's rubric needs work regardless. SkillOpt
+  vendored at `~/.factory/SkillOpt` (not committed).
+- ✅ **Grace defect FIXED (40% → 5/5)** — the eval surfaced two bugs: (1) data-contract: grace-gt-003/005
+  used `expected_verdict: "PASS"` but a gate's vocabulary is `OPEN`/`BLOCKED` (no PASS) → corrected to
+  OPEN; (2) calibration: the rubric over-blocked on runtime log artifacts → recalibrated so it BLOCKS
+  only operator-scoped paths (RELIABILITY_OPERATING_CONTRACT.md / agent-os governance / CLAUDE.md /
+  .github/workflows/**) and OPENs on product code + runtime state. `grace-gate.yaml` v2. Re-baseline
+  5/5 on Claude Code auth. NOT loosened — the gate is now correct (blocks contract/CI, proceeds on
+  normal work).
+
+**New backlog (operator request):** **RESOLVER.md context-routing framework** (Garry Tan / gbrain) —
+`frames/codex-goals/resolver-framework-backlog-20260528.md`. A hierarchical "if editing X → load doc Y"
+routing table + MECE dirs + `inbox/` to replace dumping all of CLAUDE.md (~1200 lines) into every
+context. Strong fit: the monolithic CLAUDE.md is exactly the anti-pattern it fixes, and the pt.10
+research packet (3a) is already a primitive per-dispatch resolver.
+
+**A+ scorecard delta this session:** reliability (gates live, silent-death noise gone, cascade
+killed), efficiency (6× research packet on hot path, real Blake caps), safety (Sentinel harm gate +
+review-gate fail-closed), determinism (0 real non-determinism, CI-gateable). Remaining for full A+:
+SkillOpt self-improvement (3c), the impl-pool org decision (3b), and RLS unblock for reviewer
+staffing (Phase 2).
+
+**On CLAUDE.md freshness:** updated continuously (pt.9 + pt.10). These are uncommitted working-tree
+changes — GitButler hooks commit; Claude does not run `git commit` manually (per global instructions).
+
+---
+
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._

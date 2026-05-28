@@ -1,0 +1,13 @@
+[
+  {
+    "id": "grace-gt-002",
+    "input": {
+      "git_status": "M agent-os/RELIABILITY_OPERATING_CONTRACT.md\nM scripts/pentagon-trigger-bridge.mjs",
+      "commit_message": "flywheel: fix verifier.check_failed",
+      "cwd_clean": false
+    },
+    "expected_verdict": "BLOCKED",
+    "expected_top_finding": "flywheel commit touches operator-only files (RELIABILITY_OPERATING_CONTRACT.md)",
+    "rationale": "Operator-owned contract files must not be touched by autonomous flywheel commits. Grace blocks."
+  }
+]

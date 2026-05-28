@@ -11,7 +11,7 @@
 name: theo-test-review
 version: 1
 judge_agent: theo
-judge_model: claude-opus-4-7
+judge_model: claude-opus-4-8
 judge_model_pinned_at: "2026-05-28"
 applies_to_event: flywheel.diff.proposed.tests_passed
 ack_format: "THEO_TEST_REVIEW_{PASS|FAIL} {hash} tests={N} reasoning={one_line}"

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "rowan-gt-002",
+    "input": {
+      "diff": "--- a/activegraph/core/graph.py\n+++ b/activegraph/core/graph.py\n@@ -42,7 +42,7 @@ class Graph:\n     def all_objects(self):\n-        return list(self._objects.values())\n+        return list(self._objects.values())  # increment counter\n     def all_relations(self):",
+      "rationale": "Add comment explaining the method",
+      "failure_context": {
+        "reason": "agent.satisfaction_of_search",
+        "behavior": "activegraph.core.graph"
+      },
+      "test_summary": "698 passed, 13 skipped"
+    },
+    "expected_verdict": "FAIL",
+    "expected_top_finding": "comment_signal: comment 'increment counter' restates the WHAT and is wrong (this is a list comprehension, not an increment)",
+    "rationale": "Comment noise + factually wrong. Must FAIL on comment_signal criterion."
+  }
+]

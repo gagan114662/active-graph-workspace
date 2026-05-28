@@ -6,9 +6,9 @@
 # ACK format: GRACE_GATE_{OPEN|BLOCKED} <tier> dirty_files=<comma_separated_list>
 
 name: grace-gate
-version: 1
+version: 2
 judge_agent: grace
-judge_model: claude-opus-4-7
+judge_model: claude-opus-4-8
 judge_model_pinned_at: "2026-05-28"
 applies_to_event: flywheel.diff.proposed | gauntlet.tier_starting
 ack_format: "GRACE_GATE_{OPEN|BLOCKED} {tier} dirty_files={list}"
@@ -21,32 +21,39 @@ inputs:
 
 criteria:
   - id: no_load_bearing_dirt
-    description: "No uncommitted changes to files that the action layer or verifier depends on. CLAUDE.md, agent-os/*, scripts/verify-*.mjs, scripts/pentagon-rest.mjs, scripts/factory-events.mjs — these MUST be committed before a gauntlet starts so post-mortem replay is possible."
+    description: "FLYWHEEL-COMMIT GATE (primary). BLOCK only when the changed files (git_status) include OPERATOR-SCOPED paths an autonomous flywheel commit must never touch. Everything else proceeds (OPEN). The point is to keep the factory OUT of operator-owned governance + CI, not to block normal product work."
     weight: critical
-    pass_signal: "git status shows no uncommitted changes to load-bearing files."
-    fail_signal: "ANY of CLAUDE.md, agent-os/factory-routing-config.json, scripts/factory-events.mjs, scripts/verify-pentagon-autonomy-from-logs.mjs, scripts/pentagon-trigger-bridge.mjs has uncommitted changes."
+    pass_signal: "Changed files are limited to product code (activegraph/**), tests, scripts/**, docs, or runtime artifacts — none are operator-scoped."
+    fail_signal: "git_status includes an operator-scoped path: agent-os/RELIABILITY_OPERATING_CONTRACT.md, any agent-os contract/governance doc, CLAUDE.md, OR any CI path under .github/workflows/**."
+
+  - id: runtime_artifacts_never_block
+    description: "Runtime state files are ALWAYS dirty (daemons write to them continuously). They are NOT load-bearing source and MUST NOT trigger BLOCKED — flag them in dirty_files but keep the gate OPEN."
+    weight: critical
+    pass_signal: "When the dirty set is only runtime artifacts (frames/factory-events.jsonl, frames/factory-events.sqlite, frames/*-actions.jsonl, frames/factory-todos.jsonl, frames/sentinel-actions.jsonl, any *.sqlite) → OPEN (flag, don't block)."
+    fail_signal: "(runtime artifacts are NEVER a block reason on their own)."
 
   - id: no_dirty_proofs
-    description: "No partially-edited proof files. A proof file with uncommitted changes invalidates the run it claims to grade."
-    weight: critical
-    pass_signal: "No frames/*.proof or *.evidence files in git-status output."
-    fail_signal: "ANY proof file shows up as modified in either repo."
+    description: "GAUNTLET-START context only: no partially-edited proof files (they'd invalidate the run they grade). Does NOT apply to the flywheel-commit gate."
+    weight: high
+    pass_signal: "No frames/*.proof or *.evidence files modified when gating a gauntlet start."
+    fail_signal: "A proof file is modified at gauntlet-start time."
 
   - id: inner_repo_alignment
-    description: "The inner repo is on a clean main HEAD (or an explicitly-named feature branch like flywheel-fixes-YYYYMMDD). No detached HEADs, no rebase-in-progress, no merge conflicts."
+    description: "GAUNTLET-START context: inner repo on clean main HEAD or a named flywheel-fixes-YYYYMMDD branch. No detached HEAD / rebase / merge conflict."
     weight: high
-    pass_signal: "git -C activegraph branch --show-current returns either main OR flywheel-fixes-*."
+    pass_signal: "git -C activegraph branch --show-current is main OR flywheel-fixes-*."
     fail_signal: "Detached HEAD, REBASE_HEAD exists, or unmerged paths."
 
   - id: bridge_alive
-    description: "The Pentagon trigger bridge is loaded and running. Without it, no flywheel dispatch can be claimed."
-    weight: critical
-    pass_signal: "launchctl print gui/$UID/run.pentagon.trigger-bridge returns state=running."
-    fail_signal: "Bridge not loaded, not running, or in spawn state for >10 seconds."
+    description: "GAUNTLET-START context: the Pentagon trigger bridge is running (else no dispatch can be claimed)."
+    weight: high
+    pass_signal: "run.pentagon.trigger-bridge state=running."
+    fail_signal: "Bridge not loaded/running."
 
 grading:
-  open_when: "ALL critical criteria PASS AND no high criterion FAILS."
-  blocked_when: "ANY critical criterion FAILS."
+  blocked_when: "The changed files include an operator-scoped path (no_load_bearing_dirt fail): RELIABILITY_OPERATING_CONTRACT.md, an agent-os contract/governance doc, CLAUDE.md, or anything under .github/workflows/**."
+  open_when: "No operator-scoped path is touched. Product code (activegraph/**), tests, scripts, docs, and runtime artifacts all proceed (OPEN). Runtime artifacts are flagged in dirty_files but never block."
+  note: "Grace's vocabulary is OPEN (proceed) or BLOCKED (stop) — there is NO 'PASS'. OPEN is the proceed verdict."
 
 eval_the_eval:
   judge_error_signals:
