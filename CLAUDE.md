@@ -1382,4 +1382,97 @@ The single keystone unblock is **Pentagon RLS** (kit is copy-paste ready).
 
 ---
 
+### 2026-05-28 (pt.13 — Gap A CLOSED + proven LIVE: first real flywheel review through the RLS wall)
+
+Operator stopped delegating and experimented in Pentagon directly: confirmed the GUI can't create
+agent-to-agent 2-party DMs (they're read-only, made by `findOrCreateConversation` — the RLS-blocked
+path) and that their own Supabase has zero app tables (expected — the factory uses Pentagon's managed
+Supabase `ieetsizejvdpsvaiuukb…` + local files, NOT the operator's account). Then: "go for it."
+
+**The working mechanism (found + proven):** Pentagon's **MCP tool context authenticates as `Priya
+(Goal Reaper)`** with a `pentagon_agent:true` JWT the gateway accepts. `find_conversation([reviewer])`
+mints `{Priya, reviewer}` 2-party convs the RLS-blocked daemon INSERT can't — and the daemon **reads**
+them fine. `pentagon-rest.mjs` was already wired for this (`SENDER_AGENT_KEY="priya"`); it just needed
+the convs seeded. Seeded + verified daemon-visible (exactly 2 active participants):
+Priya↔Rowan `9508cf6a`, Priya↔Grace `41286169`, Priya↔Theo `e8b581b8`.
+
+**Proven LIVE end-to-end** (two real Rowan dispatches, ~$ small, within the standing T7 envelope):
+`dispatchReviewer` (path=rest_fallback into the seeded conv) → Pentagon auto-created Rowan's trigger →
+bridge dispatched Rowan (opus-4.8) → Rowan reviewed + replied PASS → `flywheel.review.completed
+verdict=PASS judge_model=claude-opus-4-8 pinned=2026-05-28`, malformed=false, ping-pong guard fired.
+
+**Two real bugs fixed in the process:**
+- **Anti-ping-pong guard** (commit `0e804a2`): Pentagon auto-triggers the non-sender on every message,
+  so a reviewer reply into `{Priya, reviewer}` created a Priya trigger the bridge would dispatch. Added
+  `SENDER_ONLY_AGENT_IDS` (Priya) — the bridge completes her echo triggers WITHOUT running claude.
+  Verified firing (`sender_only_trigger_completed`). Env override `FACTORY_SENDER_ONLY_AGENT_IDS`.
+- **Judge-ack parser robustness** (commit `5dba950`): the first live review returned a CORRECT verdict
+  but markdown-wrapped (`**`ROWAN_REVIEW_PASS pending findings=6`**`, top_finding omitted) → the strict
+  parser called it `flywheel.review.malformed`. Fixed: `stripAckMarkdown()` + optional descriptive field,
+  verdict+count still required, non-ack prose still → null (6/6 parser cases incl. strict-format
+  regression). Applied to all three judge parsers (Rowan/Theo/Grace).
+
+**Two latent issues documented (not yet fixed):** (1) `pentagon-rest.refreshSession()` only re-reads the
+plist instead of doing a real `grant_type=refresh_token` POST → daemon 401s on a stale/rotated token (the
+bridge has its own refresh; this bites pentagon-rest/Phoenix). (2) The bridge parses the agent's
+`finalText` result, not its posted conversation message — a deeper robustness option if agents keep
+putting the clean ack only in the posted message.
+
+**What this unblocks:** the eval-the-eval half — P6 (judge ground-truth), judge-error-detector, and the
+production eval loop now have REAL `flywheel.review.completed` signal instead of synthetic. The keystone
+that blocked these since pt.7 is gone.
+
+Pushed: `0e804a2` (guard + RLS kit verified-closure doc) → `5dba950` (parser fix), both on
+gagan114662/active-graph-workspace main, SHA-verified local==remote. Daemons reloaded: bridge now runs
+the guard + parser fix live (final PID 65541). 6/6 daemons healthy.
+
+**Next session opens with:** (1) wire Theo/Rowan/Grace into the verifier tier handlers (P2a) now that
+their dispatch path is live — the prerequisite is done; (2) let a real flywheel failure drive an
+autonomous Rowan review (not a hand-built proof diff) so judge-error-detector gets organic signal;
+(3) fix the two latent issues above if they bite at scale; (4) the still-open operator-gated items
+(T7 25-run gate on opus-4.8, arbitrage sale, Slack UI).
+
+---
+
+### 2026-05-28 (pt.14 — latent-fix cleanup + P2a reviewer wiring, /goal "everything in the to-do")
+
+Continued under a `/goal` to clear the to-do and keep GitHub the source of truth. Two latent issues
+from pt.13 fixed, plus P2a's verifier layer, plus a bug-fix pass.
+
+**Latent fix 1 — real token refresh (commit `2b9b3d1`).** `refreshSession()` in BOTH pentagon-rest
+and the bridge only re-read the plist — silently failing when the plist accessToken was rotated
+server-side despite a future `exp` (the 401 that bit Phoenix). `pentagon-auth.mjs` now exports
+`refreshAccessToken()` (authoritative `grant_type=refresh_token`) + `isAccessTokenExpired()`;
+`readSession()` returns `refreshToken`. Both refreshers now re-read first (free; avoids refresh-token
+rotation churn / the OAuth reuse trap), then do a real grant if the re-read is stale. Runtime-verified.
+
+**Latent fix 2 — reviewer posted-message ack fallback (commit `2b9b3d1`).** The bridge parsed
+`finalText` only; a reviewer that posts its clean ack via send_message (finalText = prose) was wrongly
+flagged malformed. Added `agentPostedMessages()` fallback + `ack_source` telemetry on
+`flywheel.review.completed`.
+
+**P2a — reviewer wiring (commits `8aca592`, `c6ee2d2`).** Consolidated the Theo/Rowan/Grace ack
+parsers (duplicated + drifted between bridge and verifier) into `scripts/judge-ack-parse.mjs` (single
+source, 15 tests). Fixed the SAME false-malformed bug in the verifier's copies (were anchored ^$ +
+mandatory descriptive field). Added `verifyT6ReviewerAcks(proof, hash)` + `evaluateReviewerAcks`
+(pure, tested), wired into hard/medium/extra-hard handlers — ENFORCED only when a proof declares
+`reviewers=theo,rowan,grace`, INERT otherwise. Proven safe: T6 extra-hard DB run = 15/15 PASS, 0
+reviewer checks added, 0 ReferenceError. The live reviewer dispatch path was proven in pt.13; tier
+enforcement activates when a reviewer-augmented gauntlet sets the field (bounded live-$ remainder).
+
+**Bug-fix-pass discipline (operator: "fix whatever bugs you find even non-blocking"):** the verifier's
+3 inert parsers carried the identical false-malformed bug → fixed via the shared module.
+
+81 node tests pass. Daemons reloaded + 6/6 healthy after each change. Everything pushed to
+gagan114662/active-graph-workspace main, SHA-verified local==remote each push
+(`0e804a2`→`5dba950`→`2b9b3d1`→`8aca592`→`c6ee2d2`).
+
+**Still open in the to-do (honest):** P5 arbitrage (harness done 2.28×; real SALE operator-gated),
+P6 grow judge ground-truth (harvest now possible from real reviews; promotion is operator-graded),
+P9 F1 scheduled-gauntlet daemon (MVP solo-doable), P15 T7 25-run gate (live-$; cohort-mixing trap —
+fresh 4.8 ledger needed, decision pending), P16 Slack approval (adapter solo; webhook external),
+P21 CLAUDE.md MECE rewrite (large solo refactor), P25 GTM squad (revenue-gated). Working through them.
+
+---
+
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._
