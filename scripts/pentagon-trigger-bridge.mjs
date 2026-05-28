@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import {
   emitBehaviorFailed,
@@ -102,11 +102,14 @@ function parseFlywheelAction(agentReply, todoId) {
   return { kind: "diff", diff, rationale: afterFence.slice(0, 1000) };
 }
 import { installCrashGuard } from "./factory-crash-guard.mjs";
+import { readSession, readAnonKey, isExpiredJwtResponse } from "./pentagon-auth.mjs";
 
 installCrashGuard("bridge");
 
 const WORKSPACE = "/Users/gaganarora/Desktop/my projects/active_graph";
-const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
+// PENTAGON_BIN is still referenced by the Pentagon watchdog (pgrep checks
+// + existsSync gate). The JWT-/anon-key plumbing migrated to pentagon-auth.mjs
+// in Task #23; this constant remains here for the watchdog path only.
 const PENTAGON_BIN = "/Applications/Pentagon.app/Contents/MacOS/Pentagon";
 const MCP_URL = "https://auth.pentagon.run/functions/v1/mcp";
 const PENTAGON_WATCHDOG_STUCK_AGE_SECONDS = 60;
@@ -123,33 +126,9 @@ function has(name) {
   return process.argv.includes(name);
 }
 
-function decodeJwtPayload(jwt) {
-  const part = jwt.split(".")[1];
-  const padded = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
-  return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
-}
-
-function readSession() {
-  const raw = execFileSync("/usr/libexec/PlistBuddy", [
-    "-c",
-    "Print :supabase.auth.sb-auth-auth-token",
-    PLIST,
-  ], { encoding: "utf8" });
-  const session = JSON.parse(raw);
-  const accessToken = session.accessToken;
-  const claims = decodeJwtPayload(accessToken);
-  const supabaseOrigin = new URL(claims.iss).origin;
-  return { accessToken, supabaseOrigin };
-}
-
-function readAnonKey() {
-  const out = execFileSync("zsh", [
-    "-lc",
-    `strings "${PENTAGON_BIN}" | rg '^eyJ' | head -1`,
-  ], { encoding: "utf8" }).trim();
-  if (!out) throw new Error("Could not find embedded Supabase anon key in Pentagon binary.");
-  return out;
-}
+// Pure-function helpers (decodeJwtPayload, readSession, readAnonKey,
+// isExpiredJwtResponse) moved to pentagon-auth.mjs so this file + pentagon-rest.mjs
+// share one source of truth. Task #23 (refactor pass).
 
 function refreshSession() {
   const currentAnonKey = state?.anonKey ?? readAnonKey();
@@ -159,13 +138,6 @@ function refreshSession() {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isExpiredJwtResponse(status, parsed) {
-  return status === 401 && (
-    parsed?.code === "PGRST303" ||
-    /jwt expired/i.test(String(parsed?.message ?? parsed ?? ""))
-  );
 }
 
 async function request(path, { method = "GET", body, prefer, retryOnExpiredJwt = true } = {}) {

@@ -15,46 +15,8 @@
 // the Pentagon binary itself (extracted via `strings | rg '^eyJ' | head -1`).
 // JWTs expire periodically; request() retries once on PGRST303 / "jwt expired".
 
-import { execFileSync } from "node:child_process";
 import { generateResearchPacket } from "./research-packet.mjs";
-
-const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
-const PENTAGON_BIN = "/Applications/Pentagon.app/Contents/MacOS/Pentagon";
-
-function decodeJwtPayload(jwt) {
-  const part = jwt.split(".")[1];
-  const padded = part
-    .replace(/-/g, "+")
-    .replace(/_/g, "/")
-    .padEnd(Math.ceil(part.length / 4) * 4, "=");
-  return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
-}
-
-function readSession() {
-  const raw = execFileSync(
-    "/usr/libexec/PlistBuddy",
-    ["-c", "Print :supabase.auth.sb-auth-auth-token", PLIST],
-    { encoding: "utf8" }
-  );
-  const session = JSON.parse(raw);
-  const accessToken = session.accessToken;
-  const claims = decodeJwtPayload(accessToken);
-  return {
-    accessToken,
-    supabaseOrigin: new URL(claims.iss).origin,
-    operatorId: claims.sub,
-  };
-}
-
-function readAnonKey() {
-  const out = execFileSync(
-    "zsh",
-    ["-lc", `strings "${PENTAGON_BIN}" | rg '^eyJ' | head -1`],
-    { encoding: "utf8" }
-  ).trim();
-  if (!out) throw new Error("Could not find embedded Supabase anon key in Pentagon binary.");
-  return out;
-}
+import { readSession, readAnonKey, isExpiredJwtResponse } from "./pentagon-auth.mjs";
 
 let _state = null;
 function ensureState() {
@@ -67,14 +29,6 @@ function refreshSession() {
   const anonKey = _state?.anonKey ?? readAnonKey();
   _state = { ...readSession(), anonKey };
   return _state;
-}
-
-function isExpiredJwtResponse(status, parsed) {
-  return (
-    status === 401 &&
-    (parsed?.code === "PGRST303" ||
-      /jwt expired/i.test(String(parsed?.message ?? parsed ?? "")))
-  );
 }
 
 export async function request(
