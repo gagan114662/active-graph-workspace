@@ -26,7 +26,8 @@
 
 | glob | docs | why |
 |---|---|---|
-| `scripts/verify-pentagon-autonomy-from-logs.mjs` | `CLAUDE.md#verifier-hardening-history`, `CLAUDE.md#known-gaming-holes-in-the-verifier`, `frames/factory-determinism-audit-20260528.md` | The verifier is the heart of the system; load its hardening history + known gaming holes before touching it. |
+| `scripts/verify-pentagon-autonomy-from-logs.mjs` | `agent-os/context/discipline.md`, `CLAUDE.md#verifier-hardening-history`, `CLAUDE.md#known-gaming-holes-in-the-verifier`, `frames/factory-determinism-audit-20260528.md` | The verifier is the heart of the system; load the discipline rules (esp. #3 never loosen it) + hardening history + gaming holes before touching it. |
+| `agent-os/context/**`, `CLAUDE.md` | `agent-os/context/discipline.md`, `agent-os/context/repo-layout.md`, `agent-os/context/README.md` | Discipline rules + repo layout are single-source here (P21 MECE migration). Load before governance/bootstrap edits; do NOT re-inline them into CLAUDE.md. |
 | `scripts/factory-routing.mjs`, `agent-os/factory-routing-config.json`, `scripts/sasha-skeptic.mjs` | `memory/deterministic-routing-shared-module.md`, `agent-os/factory-routing-config.json`, `frames/factory-determinism-audit-20260528.md` | Routing is the shared deterministic decision fn; one source of truth — read the determinism contract first. |
 | `scripts/pentagon-trigger-bridge.mjs`, `scripts/bridge_dispatch.py`, `scripts/pentagon-rest.mjs` | `CLAUDE.md#known-factory-defects`, `memory/flywheel-cascade-risk.md` | The bridge is THE dispatch path; load the cascade-amplifier + orphaned-trigger defects before editing. |
 | `scripts/phoenix-todo-keeper.mjs` | `frames/factory-determinism-audit-20260528.md`, `frames/codex-goals/safety-monitor-agent-backlog-20260528.md` | Phoenix is the action layer (review gate + commit + safety gate). |

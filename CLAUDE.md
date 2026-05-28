@@ -42,19 +42,9 @@ Don't trust this file as the ground truth — verify with git/file system. But u
 
 ## Repository layout
 
-Two nested git repos:
-
-- **Outer repo** (this directory, `/Users/gaganarora/Desktop/my projects/active_graph/`):
-  - `scripts/` — orchestration (verifier, runner, bridge)
-  - `frames/` — instruction files, proof files, evidence logs, spec docs
-  - `agent-os/` — contracts and skills
-  - `activegraph/` — link/dir to the inner repo (do NOT commit inner-repo files into outer)
-- **Inner repo** at `activegraph/.git/`:
-  - The actual Python package (`activegraph/` package source + `tests/`)
-  - Maya's engineering commits live here
-  - Has its own remote, distinct from outer
-
-When using git, **always specify `-C activegraph`** for inner-repo operations. The verifier's worktree-based checks operate on the inner repo via `git -C activegraph worktree add /tmp/...`.
+→ Single source: **`agent-os/context/repo-layout.md`** (P21 MECE migration). Short version: outer
+repo = scripts/frames/agent-os; inner repo = `activegraph/.git/` (the Python package + Maya's
+commits); **always `git -C activegraph`** for inner-repo ops.
 
 ## The T-tier ladder
 
@@ -85,16 +75,12 @@ When using git, **always specify `-C activegraph`** for inner-repo operations. T
 
 ## Discipline rules that NEVER bend
 
-1. **Verify independently before greenlighting** — never trust an agent's self-report. Re-run the verifier yourself.
-2. **No-pipe exit-code capture** — `cmd > /tmp/out 2>&1; echo "exit=$?"`. Piping kills the exit code. I've been bitten by this 3+ times today; don't repeat the mistake.
-3. **Never loosen the verifier to make a check pass** — always either tighten the check or pivot to a principled-rule reframe. This is T5R's failure mode at scale.
-4. **No destructive operations without explicit user authorization** — no `git reset --hard`, no `rm -rf`, no force-completing rows in Supabase without recording the action.
-5. **Sample size 1 ≠ reliability** — never call a tier "graduated" from one passing run. T7's job is to measure variance.
-6. **Activation bottleneck is systemic** — Pentagon poller desync, 4 occurrences. Fix = poller restart. Permanent fix = Phase F1 watchdog. Don't treat each occurrence as transient.
-7. **`agent_runtime_events` is empty** for these workflows — audit via `messages.ACK` instead. The WARN line for runtime events is advisory.
-8. **Quinn inter-agent dispatch is operator-driven** for sample 1 — Maya does not auto-trigger Quinn yet. That's T7+ work.
-9. **RESOLVER-first context (P21)** — before editing a file, consult `RESOLVER.md` / run `node scripts/resolve-context.mjs <path>` and load ONLY the routed docs. Do NOT dump all ~1200 lines of this file into context (the open-loop anti-pattern). Each top dir has a local-resolver `README.md` (what goes here / what does NOT).
-10. **Epistemic discipline (P21, from gbrain)** — every load-bearing claim cites its source as `observed` / `self-described` / `inferred`; confidence scales with interaction count (1 sample = low — pairs with rule 5); no single-datapoint generalizations; an operator correction overrides everything and is written down immediately.
+→ Single source: **`agent-os/context/discipline.md`** (P21 MECE migration). The 10 rules in one line
+each: (1) verify independently; (2) no-pipe exit capture; (3) never loosen the verifier; (4) no
+destructive ops without authorization; (5) sample 1 ≠ reliability; (6) activation bottleneck is
+systemic (native poller is dead — bridge is the path); (7) `agent_runtime_events` empty → audit via
+ACK; (8) Quinn dispatch operator-driven; (9) RESOLVER-first context; (10) epistemic discipline. Read
+the doc before relying on any of them.
 
 ## Verifier hardening history (today's commits, outer repo)
 
