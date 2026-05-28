@@ -844,7 +844,9 @@ function proofAckPaths(proofFile) {
 }
 
 function t6TierFromHash(hash) {
-  const match = String(hash ?? "").match(/^(?:T6_NATIVE|T7_REPEAT)_(EASY|MEDIUM|HARD|EXTRA_HARD)_\d{8}(?:_\d{3})?(?:_RETRY_\d+)?$/);
+  // Optional cohort tag (e.g. _OPUS48) between date and run number — the cohort
+  // naming evolved past the original regex (opus47/opus48 runs were rejected).
+  const match = String(hash ?? "").match(/^(?:T6_NATIVE|T7_REPEAT)_(EASY|MEDIUM|HARD|EXTRA_HARD)_\d{8}(?:_[A-Z0-9]+)?(?:_\d{3})?(?:_RETRY_\d+)?$/);
   return match ? match[1].toLowerCase().replace("_", "-") : "unknown";
 }
 
@@ -859,7 +861,8 @@ function t6BaselineHash(tier) {
 
 function t7RepeatHashPattern(tier) {
   const token = tier.toUpperCase().replace("-", "_");
-  return new RegExp("^T7_REPEAT_" + token + "_\\d{8}_\\d{3}(?:_RETRY_\\d+)?$");
+  // Allow an optional cohort tag (_OPUS48 etc.) before the _NNN run number.
+  return new RegExp("^T7_REPEAT_" + token + "_\\d{8}(?:_[A-Z0-9]+)?_\\d{3}(?:_RETRY_\\d+)?$");
 }
 
 function isAcceptedT6ModeHash(hash, tier) {
