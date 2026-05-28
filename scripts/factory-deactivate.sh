@@ -10,6 +10,12 @@ set -euo pipefail
 
 UID_NUM=$(id -u)
 
+# Drop a PANIC file so any daemon still mid-bootout sees it and exits fast
+# instead of completing in-flight work. The file lives for 30 seconds (long
+# enough to win the daemon's 5s panic check), then gets cleared.
+touch "$HOME/.factory/PANIC"
+( sleep 30; rm -f "$HOME/.factory/PANIC" ) &
+
 LABELS=(
   "run.factory.phoenix-todo-keeper"
   "run.factory.blake-budget-marshal"

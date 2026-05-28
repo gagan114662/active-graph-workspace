@@ -402,6 +402,11 @@ function processEvent(event) {
     // Apply the corresponding factory.config.proposed payload to the
     // routing config. Sasha auto-reloads on file change.
     handleConfigApproved(event);
+  } else if (event.type === "flywheel.review.malformed") {
+    // Bridge detected an agent reply that didn't match the judge ack
+    // contract. Treat as protocol_drift judge.error and fall back to
+    // direct commit (Gap C from the audit).
+    handleReviewMalformed(event);
   }
   // Also consider any behavior.completed with extras.todo_id as an implicit
   // todo completion (lets agents close their assigned todos by emitting the
@@ -719,6 +724,87 @@ function handleDiffProposed(event) {
   return;
 }
 
+function handleReviewMalformed(event) {
+  const payload = event.payload || {};
+  const todoId = payload.todo_event_id;
+  if (!todoId) return;
+  let row = null;
+  let dedupKey = null;
+  for (const [k, r] of index) {
+    if (r.id === todoId && r.action_phase === "awaiting_review") {
+      row = r; dedupKey = k; break;
+    }
+  }
+  if (!row) return;
+  // Record the protocol_drift error against the reviewer (so judge-accuracy
+  // tracks the bad ack), then fall back to direct commit.
+  emitFactoryEvent({
+    type: "judge.error",
+    behavior: "factory-eval-the-eval",
+    reason: "judge.protocol_drift",
+    message: `reviewer ${payload.reviewer_agent_name || "unknown"} replied without following ack contract`,
+    extras: {
+      judge: row.review_reviewer_agent_key || "rowan",
+      original_verdict_event_id: event.id,
+      downstream_evidence_event_id: event.id,
+      error_kind: "protocol_drift",
+      todo_event_id: todoId,
+      reply_first_200: payload.reply_first_200,
+    },
+  });
+  console.log(JSON.stringify({
+    status: "phoenix_review_malformed_fallback",
+    todo_id: row.id,
+  }));
+  row.review_verdict = "MALFORMED_FALLBACK";
+  row.review_judge = "rowan";
+  row.review_completed_at = event.created_at;
+  rewriteAllTodos();
+  commitAndPushFromWorktree(row, dedupKey, event, row.worktree_path);
+}
+
+// Periodic check: any row stuck in awaiting_review past the timeout falls
+// back to direct commit (Gap B). Runs every 60s.
+const REVIEW_TIMEOUT_MS = Number(arg("--review-timeout-ms", "600000"));  // 10min default
+function scanStuckReviews() {
+  const now = Date.now();
+  for (const [dedupKey, row] of index) {
+    if (row.action_phase !== "awaiting_review") continue;
+    if (row.review_timeout_handled) continue;  // already timed out
+    if (!row.diff_attempted_at) continue;
+    const age = now - Date.parse(row.diff_attempted_at);
+    if (age < REVIEW_TIMEOUT_MS) continue;
+    row.review_timeout_handled = true;
+    row.review_verdict = "TIMEOUT_FALLBACK";
+    row.review_judge = "rowan";
+    row.review_completed_at = new Date().toISOString();
+    rewriteAllTodos();
+    emitFactoryEvent({
+      type: "judge.error",
+      behavior: "factory-eval-the-eval",
+      reason: "judge.skipped_when_needed",
+      message: `review timeout after ${Math.round(age/1000)}s — falling back to direct commit`,
+      extras: {
+        judge: "rowan",
+        original_verdict_event_id: row.review_verdict_event_id || null,
+        downstream_evidence_event_id: null,
+        error_kind: "skipped_when_needed",
+        todo_event_id: row.id,
+        age_ms: age,
+      },
+    });
+    console.log(JSON.stringify({
+      status: "phoenix_review_timeout_fallback",
+      todo_id: row.id,
+      age_ms: age,
+    }));
+    if (row.worktree_path) {
+      // Fake event to satisfy commitAndPushFromWorktree signature
+      commitAndPushFromWorktree(row, dedupKey, { id: row.source_event_id || row.id, type: "synthetic-timeout" }, row.worktree_path);
+    }
+  }
+}
+
 function handleReviewCompleted(event) {
   const payload = event.payload || {};
   const todoId = payload.todo_event_id;
@@ -811,11 +897,61 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
   const push = git(["push", "origin", branch], { cwd: INNER_REPO });
   const pushed = push.status === 0;
 
+  // Open (or update) a PR against main so the flywheel commits actually
+  // flow into the trunk instead of accumulating on a feature branch
+  // forever. Operator still has final merge authority via the PR's
+  // review/merge buttons; the flywheel just makes the changeset visible.
+  let prUrl = null;
+  let prCreated = false;
+  if (pushed) {
+    // Use gh CLI from the inner repo. `gh pr create` returns the PR URL
+    // on success; `gh pr view --json url` after if we need to re-derive.
+    const REPO_SLUG = "gagan114662/activegraph";
+    // Check if a PR for this branch already exists
+    const existing = spawnSync("gh", ["pr", "view", branch, "--repo", REPO_SLUG, "--json", "url,number"],
+      { cwd: INNER_REPO, encoding: "utf8" });
+    if (existing.status === 0) {
+      try {
+        const data = JSON.parse(existing.stdout);
+        prUrl = data.url;
+      } catch {}
+    } else {
+      const prTitle = `flywheel: ${row.title || "fix " + (row.failure_reason || "")}`.slice(0, 200);
+      const prBody = [
+        "Auto-opened by the dark factory flywheel.",
+        "",
+        `**Todo id:** ${row.id}`,
+        `**Failure event:** ${row.failure_event_id}`,
+        `**Failure reason:** ${row.failure_reason}`,
+        `**Recommended agent:** ${row.recommended_agent}`,
+        `**Commit:** ${sha}`,
+        `**Review:** ${row.review_judge || "(not gated)"} ${row.review_verdict || ""} ${row.review_top_finding ? "— " + row.review_top_finding : ""}`,
+        `**Tests:** ${row.test_summary || "(pass)"}`,
+        "",
+        "Operator: review the diff, then merge (or close if the flywheel was wrong).",
+        "If wrong, please add a comment so judge-error-detector can grade Rowan's verdict downstream.",
+      ].join("\n");
+      const create = spawnSync(
+        "gh",
+        ["pr", "create", "--base", "main", "--head", branch, "--title", prTitle, "--body", prBody, "--repo", REPO_SLUG],
+        { cwd: INNER_REPO, encoding: "utf8" }
+      );
+      if (create.status === 0) {
+        prUrl = (create.stdout || "").trim().split("\n").reverse().find((l) => l.startsWith("https://"))?.trim() || null;
+        prCreated = true;
+      } else {
+        console.error("[phoenix] gh pr create failed:", create.stderr?.slice(0, 300));
+      }
+    }
+  }
+
   row.completed_at = new Date().toISOString();
-  row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch}${pushed ? " (pushed)" : " (push failed)"}`;
+  row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch}${pushed ? " (pushed)" : " (push failed)"}${prUrl ? " PR: " + prUrl : ""}`;
   row.flywheel_commit_sha = sha;
   row.flywheel_branch = branch;
   row.flywheel_push_succeeded = pushed;
+  row.flywheel_pr_url = prUrl;
+  row.flywheel_pr_created_at = prCreated ? new Date().toISOString() : null;
   counts.todos_completed++;
   rewriteAllTodos();
 
@@ -842,8 +978,15 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
     pushed,
   }));
 
-  // Clean up worktree (optional — keeping for forensics; can rmSync if disk pressure).
-  // try { rmSync(worktreePath, { recursive: true, force: true }); git(["worktree", "prune"]); } catch {}
+  // Worktree cleanup (Gap H). Always remove the worktree after successful
+  // commit + push so /tmp doesn't fill up over time. Forensics for failed
+  // attempts handled in rejectAttempt (kept until next reload cycle).
+  try {
+    rmSync(worktreePath, { recursive: true, force: true });
+    git(["worktree", "prune"], { cwd: INNER_REPO });
+  } catch (e) {
+    console.error("[phoenix] worktree cleanup failed:", e.message);
+  }
 }
 
 function rejectAttempt(row, dedupKey, sourceEvent, reason, worktreePath = null) {
@@ -924,9 +1067,24 @@ if (!LEGACY_POLL) {
   process.on("SIGTERM", () => clearInterval(interval));
 }
 
+// Scan for stuck awaiting_review todos every 60s (Gap B from the audit).
+const stuckScanInterval = setInterval(scanStuckReviews, 60_000);
+
+// Panic kill switch (Gap L). If ~/.factory/PANIC exists, all factory daemons
+// exit immediately. factory-activate.sh removes the file at startup.
+const PANIC_PATH = `${process.env.HOME}/.factory/PANIC`;
+const panicWatchInterval = setInterval(() => {
+  if (existsSync(PANIC_PATH)) {
+    console.error("[phoenix] PANIC file detected — exiting immediately");
+    process.exit(2);
+  }
+}, 5000);
+
 function shutdown(signal) {
   console.log(JSON.stringify({ status: "phoenix_shutting_down", signal, counts }));
   if (honkerSub) honkerSub.close();
+  clearInterval(stuckScanInterval);
+  clearInterval(panicWatchInterval);
   process.exit(0);
 }
 process.on("SIGINT", () => shutdown("SIGINT"));

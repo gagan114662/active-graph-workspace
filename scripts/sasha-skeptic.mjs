@@ -356,11 +356,22 @@ if (useHonker) {
   interval = setInterval(pollNewEvents, POLL_INTERVAL_MS);
 }
 
+// Panic kill switch (Gap L). All factory daemons exit immediately if
+// ~/.factory/PANIC exists.
+const PANIC_PATH = `${process.env.HOME}/.factory/PANIC`;
+const panicWatchInterval = setInterval(() => {
+  if (existsSync(PANIC_PATH)) {
+    console.error("[sasha] PANIC file detected — exiting immediately");
+    process.exit(2);
+  }
+}, 5000);
+
 function shutdown(signal) {
   console.log(JSON.stringify({ status: "sasha_shutting_down", signal, counts }));
   if (pauseTimer) clearTimeout(pauseTimer);
   if (interval) clearInterval(interval);
   if (honkerSub) honkerSub.close();
+  clearInterval(panicWatchInterval);
   process.exit(0);
 }
 process.on("SIGINT", () => shutdown("SIGINT"));

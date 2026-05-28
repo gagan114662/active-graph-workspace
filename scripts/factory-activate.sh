@@ -22,6 +22,9 @@ UID_NUM=$(id -u)
 mkdir -p "$HOME/.factory"
 mkdir -p "$PLIST_DST"
 
+# Clear any prior PANIC file from a previous deactivate.
+rm -f "$HOME/.factory/PANIC"
+
 LABELS=(
   "run.factory.honker-relay"
   "run.factory.sasha-skeptic"

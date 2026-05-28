@@ -236,10 +236,20 @@ if (useHonker) {
   interval = setInterval(pollNewEvents, POLL_INTERVAL_MS);
 }
 
+// Panic kill switch (Gap L). Exit immediately if ~/.factory/PANIC exists.
+const PANIC_PATH = `${process.env.HOME}/.factory/PANIC`;
+const panicWatchInterval = setInterval(() => {
+  if (existsSync(PANIC_PATH)) {
+    console.error("[blake] PANIC file detected — exiting immediately");
+    process.exit(2);
+  }
+}, 5000);
+
 function shutdown(signal) {
   console.log(JSON.stringify({ status: "blake_shutting_down", signal }));
   if (interval) clearInterval(interval);
   if (honkerSub) honkerSub.close();
+  clearInterval(panicWatchInterval);
   process.exit(0);
 }
 process.on("SIGINT", () => shutdown("SIGINT"));
