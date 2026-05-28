@@ -93,6 +93,10 @@ export function harvestCandidates(events) {
     const diffEv = byTodo.diff.get(p.todo_event_id);
     const diff = diffEv ? safeDecode(diffEv.payload?.diff_b64) : null;
     if (!diff) continue;
+    // Skeptic-review (P6) found the harvested candidates were all synthetic test
+    // fixtures or degenerate. Close the filter gap: skip diffs that are obviously
+    // synthetic test scaffolding (the `flywheel-test-<ts>` marker) or non-diffs.
+    if (isSyntheticOrDegenerateDiff(diff)) continue;
     const input = { diff, rationale: diffEv.payload?.rationale || null, rejection_category: cat };
     candidates.push({
       id: caseId("rowan", input), judge: "rowan", input, expected_verdict: "FAIL",
@@ -101,6 +105,20 @@ export function harvestCandidates(events) {
     });
   }
   return candidates;
+}
+
+// A diff is synthetic test scaffolding or degenerate if it carries the flywheel
+// test marker, only touches the version line of __init__.py with a test comment,
+// or isn't a real unified diff. Such rows must NOT become judge ground truth.
+export function isSyntheticOrDegenerateDiff(diff) {
+  const d = String(diff || "");
+  if (!/^(?:---|\+\+\+|diff --git)/m.test(d)) return true;        // not a real diff
+  if (/flywheel/i.test(d) && /\btest\b|marker|canonical/i.test(d)) return true; // flywheel test scaffolding
+  // No-op synthetic: every ADDED line is blank or a comment (a real fix adds code,
+  // not just a comment appended to __init__.py).
+  const added = d.split(/\r?\n/).filter((l) => l.startsWith("+") && !l.startsWith("+++"));
+  if (added.length && added.every((l) => { const t = l.slice(1).trim(); return t === "" || t.startsWith("#"); })) return true;
+  return false;
 }
 
 function flip(v) {

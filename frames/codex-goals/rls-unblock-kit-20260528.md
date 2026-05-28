@@ -1,5 +1,15 @@
 # RLS unblock kit (Gap A / P2a) — copy-paste executable
 
+> **CORRECTION (2026-05-28, verified):** the bridge talks to **`auth.pentagon.run`** — Pentagon's
+> **managed/hosted Supabase**, not the operator's own project. So **Option B (admin SQL) is almost
+> certainly NOT available to the operator** — only Pentagon (the vendor) can run DDL on it. Verified
+> locally: no service-role key, no `DATABASE_URL`, no logged-in supabase CLI; the REST path the daemon
+> has is exactly what's RLS-blocked. **⇒ Option 0 (UX-seed via the Pentagon desktop app) is the real,
+> only operator-accessible path** — it works because the app authenticates with the operator's full
+> workspace/org membership (the auth context the RLS policies want), which the daemon JWT lacks.
+> Option B below is kept only IF you (or Pentagon) ever get admin DB access. The `rpcDispatchToAgent`
+> code path is harmless either way (it 404s → falls back to the REST path, which Option 0 unblocks).
+
 Two ways to unblock reviewer dispatch. **Do Option 0 first (5 min, no SQL); Option B is the durable
 fallback.** The code is already wired for both: `pentagon-rest.mjs::dispatchReviewer` now tries the
 `dispatch_to_agent` RPC first (Option B) and falls back to the REST path (works after Option 0).
