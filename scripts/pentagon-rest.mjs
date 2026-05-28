@@ -16,6 +16,7 @@
 // JWTs expire periodically; request() retries once on PGRST303 / "jwt expired".
 
 import { execFileSync } from "node:child_process";
+import { generateResearchPacket } from "./research-packet.mjs";
 
 const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
 const PENTAGON_BIN = "/Applications/Pentagon.app/Contents/MacOS/Pentagon";
@@ -242,6 +243,25 @@ export async function dispatchTodo(todo) {
   const senderAgentId = AGENT_MAP[SENDER_AGENT_KEY];
   const convId = await findOrCreateConversation(senderAgentId, targetAgentId);
 
+  // Brandon-A research packet: pre-flight context (recent similar failures,
+  // recent commits in target area, relevant CLAUDE.md section). Generated
+  // best-effort; if anything fails, fall back to no packet.
+  let researchPacket = "";
+  try {
+    // Try to extract a target symbol or file from the title.
+    const fileMatch = /(\w[\w/.\-]+\.(?:py|mjs|js|ts|sql))/.exec(todo.title || "");
+    researchPacket = "\n" + generateResearchPacket({
+      targetFile: fileMatch ? fileMatch[1] : undefined,
+      matchReason: todo.failure_reason,
+      matchBehavior: todo.source_behavior,
+      taskClass: todo.failure_reason?.split(".")?.[0],
+      compact: true,
+      limit: 3,
+    }) + "\n";
+  } catch (e) {
+    researchPacket = `\n(research packet generation failed: ${String(e?.message || e).slice(0, 120)})\n`;
+  }
+
   const content = [
     `FLYWHEEL_TODO ${todo.id}`,
     "",
@@ -254,7 +274,7 @@ export async function dispatchTodo(todo) {
     `Priority: ${todo.priority}`,
     `Recommended agent: ${todo.recommended_agent} (you)`,
     `Dedup key: ${todo.dedup_key}`,
-    "",
+    researchPacket,
     "Task: diagnose the failure and propose a code fix as a unified diff.",
     "",
     "Reply contract (REQUIRED — Phoenix parses your reply mechanically):",

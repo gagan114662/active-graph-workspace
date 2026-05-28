@@ -30,8 +30,10 @@ import {
   writeFileSync,
   renameSync,
   mkdirSync,
+  rmSync,
 } from "node:fs";
 import { resolve, dirname } from "node:path";
+import { spawnSync } from "node:child_process";
 import { installCrashGuard } from "./factory-crash-guard.mjs";
 import { subscribeToFactoryEvents } from "./honker-subscribe.mjs";
 import { emitFactoryEvent } from "./factory-events.mjs";
@@ -387,12 +389,254 @@ function processEvent(event) {
     handleTodoCreated(event);
   } else if (event.type === "todo.completed") {
     handleTodoCompletion(event);
+  } else if (event.type === "flywheel.diff.proposed") {
+    // Action layer (task #15): an agent proposed a unified diff. Apply
+    // it to a worktree, run tests, commit on pass or discard on fail.
+    handleDiffProposed(event);
   }
   // Also consider any behavior.completed with extras.todo_id as an implicit
   // todo completion (lets agents close their assigned todos by emitting the
   // standard completion event with a todo_id tag).
   if (event.type === "behavior.completed" && event.payload?.todo_id) {
     handleTodoCompletion(event);
+  }
+}
+
+// --- Action layer (task #15) ---
+
+const INNER_REPO = "/Users/gaganarora/Desktop/my projects/active_graph/activegraph";
+const FLYWHEEL_FIX_BRANCH_PREFIX = "flywheel-fixes-";
+
+function git(args, opts = {}) {
+  const r = spawnSync("git", args, {
+    cwd: opts.cwd || INNER_REPO,
+    encoding: "utf8",
+    timeout: 120000,
+  });
+  return { status: r.status, stdout: r.stdout || "", stderr: r.stderr || "" };
+}
+
+function todayBranchName() {
+  const d = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return `${FLYWHEEL_FIX_BRANCH_PREFIX}${d}`;
+}
+
+function handleDiffProposed(event) {
+  const payload = event.payload || {};
+  const todoId = payload.todo_event_id;
+  if (!todoId) {
+    console.error("[phoenix] flywheel.diff.proposed missing todo_event_id; skipping");
+    return;
+  }
+  // Find the matching todo row (must exist + still be open).
+  let row = null;
+  let dedupKey = null;
+  for (const [k, r] of index) {
+    if (r.id === todoId) { row = r; dedupKey = k; break; }
+  }
+  if (!row) {
+    console.error(`[phoenix] flywheel.diff.proposed for unknown todo ${todoId}; skipping`);
+    return;
+  }
+  if (row.completed_at) {
+    console.error(`[phoenix] todo ${todoId} already completed; skipping diff application`);
+    return;
+  }
+  if (row.diff_attempted_at) {
+    console.error(`[phoenix] todo ${todoId} already had a diff attempt; skipping duplicate`);
+    return;
+  }
+  row.diff_attempted_at = new Date().toISOString();
+  rewriteAllTodos();
+
+  const diff = Buffer.from(payload.diff_b64 || "", "base64").toString("utf8");
+  if (!diff.trim()) {
+    rejectAttempt(row, dedupKey, event, "empty diff");
+    return;
+  }
+
+  const worktreePath = `/tmp/flywheel-${todoId.replace(/[^a-z0-9_-]/gi, "")}`;
+  // Clean up any leftover worktree from a prior attempt.
+  try { rmSync(worktreePath, { recursive: true, force: true }); } catch {}
+  try {
+    git(["worktree", "prune"], { cwd: INNER_REPO });
+  } catch {}
+
+  // Create a fresh worktree off main HEAD.
+  const wt = git(["worktree", "add", "-B", `flywheel-attempt-${todoId.slice(0, 24)}`, worktreePath, "main"], { cwd: INNER_REPO });
+  if (wt.status !== 0) {
+    rejectAttempt(row, dedupKey, event, `worktree create failed: ${wt.stderr.slice(0, 200)}`);
+    return;
+  }
+
+  // Apply the diff inside the worktree. Pre-check with --check first so
+  // mal-formed diffs surface as a structured rejection rather than a partial-apply mess.
+  const diffPath = `${worktreePath}/.flywheel-proposed.diff`;
+  writeFileSync(diffPath, diff);
+  const check = spawnSync("git", ["apply", "--check", diffPath], { cwd: worktreePath, encoding: "utf8" });
+  if (check.status !== 0) {
+    rejectAttempt(row, dedupKey, event, `git apply --check failed: ${check.stderr.slice(0, 300)}`, worktreePath);
+    return;
+  }
+  const apply = spawnSync("git", ["apply", diffPath], { cwd: worktreePath, encoding: "utf8" });
+  if (apply.status !== 0) {
+    rejectAttempt(row, dedupKey, event, `git apply failed: ${apply.stderr.slice(0, 300)}`, worktreePath);
+    return;
+  }
+  // Remove the .flywheel-proposed.diff file before staging (don't commit it).
+  try { rmSync(diffPath); } catch {}
+
+  // Run the test suite. Per CLAUDE.md c1c2603 we should prefer
+  // .venv/bin/python -m pytest. The fresh worktree won't have .venv
+  // (gitignored), so fall back to:
+  //   1. inner repo's .venv (mounted into worktree by symlink)
+  //   2. uv run pytest (uses pyproject.toml + lockfile)
+  //   3. /opt/homebrew/bin/python3 -m pytest (last resort)
+  //
+  // The inner repo's .venv path is stable. Symlink it into the worktree
+  // so any test code that resolves modules through .venv finds them.
+  const innerVenv = `${INNER_REPO}/.venv`;
+  const worktreeVenv = `${worktreePath}/.venv`;
+  if (existsSync(innerVenv) && !existsSync(worktreeVenv)) {
+    try { spawnSync("ln", ["-s", innerVenv, worktreeVenv], { encoding: "utf8" }); } catch {}
+  }
+
+  let pytest;
+  if (existsSync(`${worktreePath}/.venv/bin/python`)) {
+    pytest = spawnSync(`${worktreePath}/.venv/bin/python`, ["-m", "pytest", "-q", "--maxfail=5", "-x"], {
+      cwd: worktreePath,
+      encoding: "utf8",
+      timeout: 300_000,
+    });
+  } else {
+    // Fall back to uv run if available, else system python3.
+    const uv = spawnSync("uv", ["--version"], { encoding: "utf8" });
+    if (uv.status === 0) {
+      pytest = spawnSync("uv", ["run", "pytest", "-q", "--maxfail=5", "-x"], {
+        cwd: worktreePath,
+        encoding: "utf8",
+        timeout: 300_000,
+      });
+    } else {
+      pytest = spawnSync("python3", ["-m", "pytest", "-q", "--maxfail=5", "-x"], {
+        cwd: worktreePath,
+        encoding: "utf8",
+        timeout: 300_000,
+      });
+    }
+  }
+  if (pytest.error || pytest.status !== 0) {
+    rejectAttempt(row, dedupKey, event,
+      `tests failed (status=${pytest.status}, error=${pytest.error?.code || "none"}): ${(pytest.stdout + pytest.stderr).slice(-500)}`,
+      worktreePath);
+    return;
+  }
+
+  // Tests pass: stage + commit in the worktree.
+  spawnSync("git", ["add", "-A"], { cwd: worktreePath });
+  const commitMsg = `flywheel: ${row.title || "fix " + (row.failure_reason || "")}
+
+Auto-generated commit from the dark factory flywheel.
+todo_id: ${row.id}
+failure_event: ${row.failure_event_id}
+failure_reason: ${row.failure_reason}
+recommended_agent: ${row.recommended_agent}
+diff source: ${event.id}
+
+Diff was applied to a fresh worktree, tests passed.
+
+Co-Authored-By: ${row.recommended_agent} (via flywheel)
+`;
+  const commit = spawnSync("git", ["commit", "-m", commitMsg], { cwd: worktreePath, encoding: "utf8" });
+  if (commit.status !== 0) {
+    rejectAttempt(row, dedupKey, event, `commit failed: ${commit.stderr.slice(0, 300)}`, worktreePath);
+    return;
+  }
+  const shaRes = spawnSync("git", ["rev-parse", "HEAD"], { cwd: worktreePath, encoding: "utf8" });
+  const sha = (shaRes.stdout || "").trim();
+
+  // Merge the commit into the day's fix branch (or create it).
+  const branch = todayBranchName();
+  // Ensure branch exists in inner repo
+  const branchExists = git(["rev-parse", "--verify", branch], { cwd: INNER_REPO }).status === 0;
+  if (!branchExists) {
+    const createBr = git(["branch", branch, "main"], { cwd: INNER_REPO });
+    if (createBr.status !== 0) {
+      console.error("[phoenix] create branch failed:", createBr.stderr);
+    }
+  }
+  // Fast-forward fix branch to the new commit if possible; else merge.
+  // Easiest: switch fix branch HEAD to the worktree's commit via update-ref
+  // (works because fix branch was created off main and worktree was off main).
+  const updateRef = git(["update-ref", `refs/heads/${branch}`, sha], { cwd: INNER_REPO });
+  if (updateRef.status !== 0) {
+    console.error("[phoenix] update-ref failed:", updateRef.stderr);
+  }
+
+  // Push the fix branch.
+  const push = git(["push", "origin", branch], { cwd: INNER_REPO });
+  const pushed = push.status === 0;
+
+  row.completed_at = new Date().toISOString();
+  row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch}${pushed ? " (pushed)" : " (push failed)"}`;
+  row.flywheel_commit_sha = sha;
+  row.flywheel_branch = branch;
+  row.flywheel_push_succeeded = pushed;
+  counts.todos_completed++;
+  rewriteAllTodos();
+
+  emitFactoryEvent({
+    type: pushed ? "flywheel.commit.landed" : "flywheel.commit.local_only",
+    behavior: "factory-flywheel",
+    extras: {
+      todo_event_id: todoId,
+      sha,
+      branch,
+      pushed,
+      diff_chars: diff.length,
+      worktree_path: worktreePath,
+      rationale: payload.rationale || null,
+    },
+  });
+
+  console.log(JSON.stringify({
+    status: "phoenix_flywheel_commit",
+    todo_id: todoId,
+    sha,
+    branch,
+    pushed,
+  }));
+
+  // Clean up worktree (optional — keeping for forensics; can rmSync if disk pressure).
+  // try { rmSync(worktreePath, { recursive: true, force: true }); git(["worktree", "prune"]); } catch {}
+}
+
+function rejectAttempt(row, dedupKey, sourceEvent, reason, worktreePath = null) {
+  row.completed_at = new Date().toISOString();
+  row.completion_evidence = `attempt_rejected: ${reason}`;
+  row.flywheel_rejection_reason = reason;
+  counts.todos_completed++;
+  rewriteAllTodos();
+  emitFactoryEvent({
+    type: "flywheel.attempt.rejected",
+    behavior: "factory-flywheel",
+    reason: "flywheel.attempt_rejected",
+    message: reason.slice(0, 280),
+    extras: {
+      todo_event_id: row.id,
+      dedup_key: row.dedup_key,
+      source_event_id: sourceEvent.id,
+      worktree_path: worktreePath,
+    },
+  });
+  console.log(JSON.stringify({
+    status: "phoenix_flywheel_rejected",
+    todo_id: row.id,
+    reason: reason.slice(0, 200),
+  }));
+  if (worktreePath) {
+    try { rmSync(worktreePath, { recursive: true, force: true }); } catch {}
+    try { git(["worktree", "prune"], { cwd: INNER_REPO }); } catch {}
   }
 }
 
