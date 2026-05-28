@@ -1341,4 +1341,45 @@ failure+success learning loop, harm gate, queryable memory + economics) is built
 
 ---
 
+### 2026-05-28 (pt.12 — "finish them all" continuation: customer feature shipped + MCP + prep kits)
+
+Continued the P-series past pt.11. **GitHub is the source of truth** (every commit push-verified,
+local==remote). Test suite now 49 across the factory `.test.mjs` files + 21 in activegraph observability.
+
+**Shipped since pt.11 (built + tested + pushed):**
+- **P14 audit remainder COMPLETE** — H7 (review-dispatch-pending flag before async), H8 (`_lockfile.mjs`
+  heartbeat → hung-but-alive holder reclaimable), H12 (runner `trigger_incomplete` + emit on every
+  `fail_verifier`). H4 was earlier. All four High findings closed.
+- **P11 OTel #23 SHIPPED — the first customer-facing feature.** Implemented directly by Claude (no
+  live-$ agent chain): `activegraph/observability/otel.py` `OpenTelemetryMetrics` + `[opentelemetry]`
+  extra + export + conformance test (5/5; 21/21 observability suite). Pushed to **gagan114662/activegraph
+  main `652f07c`**. Metrics-only, lazy-import, package imports without the SDK. Upstream PR to
+  yoheinakajima/activegraph#23 is the operator's call (outward-facing).
+- **P13 MCP exposure** — `scripts/factory-mcp-server.mjs`, a dependency-free MCP stdio server exposing
+  the factory's READ surfaces (budget, recall/F4, resolve-context, arbitrage, success-flows) as tools.
+  READ-ONLY by design (observe, never command). Proven end-to-end (initialize→tools/list→tools/call).
+- **P5 arbitrage harness** — `scripts/arbitrage-proof.mjs` adds the SELL side → ratio + verdict. LIVE:
+  48 tests @ $2.19 vs $5 = **2.28× ARBITRAGE POSITIVE** (cost-vs-target-price; real revenue needs a sale).
+- **3 operator-decision prep kits** (none spend $ / need admin): RLS unblock kit
+  (`rls-unblock-kit-20260528.md` — Option 0 UX-seed + drafted Option-B `dispatch_to_agent` SQL; the
+  `rpcDispatchToAgent` RPC-first path is wired into `pentagon-rest.mjs::dispatchReviewer` with REST
+  fallback), Sofia OTel spec (locked the 5 design Qs — used to implement P11), arbitrage harness.
+- **P3b CLOSED as won't-do** — keep Maya sole impl; don't dilute Quinn's adversarial independence.
+  (SPOF already mitigated.) **P26** disposed as covered-by-existing.
+
+**Still open (honest):**
+- **Operator-decision / live-$:** P2a RLS (kit ready — run `rls-unblock-kit-20260528.md`), P5 sale,
+  P6 promote harvested eval candidates ("founders build the evals"), P15 T7 live runs, P16 Slack
+  (needs webhook), P25 GTM (revenue-gated).
+- **Large careful refactors (solo-doable, staged for dedicated runs):** P21-full CLAUDE.md MECE
+  rewrite, P12 extensibility (drop-in `verifier/checks` auto-discovery), P9 F1 scheduled-gauntlet
+  daemon (multi-week).
+- **Needs live DB/log investigation:** P17 remainder (pentagon_watchdog_error, ghost_completion timing,
+  fixture-*).
+
+**Tally:** ~25 of 33 done/decided; the rest are operator-gated, live-$, or large dedicated refactors.
+The single keystone unblock is **Pentagon RLS** (kit is copy-paste ready).
+
+---
+
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._
