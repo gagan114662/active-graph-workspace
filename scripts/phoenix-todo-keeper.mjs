@@ -36,7 +36,7 @@ import { resolve, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { installCrashGuard } from "./factory-crash-guard.mjs";
 import { subscribeToFactoryEvents } from "./honker-subscribe.mjs";
-import { emitFactoryEvent, emitStateMutation, hashGitState } from "./factory-events.mjs";
+import { emitFactoryEvent, emitStateMutation, hashGitState, hashFileState } from "./factory-events.mjs";
 import { dispatchTodo, dispatchReviewer } from "./pentagon-rest.mjs";
 import { acquireLock } from "./_lockfile.mjs";
 
@@ -505,10 +505,30 @@ function handleConfigApproved(event) {
     return;
   }
   const newConfig = applyProposalsToConfig(currentConfig, proposals);
+  // H4 / CRUD-replay: hash the routing config before + after the write and emit
+  // a state-mutation event. The routing config governs all dispatch; without
+  // this, replay can't reconstruct it from the log alone.
+  const cfgBefore = hashFileState(ROUTING_CONFIG_PATH);
   // Write atomically.
   const tmpPath = ROUTING_CONFIG_PATH + ".applying";
   writeFileSync(tmpPath, JSON.stringify(newConfig, null, 2));
   renameSync(tmpPath, ROUTING_CONFIG_PATH);
+  const cfgAfter = hashFileState(ROUTING_CONFIG_PATH);
+  try {
+    emitStateMutation({
+      type: "state.config_apply",
+      behavior: "factory-flywheel",
+      mutation_kind: "file_write",
+      state_before_hash: cfgBefore,
+      state_after_hash: cfgAfter,
+      target: ROUTING_CONFIG_PATH,
+      extras: {
+        approval_event_id: event.id,
+        proposed_event_id: proposedEventId,
+        proposals_applied: proposals.length,
+      },
+    });
+  } catch {}
   emitFactoryEvent({
     type: "factory.config.applied",
     behavior: "factory-flywheel",
@@ -517,6 +537,8 @@ function handleConfigApproved(event) {
       proposed_event_id: proposedEventId,
       proposals_applied: proposals.length,
       rules_added: proposals.map((p) => `learned_${p.key.reason}_${p.proposed.agent}`),
+      state_before_hash: cfgBefore,
+      state_after_hash: cfgAfter,
     },
   });
   console.log(JSON.stringify({
