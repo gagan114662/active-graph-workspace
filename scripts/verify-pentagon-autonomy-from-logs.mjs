@@ -386,19 +386,26 @@ function collectCountFromOutput(output) {
   return null;
 }
 
-function pytestCollectCountForSymbol(symbol) {
-  // Two fixes here (found 2026-05-28 by running the honest gate):
-  // 1. `uv run pytest` was the c1c2603 global-leak anti-pattern — use the inner
-  //    venv python directly.
-  // 2. `-k <dotted_symbol>` collected 0: agents name tests like
-  //    test_<symbol-with-dots-as-underscores>_... so the dotted form never
-  //    substring-matches the node id. Match BOTH the dotted symbol AND its
-  //    underscored form so the verifier actually finds the agent's valid tests.
+function pytestCollectCountForSymbol(symbol, testFile) {
+  // Found 2026-05-28 by running the honest gate. Three robustness fixes:
+  // 1. `uv run pytest` was the c1c2603 global-leak anti-pattern — use the venv python.
+  // 2. `-k <dotted_symbol>` collected 0: agents name tests test_<symbol_underscored>_...
+  //    so the dotted form never substring-matches. Match dotted, underscored, AND
+  //    the leaf component (agents name tests inconsistently: full path vs leaf only).
+  // 3. The leaf alone (e.g. "run") would over-match the whole suite — a FALSE-PASS
+  //    hole. So scope the collection to the agent's DECLARED test file. That makes
+  //    leaf-matching safe (only their file) and robust to either naming style.
   const sym = String(symbol ?? "");
-  const kExpr = sym ? `${sym} or ${sym.replace(/\./g, "_")}` : "";
+  const leaf = sym.split(".").pop() || sym;
+  const kExpr = [sym, sym.replace(/\./g, "_"), leaf].filter(Boolean).join(" or ");
   const py = ROOT + "/activegraph/.venv/bin/python";
   const bin = existsSync(py) ? py : "python3";
-  const res = spawnSync(bin, ["-m", "pytest", "--collect-only", "-q", "-k", kExpr], {
+  const args = ["-m", "pytest", "--collect-only", "-q", "-k", kExpr];
+  if (testFile) {
+    const rel = String(testFile).replace(/^activegraph\//, "");
+    if (existsSync(ROOT + "/activegraph/" + rel)) args.push(rel);
+  }
+  const res = spawnSync(bin, args, {
     cwd: ROOT + "/activegraph",
     encoding: "utf8",
     maxBuffer: 20 * 1024 * 1024,
@@ -1671,7 +1678,7 @@ async function runT6MediumVerifier() {
     "before=" + String(proof.pytest_before) + " after=" + String(proof.pytest_after)
   );
 
-  const collectCheck = pytestCollectCountForSymbol(proof.uncovered_symbol);
+  const collectCheck = pytestCollectCountForSymbol(proof.uncovered_symbol, proof.test_file);
   must(
     "T6 medium re-run collect for uncovered_symbol returns >= 2",
     collectCheck.status === 0 && collectCheck.count !== null && collectCheck.count >= 2,
