@@ -272,4 +272,40 @@ export function emitSyntheticProbe(reason, opts = {}) {
   });
 }
 
+/**
+ * Eval-the-eval (task #16b, per Phil Hetzel's "you should eval the eval"):
+ * emit a judge.error event when downstream evidence proves a judge's
+ * verdict was wrong. Aggregated by judge-accuracy.mjs into per-judge
+ * accuracy statistics. Promotion of a judge to a new model version
+ * requires the new judge to match the previous one on the ground-truth
+ * dataset at ≥95% (task #27 ground truth, task #25 promotion gate).
+ */
+export function emitJudgeError({
+  judge,
+  original_verdict_event_id,
+  downstream_evidence_event_id,
+  error_kind,  // "false_pass" | "false_fail" | "protocol_drift" | "skipped_when_needed"
+  message,
+  extras = {},
+  path,
+}) {
+  if (!judge) throw new Error("emitJudgeError: judge required");
+  if (!original_verdict_event_id) throw new Error("emitJudgeError: original_verdict_event_id required");
+  if (!error_kind) throw new Error("emitJudgeError: error_kind required");
+  return emitFactoryEvent({
+    type: "judge.error",
+    behavior: "factory-eval-the-eval",
+    reason: `judge.${error_kind}`,
+    message: message || `${judge} verdict proven wrong: ${error_kind}`,
+    extras: {
+      judge,
+      original_verdict_event_id,
+      downstream_evidence_event_id,
+      error_kind,
+      ...extras,
+    },
+    path,
+  });
+}
+
 export const FACTORY_EVENTS_PATH = DEFAULT_PATH;

@@ -644,6 +644,7 @@ function handleReviewCompleted(event) {
     row.review_judge = ack.judge || "rowan";
     row.review_top_finding = ack.top_finding || null;
     row.review_completed_at = event.created_at;
+    row.review_verdict_event_id = event.id;  // enables judge.error references (task #16b)
     rewriteAllTodos();
     commitAndPushFromWorktree(row, dedupKey, event, row.worktree_path);
   } else if (verdict === "FAIL") {
@@ -651,6 +652,7 @@ function handleReviewCompleted(event) {
     row.review_judge = ack.judge || "rowan";
     row.review_top_finding = ack.top_finding || null;
     row.review_completed_at = event.created_at;
+    row.review_verdict_event_id = event.id;  // enables judge.error references
     rewriteAllTodos();
     rejectAttempt(row, dedupKey, event,
       `${ack.judge || "rowan"} review failed: ${ack.top_finding || "no detail provided"}`,
