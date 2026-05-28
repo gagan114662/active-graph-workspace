@@ -1512,4 +1512,46 @@ Pushed: outer `466d310` (+ pt.15), inner `ca67934`. All SHA-verified.
 
 ---
 
+### 2026-05-28 (pt.16 — CRITICAL: the T7 harness was rubber-stamping; fixed the integrity chain)
+
+User: "grind through [medium] and then do hard + extra-hard 25 each to ensure the factory is ready to
+run the flywheel on its own." Trying to actually do this surfaced the single most important finding of
+the project: **the T7 medium fire helper was rubber-stamping passes** — it HARDCODED `verifier_exit=0`
+and `outcome=pass` on proof-EXISTENCE alone and NEVER ran the verifier. So the prior "T7 medium 12/12"
+(cohort-B) and the pt.15 "verified-green run 1" were NOT independently verified. A factory whose gate
+rubber-stamps cannot be trusted to run the flywheel unattended. This is the answer to "is it ready":
+**it was not, and only RUNNING the gate exposed it.**
+
+**Integrity chain fixed this session (each found by running, not by offline review):**
+1. opus-4.8 multi-turn thinking-preservation 400 (`MAX_THINKING_TOKENS=0`, inner `abb7121`) — was
+   failing every T7 dispatch as fake ghost_completion.
+2. runner crash on transient Supabase 5xx `57014` (retry, `466d310`) — lost completed work.
+3. **fire helper now RUNS the verifier per run** (gates outcome on real exit; null-safe; emits
+   `verifier_rejected_proof` on fail) — the rubber-stamp fix (`05d7b54`).
+4. verifier accepted-hash regex now accepts the opus cohort tag (`05d7b54`) — was rejecting 4.8 hashes.
+5. **verifier symbol-collect fixed** (`e10d4a0`): used `uv run pytest` (c1c2603 anti-pattern) + `-k
+   <dotted_symbol>` which collects 0 (agents name tests `test_<symbol_underscored>_...`). Now uses the
+   venv python + matches the underscored form. Empirically: dotted=0, underscored=2 (Maya's real tests).
+
+**Verified honest result:** after the chain, run-1's proof (Budget.consume) passes the REAL verifier
+**12/12, verdict t6_medium_verified** — a genuine, independently-verified pass. Maya's work was valid
+all along; the harness just couldn't see it AND wasn't looking.
+
+**Status of the ask:**
+- **T7 medium gate**: now running on the HONEST harness (cohort-C 4.8 ledger), each run actually
+  verified. This will produce the TRUE pass rate for the first time. Some prior "passes" may not
+  survive honest verification — that's the real signal.
+- **T7 hard (25×)**: task spec authored (`frames/t7-repeat-hard-001-cohortC-opus48-instruction...`,
+  commit `c402489`); the dual-agent (Maya repro+fix + Quinn verify) fire helper + its honest
+  verification are not built yet.
+- **T7 extra-hard (25×)**: 5-agent-chain fire helper not built.
+- These ~50 multi-agent runs + the medium completion are a **multi-day grind gated by MAX session
+  capacity** — but now on a harness that won't lie.
+
+**Lesson (reinforces the project thesis):** "the discipline of building real verification is the moat."
+The verifier itself was bypassed by the harness around it. Every gate claim must run the real verifier;
+proof-existence is not verification. Audit any other fire helper for the same hardcoded-pass pattern.
+
+---
+
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._
