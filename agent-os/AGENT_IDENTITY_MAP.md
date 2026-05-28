@@ -117,3 +117,36 @@ team *performance* (not just headcount) is making those 5 dramatically more effi
 research-packet 6× lever, the impl pool (remove the Maya SPOF), SkillOpt skill-optimization, and the
 Sentinel harm gate — all UNBLOCKED. Reviewer headcount is real but RLS-gated, staged here rather than
 forced in untested.
+
+---
+
+## GTM / Growth squad — FUTURE (activates when the factory produces sellable output)
+
+Operator's go-to-market org (added 2026-05-28). This is a SECOND squad, distinct from the Engineering
+squad above. It is the **revenue / distribution arm**: it activates once the factory has output worth
+selling — i.e., gated on the **per-token arbitrage proof (P5/P12)**. Per the CS153 "AI Native
+Company" thesis, one founder becomes 1000x by running an agent fleet across BOTH engineering AND
+go-to-market; this squad is the GTM half.
+
+| Agent | Role | Maps to factory primitive |
+|---|---|---|
+| 🤖 **Tai** | Lead agent — coordinates the GTM squad | GTM-side analog of Tai≈the bridge/Phoenix orchestrator; the squad's "Maya-coordinator" |
+| 🤖 **Nina** | Outreach — personalized cold emails daily | needs an outreach skill + send surface (email API/MCP) + a daily F1-style cadence daemon |
+| 🤖 **Jordan** | Conversion & funnels | needs analytics + funnel-state events (closed-loop: every funnel step → artifact) |
+| 🤖 **Maya-Growth** ⚠ | Growth & distribution | **NAME COLLISION** with eng Maya (Code Owner). Wire as a distinct Pentagon agent id / namespaced key (`maya_growth`) — do NOT reuse the eng Maya row |
+| 🤖 **Alex** | Research & marketing | reuses the research-packet engine (3a) + objective-research; net-new agent |
+| 🤖 **Iris** | PR & media | needs a media/press surface; net-new agent |
+| 🤖 **Sam-Content** ⚠ | Content & copy | **NAME COLLISION** with eng Sam (Docs Owner). Namespace as `sam_content` / distinct Pentagon id |
+
+**Wiring prerequisites (when revenue-ready):**
+1. **Arbitrage proof first (P5/P12)** — do not turn on a daily-cold-email squad before the
+   output→revenue ratio is positive; that just compounds burn (the project's own discipline).
+2. **Treasury/economics MCP (P24)** so the GTM squad's spend (email tools, ads) is budget-gated by
+   Blake like the eng squad.
+3. **Closed-loop artifacts (P22)** — every outreach/funnel/PR action must produce an event/artifact
+   (no DMs-and-vibes), so the squad reads full state, same as engineering.
+4. **Resolve the Maya/Sam name collisions** — separate Pentagon agent rows + routing keys.
+5. **Safety/approval gates** — Sentinel-style harm gate + Slack approval (P16) for anything
+   outward-facing (cold email, PR) BEFORE it sends, since those are external + irreversible.
+
+Backlog task: **P25** (wire the GTM squad when revenue-ready).
