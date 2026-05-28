@@ -93,6 +93,8 @@ When using git, **always specify `-C activegraph`** for inner-repo operations. T
 6. **Activation bottleneck is systemic** — Pentagon poller desync, 4 occurrences. Fix = poller restart. Permanent fix = Phase F1 watchdog. Don't treat each occurrence as transient.
 7. **`agent_runtime_events` is empty** for these workflows — audit via `messages.ACK` instead. The WARN line for runtime events is advisory.
 8. **Quinn inter-agent dispatch is operator-driven** for sample 1 — Maya does not auto-trigger Quinn yet. That's T7+ work.
+9. **RESOLVER-first context (P21)** — before editing a file, consult `RESOLVER.md` / run `node scripts/resolve-context.mjs <path>` and load ONLY the routed docs. Do NOT dump all ~1200 lines of this file into context (the open-loop anti-pattern). Each top dir has a local-resolver `README.md` (what goes here / what does NOT).
+10. **Epistemic discipline (P21, from gbrain)** — every load-bearing claim cites its source as `observed` / `self-described` / `inferred`; confidence scales with interaction count (1 sample = low — pairs with rule 5); no single-datapoint generalizations; an operator correction overrides everything and is written down immediately.
 
 ## Verifier hardening history (today's commits, outer repo)
 
