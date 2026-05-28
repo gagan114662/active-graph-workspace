@@ -63,9 +63,18 @@ export function formatEventForSlack(event) {
     blocks: [{ type: "section", text: { type: "mrkdwn", text } }],
   };
   if (spec.approval) {
-    // Hint for the inbound approval endpoint (see bottom). Harmless to Slack
-    // incoming-webhooks (which ignore unknown fields).
-    msg.approval = { event_type: event.type, event_id: event.id ?? null, dedup_key: p.dedup_key ?? null };
+    // Hint for the inbound approval endpoint (factory-slack-approve.mjs).
+    const eventId = event.id ?? null;
+    msg.approval = { event_type: event.type, event_id: eventId, dedup_key: p.dedup_key ?? null };
+    // Real Block Kit buttons — the `value` convention (approve:/reject:<id>) is
+    // exactly what factory-slack-approve.mjs::parseApprovalPayload reads back.
+    msg.blocks.push({
+      type: "actions",
+      elements: [
+        { type: "button", text: { type: "plain_text", text: "Approve" }, style: "primary", action_id: "approve", value: `approve:${eventId}` },
+        { type: "button", text: { type: "plain_text", text: "Reject" }, style: "danger", action_id: "reject", value: `reject:${eventId}` },
+      ],
+    });
   }
   return msg;
 }
