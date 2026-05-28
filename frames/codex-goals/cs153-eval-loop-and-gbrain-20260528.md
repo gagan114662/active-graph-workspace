@@ -33,7 +33,11 @@ dark factory, distilled into backlog tasks P19–P22.
   not a suggestion.
 
 ## New backlog tasks
-- **P19** — multi-dimensional per-call grading.
+- ✅ **P19 — multi-dimensional per-call grading SHIPPED.** `scripts/grade-call.mjs` aggregates the
+  factory's distributed signals into ONE 5-axis scorecard per call: followed_instructions (Theo),
+  correct (commit landed / Rowan / rejected), preserved_trust (Sentinel), hit_goal (todo closed + no
+  recurrence), domain_compliant (Grace / operator-scoped-path scan). Emits `call.graded`. `unknown`
+  (no signal) is kept distinct from `fail`. 4/4 tests (grade-call.test.mjs). Runs on real calls.
 - ✅ **P20 — production eval loop SHIPPED.** `scripts/eval-harvest-from-failures.mjs` converts real
   production signals into candidate judge eval cases (review.completed×judge.error → flipped label;
   non-synthetic attempt.rejected → FAIL case) written to `agent-os/judges/<judge>/harvested
