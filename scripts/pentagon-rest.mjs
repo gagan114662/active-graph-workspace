@@ -16,7 +16,13 @@
 // JWTs expire periodically; request() retries once on PGRST303 / "jwt expired".
 
 import { generateResearchPacket } from "./research-packet.mjs";
-import { readSession, readAnonKey, isExpiredJwtResponse } from "./pentagon-auth.mjs";
+import {
+  readSession,
+  readAnonKey,
+  isExpiredJwtResponse,
+  refreshAccessToken,
+  isAccessTokenExpired,
+} from "./pentagon-auth.mjs";
 
 let _state = null;
 function ensureState() {
@@ -25,9 +31,28 @@ function ensureState() {
   return _state;
 }
 
-function refreshSession() {
+// Refresh the Supabase access token. Previously this only re-read the plist —
+// which silently fails when the plist's accessToken was rotated/invalidated
+// server-side despite a future `exp` (the 401 that bit Phoenix/pentagon-rest on
+// 2026-05-28). Now: (1) re-read the plist first — free, and if Pentagon.app
+// refreshed it we avoid refresh-token rotation churn; (2) if the re-read token
+// is unchanged or expired, do a real grant_type=refresh_token. In-memory only;
+// Pentagon.app owns the plist file.
+async function refreshSession() {
   const anonKey = _state?.anonKey ?? readAnonKey();
-  _state = { ...readSession(), anonKey };
+  const prevToken = _state?.accessToken;
+  const reread = readSession();
+  if (reread.accessToken && reread.accessToken !== prevToken && !isAccessTokenExpired(reread.accessToken)) {
+    _state = { ...reread, anonKey };
+    return _state;
+  }
+  // Plist didn't help — authoritative grant.
+  const refreshed = await refreshAccessToken({
+    refreshToken: reread.refreshToken,
+    supabaseOrigin: reread.supabaseOrigin,
+    anonKey,
+  });
+  _state = { ...reread, accessToken: refreshed.access_token, anonKey };
   return _state;
 }
 
@@ -51,7 +76,7 @@ export async function request(
   let parsed = text;
   try { parsed = JSON.parse(text); } catch {}
   if (!res.ok && retryOnExpiredJwt && isExpiredJwtResponse(res.status, parsed)) {
-    refreshSession();
+    await refreshSession();
     return request(path, { method, body, prefer, retryOnExpiredJwt: false });
   }
   if (!res.ok) {

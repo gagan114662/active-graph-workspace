@@ -115,7 +115,13 @@ function parseFlywheelAction(agentReply, todoId) {
   return { kind: "diff", diff, rationale: afterFence.slice(0, 1000) };
 }
 import { installCrashGuard } from "./factory-crash-guard.mjs";
-import { readSession, readAnonKey, isExpiredJwtResponse } from "./pentagon-auth.mjs";
+import {
+  readSession,
+  readAnonKey,
+  isExpiredJwtResponse,
+  refreshAccessToken,
+  isAccessTokenExpired,
+} from "./pentagon-auth.mjs";
 
 installCrashGuard("bridge");
 
@@ -143,9 +149,25 @@ function has(name) {
 // isExpiredJwtResponse) moved to pentagon-auth.mjs so this file + pentagon-rest.mjs
 // share one source of truth. Task #23 (refactor pass).
 
-function refreshSession() {
+// Re-read the plist first (free; if Pentagon.app refreshed it we avoid
+// refresh-token rotation churn — the documented OAuth reuse trap). If the
+// re-read token is unchanged or expired, do an authoritative
+// grant_type=refresh_token. Was previously a plist re-read only, which silently
+// failed on a server-rotated token despite a future `exp`.
+async function refreshSession() {
   const currentAnonKey = state?.anonKey ?? readAnonKey();
-  state = { ...readSession(), anonKey: currentAnonKey };
+  const prevToken = state?.accessToken;
+  const reread = readSession();
+  if (reread.accessToken && reread.accessToken !== prevToken && !isAccessTokenExpired(reread.accessToken)) {
+    state = { ...reread, anonKey: currentAnonKey };
+    return state;
+  }
+  const refreshed = await refreshAccessToken({
+    refreshToken: reread.refreshToken,
+    supabaseOrigin: reread.supabaseOrigin,
+    anonKey: currentAnonKey,
+  });
+  state = { ...reread, accessToken: refreshed.access_token, anonKey: currentAnonKey };
   return state;
 }
 
@@ -169,7 +191,7 @@ async function request(path, { method = "GET", body, prefer, retryOnExpiredJwt =
   let parsed = text;
   try { parsed = JSON.parse(text); } catch {}
   if (!res.ok && retryOnExpiredJwt && isExpiredJwtResponse(res.status, parsed)) {
-    refreshSession();
+    await refreshSession();
     return request(path, { method, body, prefer, retryOnExpiredJwt: false });
   }
   if (!res.ok) {
@@ -193,7 +215,7 @@ async function mintAgentToken(agentId, retryOnExpiredJwt = true) {
   let parsed = text;
   try { parsed = JSON.parse(text); } catch {}
   if ((!res.ok || !parsed.token) && retryOnExpiredJwt && isExpiredJwtResponse(res.status, parsed)) {
-    refreshSession();
+    await refreshSession();
     return mintAgentToken(agentId, false);
   }
   if (!res.ok || !parsed.token) {
@@ -243,6 +265,25 @@ async function conversationParticipantCount(conversationId) {
     return Array.isArray(rows) ? rows.length : 0;
   } catch {
     return 0;
+  }
+}
+
+// Fix B (2026-05-28): the bridge parses the agent's finalText result, but a
+// reviewer sometimes puts the clean ack ONLY in a message it posted into the
+// conversation (via send_message) while its finalText is a prose summary. Fetch
+// the agent's recent posted messages so the ack parser has a second place to
+// look before declaring review.malformed. Returns newest-first content strings;
+// [] on any read error (fail-open — never block on a transient read).
+async function agentPostedMessages(trigger, limit = 10) {
+  try {
+    const since = encodeURIComponent(trigger.created_at);
+    const rows = await request(
+      `/rest/v1/messages?conversation_id=eq.${trigger.conversation_id}&sender_id=eq.${trigger.agent_id}` +
+        `&created_at=gte.${since}&select=content,created_at&order=created_at.desc&limit=${limit}`
+    );
+    return Array.isArray(rows) ? rows.map((r) => String(r.content ?? "")) : [];
+  } catch {
+    return [];
   }
 }
 
@@ -1014,10 +1055,22 @@ async function processCandidates(candidates) {
         const flywheelReviewId = extractFlywheelReviewId(claimed.content);
 
         if (flywheelReviewId) {
-          // Reviewer dispatch — try each judge's ack parser.
-          const ack = parseRowanReviewAck(finalText, flywheelReviewId) ||
-                      parseTheoTestReviewAck(finalText, flywheelReviewId) ||
-                      parseGraceGateAck(finalText, flywheelReviewId);
+          // Reviewer dispatch — try each judge's ack parser on the finalText.
+          const parseAnyAck = (text) =>
+            parseRowanReviewAck(text, flywheelReviewId) ||
+            parseTheoTestReviewAck(text, flywheelReviewId) ||
+            parseGraceGateAck(text, flywheelReviewId);
+          let ack = parseAnyAck(finalText);
+          // Fix B: if finalText had no parseable ack, the reviewer may have put
+          // the clean verdict only in a message it posted into the conversation.
+          // Check those before declaring malformed.
+          let ackSource = ack ? "final_text" : null;
+          if (!ack) {
+            for (const posted of await agentPostedMessages(claimed)) {
+              const a = parseAnyAck(posted);
+              if (a) { ack = a; ackSource = "posted_message"; break; }
+            }
+          }
           if (ack) {
             // C5/H3: pin the judge's model + pin-date onto the verdict so
             // replay can tell "rowan@opus-4-7 was wrong" from
@@ -1039,6 +1092,7 @@ async function processCandidates(candidates) {
                 trigger_id: claimed.id,
                 conversation_id: claimed.conversation_id,
                 reply_chars: String(finalText ?? "").length,
+                ack_source: ackSource,  // "final_text" | "posted_message" (Fix B)
               },
             });
           } else {
@@ -1341,7 +1395,7 @@ if (!loop) {
       } catch {}
       if (isJwtExpired) {
         try {
-          refreshSession();
+          await refreshSession();
           console.error(JSON.stringify({
             checked_at: new Date().toISOString(),
             status: "session_refreshed_after_loop_error",

@@ -58,9 +58,52 @@ export function readSession() {
   const claims = decodeJwtPayload(accessToken);
   return {
     accessToken,
+    refreshToken: session.refreshToken ?? null,
     supabaseOrigin: new URL(claims.iss).origin,
     operatorId: claims.sub,
   };
+}
+
+/**
+ * Exchange a Supabase refresh token for a fresh access token via the auth
+ * gateway. This is the AUTHORITATIVE refresh — unlike re-reading the plist, it
+ * produces a token the server will accept even when the plist's accessToken was
+ * rotated/invalidated despite a future `exp` (the exact 401 that bit
+ * pentagon-rest/Phoenix on 2026-05-28).
+ *
+ * Callers should prefer a plist RE-READ first (free, and avoids refresh-token
+ * rotation churn — the documented OAuth refresh-token-reuse trap) and only fall
+ * back to this grant when the re-read token is unchanged/still failing. Returns
+ * the raw token response `{ access_token, refresh_token, expires_at, ... }`.
+ * Does NOT write back to the plist — Pentagon.app owns that file.
+ */
+export async function refreshAccessToken({ refreshToken, supabaseOrigin, anonKey }) {
+  if (!refreshToken) throw new Error("refreshAccessToken: no refresh token in Pentagon session");
+  const res = await fetch(supabaseOrigin + "/auth/v1/token?grant_type=refresh_token", {
+    method: "POST",
+    headers: { apikey: anonKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  let j = {};
+  try { j = await res.json(); } catch {}
+  if (!res.ok || !j.access_token) {
+    throw new Error(`refresh_token grant failed ${res.status}: ${JSON.stringify(j).slice(0, 200)}`);
+  }
+  return j;
+}
+
+/**
+ * Is a decoded access token at/near expiry? Used to decide whether a plist
+ * re-read actually helped or we still need a real grant. `skewSeconds` guards
+ * against clock drift + in-flight latency.
+ */
+export function isAccessTokenExpired(accessToken, skewSeconds = 30) {
+  try {
+    const { exp } = decodeJwtPayload(accessToken);
+    return !exp || exp <= Math.floor(Date.now() / 1000) + skewSeconds;
+  } catch {
+    return true;
+  }
 }
 
 /**
