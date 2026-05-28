@@ -466,8 +466,29 @@ function handleDiffProposed(event) {
     git(["worktree", "prune"], { cwd: INNER_REPO });
   } catch {}
 
-  // Create a fresh worktree off main HEAD.
-  const wt = git(["worktree", "add", "-B", `flywheel-attempt-${todoId.slice(0, 24)}`, worktreePath, "main"], { cwd: INNER_REPO });
+  // Base the worktree on the day's fix branch if it exists (so successive
+  // flywheel commits chain into a linear history that can be pushed),
+  // otherwise off main. The fix branch ref is what update-ref will move
+  // forward after the commit + tests succeed.
+  const fixBranch = todayBranchName();
+  // Sync local fix branch with remote first to avoid stale-tip push rejections.
+  // If origin has commits we don't, fast-forward our local ref before creating
+  // the worktree.
+  git(["fetch", "origin", fixBranch], { cwd: INNER_REPO });
+  const localFixSha = git(["rev-parse", "--verify", "-q", fixBranch], { cwd: INNER_REPO }).stdout.trim();
+  const remoteFixSha = git(["rev-parse", "--verify", "-q", `origin/${fixBranch}`], { cwd: INNER_REPO }).stdout.trim();
+  let base = "main";
+  if (remoteFixSha) {
+    // Sync local fix branch ref to remote so the worktree starts at the latest
+    // landed commit. Avoids "non-fast-forward" push rejections after the new
+    // commit lands.
+    git(["update-ref", `refs/heads/${fixBranch}`, remoteFixSha], { cwd: INNER_REPO });
+    base = fixBranch;
+  } else if (localFixSha) {
+    base = fixBranch;
+  }
+
+  const wt = git(["worktree", "add", "-B", `flywheel-attempt-${todoId.slice(0, 24)}`, worktreePath, base], { cwd: INNER_REPO });
   if (wt.status !== 0) {
     rejectAttempt(row, dedupKey, event, `worktree create failed: ${wt.stderr.slice(0, 200)}`);
     return;
@@ -698,19 +719,20 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
     type: pushed ? "flywheel.commit.landed" : "flywheel.commit.local_only",
     behavior: "factory-flywheel",
     extras: {
-      todo_event_id: todoId,
+      todo_event_id: row.id,
       sha,
       branch,
       pushed,
-      diff_chars: diff.length,
       worktree_path: worktreePath,
-      rationale: payload.rationale || null,
+      review_judge: row.review_judge || null,
+      review_verdict: row.review_verdict || null,
+      rationale: row.diff_rationale || null,
     },
   });
 
   console.log(JSON.stringify({
     status: "phoenix_flywheel_commit",
-    todo_id: todoId,
+    todo_id: row.id,
     sha,
     branch,
     pushed,
