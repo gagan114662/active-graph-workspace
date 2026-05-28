@@ -141,7 +141,6 @@ export async function dispatchReviewer({
   const reviewerId = AGENT_MAP[reviewerAgentKey];
   if (!reviewerId) throw new Error(`unknown reviewer agent "${reviewerAgentKey}"`);
   const senderId = AGENT_MAP[SENDER_AGENT_KEY];
-  const convId = await findOrCreateConversation(senderId, reviewerId);
 
   const rubric = readRubric(reviewerAgentKey);
 
@@ -182,13 +181,50 @@ export async function dispatchReviewer({
     "Do not commit, do not push, do not edit files. Your reply is the entire intervention.",
   ].join("\n");
 
-  const message = await insertMessage(convId, senderId, content);
+  // RLS unblock (Gap A / Option B). Try the SECURITY DEFINER RPC first — one
+  // call does find-or-create-conv + insert-message, bypassing the
+  // conversations-INSERT 403 that blocks reviewer dispatch. If the RPC doesn't
+  // exist yet (operator hasn't created it), fall back to the REST path, which
+  // works once the 2-party Theo↔reviewer convs are UX-seeded (Option 0).
+  let convId, message;
+  const rpc = await rpcDispatchToAgent(senderId, reviewerId, content);
+  if (rpc) {
+    convId = rpc.conversation_id;
+    message = { id: rpc.message_id ?? null };
+  } else {
+    convId = await findOrCreateConversation(senderId, reviewerId);
+    message = await insertMessage(convId, senderId, content);
+  }
   return {
     conversation_id: convId,
     message_id: message?.id ?? null,
     reviewer_agent_id: reviewerId,
     reviewer_agent_key: reviewerAgentKey,
+    dispatch_path: rpc ? "rpc_security_definer" : "rest_fallback",
   };
+}
+
+/**
+ * RLS unblock (Gap A / Option B). Calls the SECURITY DEFINER Postgres function
+ * `dispatch_to_agent(p_sender_id, p_target_id, p_content)` which finds-or-creates
+ * a 2-party conversation and inserts the message, running as the function owner
+ * so it bypasses the conversations-INSERT RLS policy. Returns {conversation_id,
+ * message_id} or null if the function doesn't exist yet (404 → REST fallback).
+ * Draft SQL to create it: frames/codex-goals/rls-unblock-kit-20260528.md.
+ */
+export async function rpcDispatchToAgent(senderAgentId, targetAgentId, content) {
+  try {
+    const rows = await request("/rest/v1/rpc/dispatch_to_agent", {
+      method: "POST",
+      prefer: "return=representation",
+      body: { p_sender_id: senderAgentId, p_target_id: targetAgentId, p_content: content },
+    });
+    const r = Array.isArray(rows) ? rows[0] : rows;
+    if (r && (r.conversation_id || r.message_id)) return r;
+    return null;
+  } catch {
+    return null;  // RPC missing (404) or errored → caller falls back to REST.
+  }
 }
 
 /**
