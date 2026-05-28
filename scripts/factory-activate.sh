@@ -34,6 +34,7 @@ LABELS=(
   "run.factory.rotate-logs"
   "run.factory.alert"
   "run.factory.f1-daemon"
+  "run.factory.f1-gauntlet-scheduler"
 )
 
 for label in "${LABELS[@]}"; do
