@@ -34,7 +34,14 @@ dark factory, distilled into backlog tasks P19–P22.
 
 ## New backlog tasks
 - **P19** — multi-dimensional per-call grading.
-- **P20** — production eval loop: auto failures→eval cases + regression gate before deploy.
+- ✅ **P20 — production eval loop SHIPPED.** `scripts/eval-harvest-from-failures.mjs` converts real
+  production signals into candidate judge eval cases (review.completed×judge.error → flipped label;
+  non-synthetic attempt.rejected → FAIL case) written to `agent-os/judges/<judge>/harvested
+  -candidates.jsonl` for operator promotion ("founders build the evals"). Proven: harvested 7 real
+  rowan cases from 2056 events. `scripts/skillopt_judge_eval.py --regression-gate --skill <candidate>`
+  re-tests a candidate vs the eval set and exits non-zero on regression (the re-test-before-deploy
+  gate). The full loop is now closed: traces (event log) → convert failures to eval cases (harvester)
+  → replay (factory-replay) → improve (SkillOpt) → re-test before deploy (regression gate).
 - **P21** — gbrain schema adoption (extends RESOLVER #11 / per-agent-skills #18 / F4 memory #17).
 - **P22** — closed-loop audit: capture human-head-only state as artifacts.
 

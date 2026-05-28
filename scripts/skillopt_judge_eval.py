@@ -229,12 +229,40 @@ def optimize(judge: str) -> dict:
     }
 
 
+def regression_gate(judge: str, skill_path: str) -> dict:
+    """CS153 're-test before deploy': run the eval set against BOTH the current
+    rubric and a candidate skill; the gate PASSES only if the candidate does not
+    regress accuracy. Returns a dict; the CLI exits non-zero on a regression so
+    this can gate a deploy/apply step. Claude Code auth, no API key."""
+    if not skill_path:
+        return {"error": "--skill <candidate> required for --regression-gate", "passed": False}
+    sys.path.insert(0, str(SKILLOPT))
+    for k in ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_EXECPATH", "AI_AGENT", "ANTHROPIC_API_KEY"):
+        os.environ.pop(k, None)
+    os.environ.setdefault("REFLACT_MODEL_BACKEND", "claude")
+    os.environ.setdefault("CLAUDE_CLI_BIN", str(Path.home() / ".local" / "bin" / "claude"))
+    os.environ.setdefault("TARGET_DEPLOYMENT", "claude-opus-4-8")
+    from skillopt.model import claude_backend as cb
+    items = load_ground_truth(judge)
+    cur_acc, _ = _eval_skill_on(judge, rubric_system(judge, None), items, cb)
+    cand_acc, _ = _eval_skill_on(judge, rubric_system(judge, skill_path), items, cb)
+    passed = cand_acc >= cur_acc
+    return {
+        "judge": judge, "skill": skill_path, "n": len(items),
+        "current_accuracy": round(cur_acc, 3), "candidate_accuracy": round(cand_acc, 3),
+        "delta": round(cand_acc - cur_acc, 3), "passed": passed,
+        "verdict": "DEPLOY OK — no regression" if passed else "BLOCKED — candidate regresses accuracy",
+        "auth": "claude-code-cli (no api key)",
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--judge", default="rowan", choices=list(JUDGES))
     ap.add_argument("--harvest", action="store_true")
     ap.add_argument("--baseline", action="store_true")
     ap.add_argument("--optimize", action="store_true", help="run the SkillOpt-style optimization loop (eval->reflect->validation gate)")
+    ap.add_argument("--regression-gate", action="store_true", help="re-test a candidate --skill against the eval set; exit non-zero if it regresses (deploy gate)")
     ap.add_argument("--skill", default=None, help="candidate skill .md to evaluate instead of the live rubric")
     ap.add_argument("--split", default=None)
     args = ap.parse_args()
@@ -244,7 +272,11 @@ def main() -> int:
         print(json.dumps(baseline(args.judge, args.skill, args.split), indent=2))
     if args.optimize:
         print(json.dumps(optimize(args.judge), indent=2))
-    if not (args.harvest or args.baseline or args.optimize):
+    if args.regression_gate:
+        r = regression_gate(args.judge, args.skill)
+        print(json.dumps(r, indent=2))
+        return 0 if r.get("passed") else 1  # non-zero blocks the deploy
+    if not (args.harvest or args.baseline or args.optimize or args.regression_gate):
         ap.print_help()
     return 0
 
