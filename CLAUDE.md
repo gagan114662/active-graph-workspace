@@ -1304,4 +1304,41 @@ changes — GitButler hooks commit; Claude does not run `git commit` manually (p
 
 ---
 
+### 2026-05-28 (pt.11 — "make the team A+" execution: P-series shipped, committed to GitHub)
+
+User drove a long "keep going" sprint, feeding external ideas (CS153 AI-Native-Company slides, gbrain
+resolver, Rote, meow MCP, openclaw autoreview) + a GTM org chart. Approved plan:
+`~/.claude/plans/pls-address-all-these-nifty-zebra.md`. **GitHub is now the source of truth** — every
+change committed + push-verified (local==remote checked each push). Per-feature design docs in
+`frames/codex-goals/`. Verifier-grade test suite: 45 passing across
+factory-routing/infra/resolve-context/grade-call/success-flow/treasury/memory `.test.mjs`.
+
+**Shipped (built + tested + pushed):**
+- Determinism + failure-coverage (P1, P14 H4/H7/H8/H12), Opus 4.8 migration, Sentinel harm gate (P3d),
+  research packet on hot path (P3a), RESOLVER + resolve-context (P4) + per-dir READMEs + epistemic
+  discipline (P21-partial), SkillOpt on Claude-Code-auth + Grace 40%→100% (P3c).
+- **Eval/learning loop (CS153 spine), complete:** P19 multi-dim per-call grading (`grade-call.mjs`),
+  P20 failures→eval-cases (`eval-harvest-from-failures.mjs`) + regression gate, P23 success-flow
+  memory (`success-flow-capture.mjs`), P10/F4 unified memory (`factory-memory.mjs`), P24 treasury
+  (`factory-treasury.mjs` — surfaced a real $105/day-over-$100-cap signal).
+- Skills scaffold (P18: `agent-os/skills/` + `load-agent-skill.mjs`), closed-loop audit (P22),
+  hygiene (P17-partial: untracked the regenerable sqlite mirror).
+- Org chart: GTM/Growth squad added (P25, revenue-gated).
+
+**Open — categorized honestly (NOT solo-completable):**
+- **Operator-decision-gated:** P2a reviewers (Pentagon RLS — see `pentagon-rls-investigation-20260528.md`),
+  P3b impl-pool (Quinn-as-impl?), P5/P12 arbitrage (pick a revenue pipeline), P6 grow ground-truth
+  (operator promotes harvested candidates), P16 Slack (webhook), P25 GTM (revenue-gated).
+- **Live-$ / real agent runs:** P11 OTel issue #23 (first customer feature), P15 T7 25-run gate.
+- **Large multi-session builds:** P9 F1 daemon (multi-week), P12 extensibility refactor, P13 MCP
+  servers (treasury + F4 are MCP-ready), P21 full CLAUDE.md MECE rewrite.
+- **Needs live investigation:** P17 remainder (pentagon_watchdog_error, ghost_completion timing, fixture-*).
+
+**Next session:** the highest-leverage moves are the operator DECISIONS (RLS unblock, revenue pipeline,
+Quinn-as-impl) — they unblock the most. Then the large builds (MCP exposure is closest — surfaces are
+ready). The factory's core thesis (deterministic flywheel, all failures as events, closed
+failure+success learning loop, harm gate, queryable memory + economics) is built, tested, and live.
+
+---
+
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._
