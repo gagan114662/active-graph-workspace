@@ -886,6 +886,58 @@ function parseQuinnAck(content) {
   return { hash: match[1], failing_test_commit: match[2], fix_commit: match[3] };
 }
 
+// Theo/Rowan/Grace ACK parsers — wired but not yet enforced by tier flows.
+// Contract source: agent-os/AGENT_IDENTITY_MAP.md (Theo Test Owner / Rowan
+// Code Reviewer / Grace Gate Sentinel sections).
+//
+// To enforce in a tier handler, call e.g.:
+//   const theo = collectAcks(messages, parseTheoAck);
+//   must("theo_ack_present", theo.find((a) => a.hash === expectedHash), ...);
+//
+// Until each tier wires that in, these parsers are inert and harmless —
+// they just make the contract machine-checkable from outside.
+
+function parseTheoAck(content) {
+  // THEO_TEST_REVIEW_{PASS|FAIL} <hash> tests=<N> reasoning=<one_line>
+  const match = String(content ?? "").trim().match(
+    /^THEO_TEST_REVIEW_(PASS|FAIL)\s+(\S+)\s+tests=(\d+)\s+reasoning=(.+)$/
+  );
+  if (!match) return null;
+  return {
+    verdict: match[1],
+    hash: match[2],
+    tests: Number(match[3]),
+    reasoning: match[4].trim(),
+  };
+}
+
+function parseRowanAck(content) {
+  // ROWAN_REVIEW_{PASS|FAIL} <commit_sha> findings=<count> top_finding=<one_line>
+  const match = String(content ?? "").trim().match(
+    /^ROWAN_REVIEW_(PASS|FAIL)\s+(\S+)\s+findings=(\d+)\s+top_finding=(.+)$/
+  );
+  if (!match) return null;
+  return {
+    verdict: match[1],
+    commit_sha: match[2],
+    findings: Number(match[3]),
+    top_finding: match[4].trim(),
+  };
+}
+
+function parseGraceAck(content) {
+  // GRACE_GATE_{OPEN|BLOCKED} <tier> dirty_files=<list>
+  const match = String(content ?? "").trim().match(
+    /^GRACE_GATE_(OPEN|BLOCKED)\s+(\S+)\s+dirty_files=(.*)$/
+  );
+  if (!match) return null;
+  return {
+    verdict: match[1],
+    tier: match[2],
+    dirty_files: match[3].trim(),
+  };
+}
+
 function parseExtraHardAck(content) {
   const text = String(content ?? "").trim();
   const parentMatch = text.match(/\bparent_ack_id=([^\s]+)/);

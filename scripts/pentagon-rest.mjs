@@ -1,0 +1,286 @@
+// Pentagon REST helpers — extracted so Phoenix and other consumers can dispatch
+// triggers without each copy-pasting the auth + JWT-refresh + insert plumbing.
+//
+// Used by:
+//   * scripts/phoenix-todo-keeper.mjs (the closed-loop flywheel — dispatches
+//     todos as Pentagon messages so Pentagon auto-creates the agent_triggers row)
+//
+// Not yet used by (refactor pass): pentagon-trigger-bridge.mjs +
+// run-native-pentagon-task.mjs both have their own copies of these helpers
+// inline; consolidating them is left as a follow-up to avoid scope creep here.
+//
+// Auth model: Pentagon's macOS app stores its Supabase session in
+//   ~/Library/Preferences/run.pentagon.app.plist
+// under :supabase.auth.sb-auth-auth-token. The embedded anon key lives in
+// the Pentagon binary itself (extracted via `strings | rg '^eyJ' | head -1`).
+// JWTs expire periodically; request() retries once on PGRST303 / "jwt expired".
+
+import { execFileSync } from "node:child_process";
+
+const PLIST = "/Users/gaganarora/Library/Preferences/run.pentagon.app.plist";
+const PENTAGON_BIN = "/Applications/Pentagon.app/Contents/MacOS/Pentagon";
+
+function decodeJwtPayload(jwt) {
+  const part = jwt.split(".")[1];
+  const padded = part
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(part.length / 4) * 4, "=");
+  return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+}
+
+function readSession() {
+  const raw = execFileSync(
+    "/usr/libexec/PlistBuddy",
+    ["-c", "Print :supabase.auth.sb-auth-auth-token", PLIST],
+    { encoding: "utf8" }
+  );
+  const session = JSON.parse(raw);
+  const accessToken = session.accessToken;
+  const claims = decodeJwtPayload(accessToken);
+  return {
+    accessToken,
+    supabaseOrigin: new URL(claims.iss).origin,
+    operatorId: claims.sub,
+  };
+}
+
+function readAnonKey() {
+  const out = execFileSync(
+    "zsh",
+    ["-lc", `strings "${PENTAGON_BIN}" | rg '^eyJ' | head -1`],
+    { encoding: "utf8" }
+  ).trim();
+  if (!out) throw new Error("Could not find embedded Supabase anon key in Pentagon binary.");
+  return out;
+}
+
+let _state = null;
+function ensureState() {
+  if (_state) return _state;
+  _state = { ...readSession(), anonKey: readAnonKey() };
+  return _state;
+}
+
+function refreshSession() {
+  const anonKey = _state?.anonKey ?? readAnonKey();
+  _state = { ...readSession(), anonKey };
+  return _state;
+}
+
+function isExpiredJwtResponse(status, parsed) {
+  return (
+    status === 401 &&
+    (parsed?.code === "PGRST303" ||
+      /jwt expired/i.test(String(parsed?.message ?? parsed ?? "")))
+  );
+}
+
+export async function request(
+  path,
+  { method = "GET", body, prefer, retryOnExpiredJwt = true } = {}
+) {
+  const state = ensureState();
+  const res = await fetch(state.supabaseOrigin + path, {
+    method,
+    headers: {
+      apikey: state.anonKey,
+      Authorization: `Bearer ${state.accessToken}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(prefer ? { Prefer: prefer } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let parsed = text;
+  try { parsed = JSON.parse(text); } catch {}
+  if (!res.ok && retryOnExpiredJwt && isExpiredJwtResponse(res.status, parsed)) {
+    refreshSession();
+    return request(path, { method, body, prefer, retryOnExpiredJwt: false });
+  }
+  if (!res.ok) {
+    throw new Error(`${method} ${path} failed ${res.status}: ${JSON.stringify(parsed).slice(0, 500)}`);
+  }
+  return parsed;
+}
+
+/** Operator's user_id (sub claim from the Pentagon session JWT). */
+export function operatorId() {
+  return ensureState().operatorId;
+}
+
+/**
+ * Live snapshot of active_graph Pentagon agents (name → UUID). Captured
+ * 2026-05-27 after the opus-4.7/claude-code cohort migration. If new agents
+ * are spawned or renamed, this table will go stale — refresh via:
+ *   curl ".../rest/v1/agents?select=id,name&order=name.asc"
+ */
+export const AGENT_MAP = {
+  avery: "8965cbc1-eed8-4c87-a04f-9f0b8b5febcb",   // Frame Architect
+  blake: "3170d32c-8ff8-46e7-811f-2fb2622ab3c5",   // Budget Marshal
+  carmen: "9ce67d98-bc38-404b-a979-8db00379fbda",  // Contract Owner
+  casey: "b4ae9fe0-e35d-4c19-ade0-3a3ff11b73c7",   // Compatibility Auditor
+  finn: "3401eaa3-6bde-4373-b418-a09e78f6bad4",    // Fork Debugger
+  grace: "e72c4e0f-7df1-4b7f-910b-d6f19b14542b",   // Gate Sentinel
+  maya: "7b8c44b7-ddeb-4a35-87e4-2ae502fe9001",    // Code Owner
+  parker: "9df8d807-6fb0-4a4d-85f8-b58115f06399",  // Performance Sentinel
+  priya: "642755a2-a869-440b-b4f7-e5a718e0fb8b",   // Goal Reaper
+  quinn: "102631e7-87d1-432e-a31c-678d18467f58",   // Test Adversary
+  ravi: "2f800625-2b22-442f-87c2-dd02d1b7838f",    // Replay Validator
+  riley: "1a8b10b9-916e-41c9-aa23-0122e929f20e",   // Evidence Lead
+  rowan: "774d5f17-62e9-4d43-9c71-e86ccb12a177",   // Code Reviewer
+  sam: "04579801-e0a0-4474-a6e9-bedfcd7eebe9",     // Docs Owner
+  sasha: "d4b24e43-0163-4bf0-882b-49f0ece2cb2d",   // Spec Skeptic
+  simone: "c5b29408-bee3-4e8e-9f69-ef6099d8dbba",  // Security Auditor
+  sofia: "ab752676-b8e9-4bf0-8f0f-6101933177a3",   // Spec Owner
+  t5d: "9dfa236a-e370-418a-be1c-32bb3026d1af",     // Activation Engineer
+  taylor: "3e41ab27-a151-449b-abe4-13a567159adf",  // Trace Archivist
+  theo: "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",    // Test Owner
+};
+
+export const SENDER_AGENT_KEY = "theo";  // Theo is the canonical sender for runner/Phoenix dispatch
+
+/**
+ * Find or create a conversation containing EXACTLY the two agents.
+ *
+ * Why exactly-2 matters: Pentagon's server-side trigger logic creates one
+ * agent_trigger row per non-sender participant when a message lands. A
+ * conversation that has accumulated extra participants (via earlier
+ * cascades) will fan out a single Phoenix dispatch into N parallel agent
+ * dispatches — billing N× and triggering N more cascades. Pinning Phoenix
+ * to exactly-2-party convs caps each dispatch at one agent.
+ *
+ * Discovered the hard way 2026-05-28: a flywheel test dispatch into a
+ * 5-participant Theo↔Maya conv (polluted by prior cascade) auto-spawned
+ * 4 simultaneous triggers for Maya/Carmen/Sofia/Sam — Sam's dispatch
+ * landed in flight before we could intercept.
+ */
+export async function findOrCreateConversation(senderAgentId, targetAgentId) {
+  // Find every conversation that contains BOTH agents.
+  const rows = await request(
+    `/rest/v1/conversation_participants?user_id=in.(${senderAgentId},${targetAgentId})` +
+    `&left_at=is.null&deleted_at=is.null&select=conversation_id,user_id&limit=500`
+  );
+  const grouped = new Map();
+  for (const row of rows) {
+    if (!grouped.has(row.conversation_id)) grouped.set(row.conversation_id, new Set());
+    grouped.get(row.conversation_id).add(row.user_id);
+  }
+  const candidateConvIds = [...grouped.entries()]
+    .filter(([, ids]) => ids.has(senderAgentId) && ids.has(targetAgentId))
+    .map(([id]) => id);
+
+  if (candidateConvIds.length) {
+    // For each candidate, check the FULL participant set — the query above
+    // only selected rows for sender/target, so a 5-party conv shows up here
+    // with 2 entries. We need the conv whose total participant count is 2.
+    const allParticipants = await request(
+      `/rest/v1/conversation_participants?conversation_id=in.(${candidateConvIds.join(",")})` +
+      `&left_at=is.null&deleted_at=is.null&select=conversation_id,user_id&limit=1000`
+    );
+    const sizes = new Map();
+    for (const row of allParticipants) {
+      sizes.set(row.conversation_id, (sizes.get(row.conversation_id) || 0) + 1);
+    }
+    const exactlyTwo = candidateConvIds.find((id) => sizes.get(id) === 2);
+    if (exactlyTwo) return exactlyTwo;
+    // No 2-party conv found — fall through to create a fresh one. This is
+    // the safety property that prevents cascade fan-out.
+  }
+
+  const owner = operatorId();
+  const title = `flywheel:${senderAgentId.slice(0, 8)}<->${targetAgentId.slice(0, 8)}`;
+  const created = await request("/rest/v1/conversations?select=id", {
+    method: "POST",
+    prefer: "return=representation",
+    body: { title },
+  });
+  const convId = Array.isArray(created) ? created[0]?.id : created?.id;
+  if (!convId) throw new Error("conversation create failed: " + JSON.stringify(created));
+  await request("/rest/v1/conversation_participants", {
+    method: "POST",
+    prefer: "return=representation",
+    body: [
+      { conversation_id: convId, user_id: senderAgentId, owner_id: owner },
+      { conversation_id: convId, user_id: targetAgentId, owner_id: owner },
+    ],
+  });
+  return convId;
+}
+
+/**
+ * Insert a message into a conversation. Pentagon's server-side logic then
+ * auto-creates an agent_triggers row that the bridge picks up.
+ */
+export async function insertMessage(conversationId, senderAgentId, content) {
+  const rows = await request(
+    "/rest/v1/messages?select=id,conversation_id,sender_id,content,created_at",
+    {
+      method: "POST",
+      prefer: "return=representation",
+      body: { conversation_id: conversationId, sender_id: senderAgentId, content },
+    }
+  );
+  return rows[0];
+}
+
+/**
+ * High-level dispatch: take a Phoenix todo row, pick the recommended agent,
+ * find/create the Theo↔agent conversation, insert a message that names the
+ * todo + failure context. Pentagon's auto-trigger logic does the rest.
+ *
+ * Returns { conversation_id, message_id, target_agent_id } on success.
+ * Throws on any REST failure — caller decides whether to retry or skip.
+ */
+export async function dispatchTodo(todo) {
+  const agentKey = String(todo.recommended_agent || "").toLowerCase();
+  const targetAgentId = AGENT_MAP[agentKey];
+  if (!targetAgentId) {
+    throw new Error(`unknown recommended_agent "${todo.recommended_agent}" — not in AGENT_MAP`);
+  }
+  const senderAgentId = AGENT_MAP[SENDER_AGENT_KEY];
+  const convId = await findOrCreateConversation(senderAgentId, targetAgentId);
+
+  const content = [
+    `FLYWHEEL_TODO ${todo.id}`,
+    "",
+    `You are the recommended agent for an automatically-generated todo from the dark factory's closed-loop flywheel.`,
+    "",
+    `Failure summary: ${todo.title}`,
+    `Failure reason code: ${todo.failure_reason}`,
+    `Failure event id: ${todo.failure_event_id} (factory-events.jsonl)`,
+    `Occurrences seen: ${todo.occurrences}`,
+    `Priority: ${todo.priority}`,
+    `Recommended agent: ${todo.recommended_agent} (you)`,
+    `Dedup key: ${todo.dedup_key}`,
+    "",
+    "Task: diagnose the failure and propose a code fix as a unified diff.",
+    "",
+    "Reply contract (REQUIRED — Phoenix parses your reply mechanically):",
+    `  Line 1: FLYWHEEL_TODO_${todo.id}_RECEIVED`,
+    "",
+    "  Then exactly ONE of:",
+    "",
+    `  (a) FLYWHEEL_TODO_${todo.id}_PROPOSE_DIFF`,
+    "      followed by a fenced \`\`\`diff block containing a unified diff that, when applied to the inner repo (activegraph/), fixes the failure. Paths must be relative to repo root (e.g. activegraph/llm/foo.py). Then a one-paragraph rationale.",
+    "",
+    `  (b) FLYWHEEL_TODO_${todo.id}_BLOCKED <one_line_reason>`,
+    "      if you cannot propose a fix (insufficient info, requires architectural decision, not actually a bug, etc.). State the reason succinctly.",
+    "",
+    "Phoenix will:",
+    "  - apply the diff to a fresh worktree",
+    "  - run the test suite in that worktree",
+    "  - if tests pass, commit + push to a fix branch",
+    "  - if tests fail, discard the diff and record the rejection",
+    "",
+    "Do NOT commit to the main worktree directly. Do NOT make changes outside the proposed diff. Your reply is the entire intervention — there is no follow-up.",
+  ].join("\n");
+
+  const message = await insertMessage(convId, senderAgentId, content);
+  return {
+    conversation_id: convId,
+    message_id: message?.id ?? null,
+    target_agent_id: targetAgentId,
+  };
+}

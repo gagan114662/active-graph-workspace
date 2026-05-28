@@ -111,6 +111,14 @@ except ImportError:
 def _emit(event_type: str, **kwargs: Any) -> None:
     if factory_events is None:
         return
+    # Suppress duplicate llm.responded emissions when the outer Node bridge
+    # layer will re-emit with full Pentagon context. Without this guard the
+    # same dispatch produces three llm.responded rows at three behavior
+    # labels (bridge.runClaude / bridge.runClaude.via.bridge_dispatch.py /
+    # activegraph.ClaudeCodeCliProvider) and Blake's cap totals + the
+    # factory-health dashboard triple-count the spend.
+    if event_type == "llm.responded" and os.environ.get("FACTORY_SUPPRESS_LLM_RESPONDED_EMIT"):
+        return
     try:
         if event_type == "behavior.failed":
             factory_events.emit_behavior_failed(**kwargs)

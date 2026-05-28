@@ -143,43 +143,76 @@ def listen_factory_events(
 
 
 def _listen_via_honker(sqlite_path: Path, stop_after_seconds: Optional[float]) -> Iterator[dict]:
+    """Real honker v0.2.x watcher API.
+
+    Honker exposes a file-level update watcher (not a per-table NOTIFY).
+    Pattern:
+      handle = honker_update_watcher_open(db_path, NULL)
+      loop: honker_update_watcher_wait(handle, timeout_ms) -> 1=update, 0=timeout, -1=closed
+            on 1 -> query new rows since last seen id
+      honker_update_watcher_close(handle)
+
+    The watcher fires for ANY write to the SQLite file, including writes
+    from other processes (honker-relay tails JSONL into the same DB).
+    """
     conn = sqlite3.connect(sqlite_path)
     conn.enable_load_extension(True)
     conn.load_extension(HONKER_PATH)
     conn.row_factory = sqlite3.Row
-    last_id = ""
     started = time.monotonic()
-    # Subscribe via honker_listen — exact API name depends on the
-    # crate version. As of honker 0.3.3, the listen interface is:
-    #   SELECT honker_listen('factory_events', NULL);
-    # Notifications fire when emit_factory_event INSERTs new rows
-    # and the writer also runs `honker_notify('factory_events', ...)`.
+
     try:
-        conn.execute("SELECT honker_listen('factory_events', NULL)")
+        (handle_id,) = conn.execute(
+            "SELECT honker_update_watcher_open(?, NULL)",
+            (str(sqlite_path),),
+        ).fetchone()
     except sqlite3.OperationalError as e:
-        # Fallback if honker API name differs in installed version.
-        yield {"type": "_warning", "payload": {"message": f"honker_listen() failed: {e}; falling back to polling"}}
+        yield {
+            "type": "_warning",
+            "payload": {
+                "message": f"honker_update_watcher_open() failed: {e}; falling back to polling"
+            },
+        }
         yield from _listen_via_jsonl_poll(DEFAULT_JSONL, 1000, stop_after_seconds)
+        conn.close()
         return
-    while stop_after_seconds is None or time.monotonic() - started < stop_after_seconds:
-        rows = conn.execute(
-            "SELECT id, created_at, type, payload FROM factory_events WHERE id > ? ORDER BY id ASC",
-            (last_id,),
-        ).fetchall()
-        for row in rows:
-            last_id = row["id"]
-            yield {
-                "id": row["id"],
-                "created_at": row["created_at"],
-                "type": row["type"],
-                "payload": json.loads(row["payload"]),
-            }
-        # honker_poll blocks briefly until a notification arrives.
+
+    # Seed last_id from current max in DB so we only yield NEW rows after subscribe.
+    row = conn.execute("SELECT COALESCE(MAX(id), '') FROM factory_events").fetchone()
+    last_id = row[0] if row else ""
+
+    try:
+        while stop_after_seconds is None or time.monotonic() - started < stop_after_seconds:
+            # Wait up to 200ms for any DB write.
+            (code,) = conn.execute(
+                "SELECT honker_update_watcher_wait(?, ?)",
+                (handle_id, 200),
+            ).fetchone()
+            if code == -1:
+                # Watcher closed/disconnected — break out so caller can re-subscribe.
+                break
+            if code == 0:
+                continue  # timeout, loop
+            # code == 1: at least one write since last wait. Drain new rows.
+            rows = conn.execute(
+                "SELECT id, created_at, type, payload FROM factory_events "
+                "WHERE id > ? ORDER BY id ASC",
+                (last_id,),
+            ).fetchall()
+            for r in rows:
+                last_id = r["id"]
+                yield {
+                    "id": r["id"],
+                    "created_at": r["created_at"],
+                    "type": r["type"],
+                    "payload": json.loads(r["payload"]),
+                }
+    finally:
         try:
-            conn.execute("SELECT honker_poll(100)")  # 100ms timeout
+            conn.execute("SELECT honker_update_watcher_close(?)", (handle_id,))
         except sqlite3.OperationalError:
-            time.sleep(0.05)
-    conn.close()
+            pass
+        conn.close()
 
 
 def _listen_via_jsonl_poll(
@@ -217,17 +250,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--migrate", action="store_true", help="Migrate JSONL → SQLite, then exit")
     parser.add_argument("--listen", action="store_true", help="Listen and print events")
-    parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--limit", type=int, default=0, help="0 = unlimited (daemon mode)")
+    parser.add_argument("--stop-after-seconds", type=float, default=None,
+                        help="Exit after N seconds (default: run forever)")
+    parser.add_argument("--json-lines", action="store_true",
+                        help="Print only JSON-per-line, no banner (for piping into other tools)")
     args = parser.parse_args()
     if args.migrate:
         n = migrate_jsonl_to_sqlite()
         print(f"Migrated {n} events to {DEFAULT_SQLITE}")
         print(f"Honker available: {honker_available()}")
     if args.listen:
-        print(f"Listening (honker_available={honker_available()})...")
+        if not args.json_lines:
+            print(f"Listening (honker_available={honker_available()})...", flush=True)
         count = 0
-        for ev in listen_factory_events(stop_after_seconds=5):
-            print(json.dumps(ev))
+        for ev in listen_factory_events(stop_after_seconds=args.stop_after_seconds):
+            print(json.dumps(ev), flush=True)
             count += 1
-            if count >= args.limit:
+            if args.limit and count >= args.limit:
                 break

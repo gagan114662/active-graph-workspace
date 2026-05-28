@@ -24,26 +24,20 @@ const DEFAULT_PATH = resolve(
   process.env.FACTORY_EVENTS_PATH || "frames/factory-events.jsonl"
 );
 
-let _seq = null;
-function nextSequence() {
-  if (_seq !== null) return ++_seq;
-  // Initialize from the file's last id so we never collide.
-  if (!existsSync(DEFAULT_PATH)) {
-    _seq = 0;
-    return ++_seq;
-  }
-  const lines = readFileSync(DEFAULT_PATH, "utf8").trim().split(/\r?\n/);
-  let maxSeq = 0;
-  for (const line of lines) {
-    if (!line) continue;
-    try {
-      const ev = JSON.parse(line);
-      const m = String(ev.id || "").match(/^evt_(\d+)$/);
-      if (m) maxSeq = Math.max(maxSeq, Number(m[1]));
-    } catch {}
-  }
-  _seq = maxSeq;
-  return ++_seq;
+// Collision-resistant event IDs (post-pt.4 fix). Per-process sequence
+// counters race when multiple writers (bridge + Sasha + Phoenix + ad-hoc)
+// emit concurrently — same evt_000XXX id, Honker's INSERT OR IGNORE
+// silently drops the second event. New format: evt_<unix_ms>_<pid>_<seq>,
+// padded so lexicographic sort matches chronological + watcher's
+// WHERE id > last_id ORDER BY id ASC still works. Old evt_000XXX events
+// sort BEFORE new ones (evt_0 < evt_1).
+const PID_PADDED = String(process.pid).padStart(6, "0");
+let _procSeq = 0;
+function nextId() {
+  const ts = String(Date.now()).padStart(15, "0");
+  _procSeq++;
+  const seq = String(_procSeq).padStart(4, "0");
+  return `evt_${ts}_${PID_PADDED}_${seq}`;
 }
 
 /**
@@ -72,9 +66,8 @@ export function emitFactoryEvent({
   path = DEFAULT_PATH,
 }) {
   if (!type) throw new Error("emitFactoryEvent: `type` is required");
-  const seq = nextSequence();
   const event = {
-    id: "evt_" + String(seq).padStart(6, "0"),
+    id: nextId(),
     created_at: new Date().toISOString(),
     type,
     payload: {
@@ -178,6 +171,104 @@ export function emitLlmResponded({
       ...extras,
     },
     path,
+  });
+}
+
+/**
+ * Emit a todo.created event — flywheel producer side.
+ * Sasha calls this; Phoenix consumes via honker subscribe.
+ * dedup_key shape: <reason>::<behavior>::<msg-prefix>
+ */
+export function emitTodoCreated({
+  failure_event_id,
+  dedup_key,
+  recommended_agent,
+  priority = null,
+  title = null,
+  failure_reason = null,
+  extras = {},
+  path,
+}) {
+  if (!failure_event_id) throw new Error("emitTodoCreated: failure_event_id required");
+  if (!dedup_key) throw new Error("emitTodoCreated: dedup_key required");
+  if (!recommended_agent) throw new Error("emitTodoCreated: recommended_agent required");
+  return emitFactoryEvent({
+    type: "todo.created",
+    behavior: "factory-flywheel",
+    extras: {
+      failure_event_id,
+      dedup_key,
+      recommended_agent,
+      priority,
+      title,
+      failure_reason,
+      ...extras,
+    },
+    path,
+  });
+}
+
+/**
+ * Emit a todo.completed event — flywheel closure.
+ * Bridge calls this when an agent reply contains FLYWHEEL_TODO_<id>_RECEIVED.
+ */
+export function emitTodoCompleted({
+  todo_event_id,
+  dedup_key,
+  completion_evidence = null,
+  extras = {},
+  path,
+}) {
+  if (!todo_event_id) throw new Error("emitTodoCompleted: todo_event_id required");
+  if (!dedup_key) throw new Error("emitTodoCompleted: dedup_key required");
+  return emitFactoryEvent({
+    type: "todo.completed",
+    behavior: "factory-flywheel",
+    extras: {
+      todo_event_id,
+      dedup_key,
+      completion_evidence,
+      ...extras,
+    },
+    path,
+  });
+}
+
+/**
+ * Emit a SYNTHETIC factory event — test scaffolding, probes, smoke tests.
+ *
+ * Designed after the 2026-05-28 synthetic-test contamination incident: an
+ * unmarked synthetic todo cascaded into a multi-agent debate costing real
+ * $$. This helper forces extras.synthetic=true AND auto-fills extras.probe_origin
+ * from the caller's stack so the producer-side honor is guaranteed.
+ *
+ * Sasha's routeFailureToAgent short-circuits on synthetic=true (returns null,
+ * no todo). The third guard (synthetic=true && !probe_origin) is the
+ * adversarial-evasion case the verifier flags as a distinct WARN.
+ */
+export function emitSyntheticProbe(reason, opts = {}) {
+  let probeOrigin = opts.probe_origin || null;
+  if (!probeOrigin) {
+    const stack = new Error().stack || "";
+    const lines = stack.split("\n");
+    const callerFrame = lines[2] || "";
+    const match = callerFrame.match(/\((.+):(\d+):(\d+)\)/) ||
+                  callerFrame.match(/at (.+):(\d+):(\d+)/);
+    probeOrigin = match ? `${match[1]}:${match[2]}` : "unknown";
+  }
+  const probeId = "probe_" + Math.random().toString(36).slice(2, 10);
+  return emitFactoryEvent({
+    type: opts.type || "behavior.failed",
+    behavior: opts.behavior || "synthetic-probe",
+    reason: reason,
+    message: opts.message || `synthetic probe: ${reason}`,
+    extras: {
+      synthetic: true,
+      probe_origin: probeOrigin,
+      probe_id: probeId,
+      ...(opts.extras || {}),
+    },
+    path: opts.path,
   });
 }
 

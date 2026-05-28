@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>run.factory.sasha-skeptic</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/gaganarora/Desktop/my projects/active_graph/scripts/sasha-skeptic.mjs</string>
+    <string>--pause-seconds</string>
+    <string>1800</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/gaganarora/Desktop/my projects/active_graph</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/gaganarora/.factory/sasha-skeptic.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/gaganarora/.factory/sasha-skeptic.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HONKER_EXTENSION_PATH</key>
+    <string>/Users/gaganarora/.local/lib/libhonker_ext.dylib</string>
+  </dict>
+</dict>
+</plist>

@@ -22,6 +22,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { installCrashGuard } from "./factory-crash-guard.mjs";
 import { emitFactoryEvent } from "./factory-events.mjs";
+import { subscribeToFactoryEvents } from "./honker-subscribe.mjs";
 
 installCrashGuard("blake-budget-marshal");
 
@@ -44,6 +45,7 @@ const CAP_SESSION = Number(arg("--cap-per-session", "999999"));
 const POLL_INTERVAL_MS = Number(arg("--poll-interval-ms", "5000"));
 const DRY_RUN = has("--dry-run");
 const TAIL_EXISTING = has("--tail-existing");
+const LEGACY_POLL = has("--legacy-poll");  // force JSONL file polling (skip honker)
 
 let lastSize = 0;
 let pauseActiveUntil = null;
@@ -82,6 +84,24 @@ function readAllEvents() {
     .filter(Boolean);
 }
 
+// De-dup the historical triple-emit. Pre-2026-05-28 every claude dispatch
+// emitted llm.responded at three behavior labels (bridge.runClaude /
+// bridge.runClaude.via.bridge_dispatch.py / activegraph.ClaudeCodeCliProvider)
+// with the same cost. The bridge env var FACTORY_SUPPRESS_LLM_RESPONDED_EMIT
+// fixed it for new dispatches but historical events stay triple-counted.
+// Only count the outermost emit (the Node bridge layer with full Pentagon
+// context); skip the inner-layer duplicates. Provider-only standalone events
+// (no bridge in the call stack) keep their unique behavior label and are
+// counted normally.
+const COST_EMIT_INNER_LAYERS = new Set([
+  "bridge.runClaude.via.bridge_dispatch.py",
+  "activegraph.ClaudeCodeCliProvider",
+]);
+
+function isInnerLayerDuplicate(ev) {
+  return COST_EMIT_INNER_LAYERS.has(ev.payload?.behavior);
+}
+
 function computeWindows() {
   const now = Date.now();
   const oneHourAgo = now - 3600 * 1000;
@@ -90,6 +110,7 @@ function computeWindows() {
   let hour = 0, day = 0, session = 0;
   for (const ev of events) {
     if (ev.type !== "llm.responded") continue;
+    if (isInnerLayerDuplicate(ev)) continue;  // skip triple-count
     const cost = Number(ev.payload?.cost_usd ?? 0);
     if (!cost) continue;
     const ts = Date.parse(ev.created_at);
@@ -175,6 +196,10 @@ if (existsSync(EVENTS_PATH)) {
   lastSize = TAIL_EXISTING ? 0 : statSync(EVENTS_PATH).size;
 }
 
+let interval = null;
+let honkerSub = null;
+const useHonker = !LEGACY_POLL;
+
 console.log(JSON.stringify({
   status: "blake_started",
   events_path: EVENTS_PATH,
@@ -185,15 +210,36 @@ console.log(JSON.stringify({
   poll_interval_ms: POLL_INTERVAL_MS,
   dry_run: DRY_RUN,
   tail_existing: TAIL_EXISTING,
+  mode: useHonker ? "honker-subscribe" : "legacy-file-poll",
 }));
 
-// Initial check + then poll loop.
+// Initial cap check on startup.
 checkCaps();
-const interval = setInterval(pollNewEvents, POLL_INTERVAL_MS);
+
+if (useHonker) {
+  // Re-check caps every time a new event arrives. Only llm.responded events
+  // carry cost; other event types are no-ops here, but the recheck cost is
+  // negligible (one full-file aggregation).
+  honkerSub = subscribeToFactoryEvents(
+    (event) => {
+      if (event.type === "llm.responded") {
+        checkCaps();
+      }
+    },
+    {
+      onWarning: (msg) => {
+        console.error("[blake:honker-subscribe]", msg);
+      },
+    }
+  );
+} else {
+  interval = setInterval(pollNewEvents, POLL_INTERVAL_MS);
+}
 
 function shutdown(signal) {
   console.log(JSON.stringify({ status: "blake_shutting_down", signal }));
-  clearInterval(interval);
+  if (interval) clearInterval(interval);
+  if (honkerSub) honkerSub.close();
   process.exit(0);
 }
 process.on("SIGINT", () => shutdown("SIGINT"));

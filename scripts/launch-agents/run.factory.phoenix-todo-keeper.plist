@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>run.factory.phoenix-todo-keeper</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/gaganarora/Desktop/my projects/active_graph/scripts/phoenix-todo-keeper.mjs</string>
+    <!-- Autonomous dispatch is ON. The factory closes the loop end-to-end:
+         failures detected by Sasha → todos created → dispatched to Pentagon →
+         agents work → completion events flow back → todos closed.
+         To run in OBSERVE-only mode (todos created/queryable but no Pentagon
+         dispatch), remove the --autodispatch line below. -->
+    <string>--autodispatch</string>
+    <string>--dispatch-max-per-window</string>
+    <string>5</string>
+    <string>--dispatch-window-ms</string>
+    <string>60000</string>
+    <string>--dispatch-circuit-threshold</string>
+    <string>3</string>
+    <string>--dispatch-circuit-cooldown-ms</string>
+    <string>300000</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/gaganarora/Desktop/my projects/active_graph</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/gaganarora/.factory/phoenix-todo-keeper.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/gaganarora/.factory/phoenix-todo-keeper.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HONKER_EXTENSION_PATH</key>
+    <string>/Users/gaganarora/.local/lib/libhonker_ext.dylib</string>
+  </dict>
+</dict>
+</plist>

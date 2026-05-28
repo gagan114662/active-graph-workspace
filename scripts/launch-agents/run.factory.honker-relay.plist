@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>run.factory.honker-relay</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>python3</string>
+    <string>/Users/gaganarora/Desktop/my projects/active_graph/scripts/honker_relay.py</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/gaganarora/Desktop/my projects/active_graph</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/gaganarora/.factory/honker-relay.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/gaganarora/.factory/honker-relay.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HONKER_EXTENSION_PATH</key>
+    <string>/Users/gaganarora/.local/lib/libhonker_ext.dylib</string>
+    <key>HONKER_RELAY_POLL_MS</key>
+    <string>200</string>
+  </dict>
+</dict>
+</plist>

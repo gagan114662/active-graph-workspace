@@ -7,7 +7,51 @@ import {
   emitBehaviorCompleted,
   emitLlmRequested,
   emitLlmResponded,
+  emitTodoCompleted,
+  emitFactoryEvent,
 } from "./factory-events.mjs";
+
+// Detect the closed-loop flywheel envelope in trigger content. Phoenix
+// dispatches todos as messages that start with "FLYWHEEL_TODO <todo_id>";
+// when the bridge sees one and the agent responds, we emit todo.completed
+// so Phoenix's keeper closes the loop automatically.
+function extractFlywheelTodoId(triggerContent) {
+  const m = String(triggerContent ?? "").match(/^FLYWHEEL_TODO\s+(\S+)/);
+  return m ? m[1] : null;
+}
+
+function flywheelReceiptPresent(agentReply, todoId) {
+  if (!todoId) return false;
+  return String(agentReply ?? "").includes(`FLYWHEEL_TODO_${todoId}_RECEIVED`);
+}
+
+// Action-layer parser (task #15 / pt.7). When the agent's reply contains
+// FLYWHEEL_TODO_<id>_PROPOSE_DIFF followed by a ```diff fenced block, parse
+// out the unified diff so Phoenix can apply it to a worktree and gate on
+// tests. Returns { kind: "diff", diff: string, rationale: string } or
+// { kind: "blocked", reason: string } or null.
+function parseFlywheelAction(agentReply, todoId) {
+  if (!todoId) return null;
+  const text = String(agentReply ?? "");
+  const blockedRe = new RegExp(`FLYWHEEL_TODO_${todoId}_BLOCKED\\s+([^\\n]+)`);
+  const blocked = text.match(blockedRe);
+  if (blocked) return { kind: "blocked", reason: blocked[1].trim() };
+
+  const proposeRe = new RegExp(`FLYWHEEL_TODO_${todoId}_PROPOSE_DIFF`);
+  if (!proposeRe.test(text)) return null;
+
+  // Pull the first ```diff ... ``` block AFTER the PROPOSE marker.
+  const proposeIdx = text.search(proposeRe);
+  const afterPropose = text.slice(proposeIdx);
+  const fenceMatch = afterPropose.match(/```(?:diff|patch)?\s*\n([\s\S]*?)\n```/);
+  if (!fenceMatch) {
+    return { kind: "proposed_no_diff", reason: "PROPOSE_DIFF marker present but no fenced diff block found" };
+  }
+  const diff = fenceMatch[1];
+  // Rationale = anything after the closing fence (trimmed).
+  const afterFence = afterPropose.slice(fenceMatch.index + fenceMatch[0].length).trim();
+  return { kind: "diff", diff, rationale: afterFence.slice(0, 1000) };
+}
 import { installCrashGuard } from "./factory-crash-guard.mjs";
 
 installCrashGuard("bridge");
@@ -311,6 +355,12 @@ function runClaudeViaPythonDispatcher(trigger, token, agent) {
   delete env.CLAUDE_CODE_ENTRYPOINT;
   delete env.CLAUDE_CODE_EXECPATH;
   delete env.AI_AGENT;
+  // Suppress the Python provider's + dispatcher's llm.responded emit.
+  // The outermost Node bridge layer re-emits with full Pentagon context
+  // (trigger_id, agent_id, conversation_id). Without this guard the same
+  // dispatch surfaces three llm.responded rows at three behavior labels —
+  // Blake's caps fire at 3× sensitivity and cost dashboards over-report 3×.
+  env.FACTORY_SUPPRESS_LLM_RESPONDED_EMIT = "1";
   const result = spawnSync(python, [dispatcher], {
     input: JSON.stringify(payload),
     encoding: "utf8",
@@ -779,6 +829,7 @@ async function processCandidates(candidates) {
             },
           });
         }
+        const flywheelTodoId = extractFlywheelTodoId(claimed.content);
         emitBehaviorCompleted({
           behavior: behaviorName,
           message: persistedMessage ? "agent response persisted" : "subprocess succeeded; no new message persisted",
@@ -793,8 +844,59 @@ async function processCandidates(candidates) {
             latency_seconds: latencySeconds,
             started_at: startedAt,
             finished_at: finishedAt,
+            todo_id: flywheelTodoId,  // null for non-flywheel dispatches
           },
         });
+        // Closed-loop flywheel: if this dispatch was Phoenix-originated,
+        // emit either flywheel.diff.proposed (action-layer task #15) or
+        // todo.completed for the chat-only path. Phoenix's keeper closes
+        // the loop in either case.
+        if (flywheelTodoId) {
+          const action = parseFlywheelAction(finalText, flywheelTodoId);
+          if (action?.kind === "diff") {
+            // Emit the diff for Phoenix to apply + test. Do NOT close
+            // the todo yet — Phoenix closes it after test gate runs.
+            emitFactoryEvent({
+              type: "flywheel.diff.proposed",
+              behavior: "factory-flywheel",
+              extras: {
+                todo_event_id: flywheelTodoId,
+                agent_id: claimed.agent_id,
+                agent_name: agent?.name ?? null,
+                trigger_id: claimed.id,
+                conversation_id: claimed.conversation_id,
+                diff_chars: action.diff.length,
+                diff_b64: Buffer.from(action.diff, "utf8").toString("base64"),
+                rationale: action.rationale,
+                receipt_string_present: flywheelReceiptPresent(finalText, flywheelTodoId),
+              },
+            });
+          } else {
+            // Chat-only, blocked, or no-diff path — close the todo now.
+            const blockedReason =
+              action?.kind === "blocked" ? action.reason :
+              action?.kind === "proposed_no_diff" ? action.reason :
+              null;
+            emitTodoCompleted({
+              todo_event_id: flywheelTodoId,
+              dedup_key: flywheelTodoId,  // Phoenix reverse-lookups by todo_id
+              completion_evidence: blockedReason
+                ? `blocked: ${blockedReason}`
+                : persistedMessage?.id
+                  ? `agent_reply_message_id=${persistedMessage.id}`
+                  : "subprocess succeeded; no message persisted",
+              extras: {
+                agent_id: claimed.agent_id,
+                agent_name: agent?.name ?? null,
+                trigger_id: claimed.id,
+                conversation_id: claimed.conversation_id,
+                receipt_string_present: flywheelReceiptPresent(finalText, flywheelTodoId),
+                reply_chars: String(finalText ?? "").length,
+                outcome: action?.kind || "chat_only",
+              },
+            });
+          }
+        }
       } catch (emitErr) {
         console.error(JSON.stringify({ event: "factory_event_emit_failed", phase: "success", error: String(emitErr?.message ?? emitErr) }));
       }
