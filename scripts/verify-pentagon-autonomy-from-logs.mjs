@@ -1680,6 +1680,8 @@ async function runT6MediumVerifier() {
     } catch (error) {
       must("T6 medium messages table has Maya ACK referencing proof", false, error.message);
     }
+    // P2a: reviewer acks — inert unless the proof declares reviewers= (see hard handler).
+    await verifyT6ReviewerAcks(proof, hash);
   }
 
   const failed = checks.filter((check) => !check.ok);
@@ -1893,6 +1895,8 @@ async function runT6ExtraHardVerifier() {
     } catch (error) {
       must("T6 extra-hard messages table has 5-ACK causal chain", false, error.message);
     }
+    // P2a: reviewer acks — inert unless the proof declares reviewers= (see hard handler).
+    await verifyT6ReviewerAcks(proof, proof.hash);
   }
 
   const quinnGroundTruth = xhardQuinnGroundTruth(proof);
