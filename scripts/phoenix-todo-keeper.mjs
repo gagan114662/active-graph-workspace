@@ -397,6 +397,11 @@ function processEvent(event) {
     // Action layer phase 2 (task #16): reviewer issued verdict.
     // PASS → commit + push. FAIL → revert + emit attempt.rejected.
     handleReviewCompleted(event);
+  } else if (event.type === "factory.config.approved") {
+    // Operator-approved a factory-learn proposal (task #20).
+    // Apply the corresponding factory.config.proposed payload to the
+    // routing config. Sasha auto-reloads on file change.
+    handleConfigApproved(event);
   }
   // Also consider any behavior.completed with extras.todo_id as an implicit
   // todo completion (lets agents close their assigned todos by emitting the
@@ -404,6 +409,103 @@ function processEvent(event) {
   if (event.type === "behavior.completed" && event.payload?.todo_id) {
     handleTodoCompletion(event);
   }
+}
+
+// --- Operator approval path (task #20) ---
+
+const ROUTING_CONFIG_PATH = resolve(
+  process.env.FACTORY_ROUTING_CONFIG ||
+    "/Users/gaganarora/Desktop/my projects/active_graph/agent-os/factory-routing-config.json"
+);
+
+function findProposedEventInLog(proposedEventId) {
+  // Walk the JSONL backwards (most recent first) and stop at the matching
+  // proposal id. Bounded scan to keep it cheap.
+  const eventsPath = resolve(process.env.FACTORY_EVENTS_PATH || "frames/factory-events.jsonl");
+  if (!existsSync(eventsPath)) return null;
+  const lines = readFileSync(eventsPath, "utf8").split(/\r?\n/).filter(Boolean);
+  for (let i = lines.length - 1; i >= Math.max(0, lines.length - 5000); i--) {
+    try {
+      const ev = JSON.parse(lines[i]);
+      if (ev.id === proposedEventId && ev.type === "factory.config.proposed") return ev;
+    } catch {}
+  }
+  return null;
+}
+
+function applyProposalsToConfig(currentConfig, proposals) {
+  const next = JSON.parse(JSON.stringify(currentConfig));
+  next.rules = next.rules || [];
+  for (const p of proposals) {
+    // For each (reason, behavior) tuple, insert a new rule BEFORE the
+    // existing matching rule so the new agent is preferred. The new
+    // rule's `when` is the most specific predicate that captures this
+    // tuple: reason_equals + behavior_equals.
+    const newRule = {
+      name: `learned_${p.key.reason}_${p.key.behavior}_${p.proposed.agent}`.replace(/[^a-z0-9_]/gi, "_").slice(0, 80),
+      when: { reason_equals: p.key.reason, behavior_equals: p.key.behavior },
+      route: { agent: p.proposed.agent, priority: p.current_priority || "p1" },
+      rationale: `factory-learn proposal: ${p.proposed.agent} had ${(p.proposed.rate * 100).toFixed(1)}% success vs ${p.current.agent}'s ${(p.current.rate * 100).toFixed(1)}% over ${p.proposed.dispatched}+${p.current.dispatched} dispatches (improvement ${p.improvement_pp}pp)`,
+      learned: true,
+      learned_at: new Date().toISOString(),
+    };
+    // Insert at the top of the rules so it's matched FIRST.
+    next.rules.unshift(newRule);
+  }
+  next.last_updated = new Date().toISOString().slice(0, 10);
+  return next;
+}
+
+function handleConfigApproved(event) {
+  const proposedEventId = event.payload?.proposed_event_id;
+  if (!proposedEventId) {
+    console.error("[phoenix] factory.config.approved missing proposed_event_id");
+    return;
+  }
+  const proposal = findProposedEventInLog(proposedEventId);
+  if (!proposal) {
+    console.error(`[phoenix] could not find factory.config.proposed event ${proposedEventId}`);
+    emitFactoryEvent({
+      type: "factory.config.apply_failed",
+      behavior: "factory-flywheel",
+      reason: "config.proposal_not_found",
+      message: `proposal event ${proposedEventId} not found in log`,
+      extras: { approval_event_id: event.id, proposed_event_id: proposedEventId },
+    });
+    return;
+  }
+  const proposals = proposal.payload?.proposals || [];
+  if (proposals.length === 0) {
+    console.error("[phoenix] proposal has empty proposals array; nothing to apply");
+    return;
+  }
+  let currentConfig;
+  try {
+    currentConfig = JSON.parse(readFileSync(ROUTING_CONFIG_PATH, "utf8"));
+  } catch (e) {
+    console.error("[phoenix] failed to read current routing config:", e.message);
+    return;
+  }
+  const newConfig = applyProposalsToConfig(currentConfig, proposals);
+  // Write atomically.
+  const tmpPath = ROUTING_CONFIG_PATH + ".applying";
+  writeFileSync(tmpPath, JSON.stringify(newConfig, null, 2));
+  renameSync(tmpPath, ROUTING_CONFIG_PATH);
+  emitFactoryEvent({
+    type: "factory.config.applied",
+    behavior: "factory-flywheel",
+    extras: {
+      approval_event_id: event.id,
+      proposed_event_id: proposedEventId,
+      proposals_applied: proposals.length,
+      rules_added: proposals.map((p) => `learned_${p.key.reason}_${p.proposed.agent}`),
+    },
+  });
+  console.log(JSON.stringify({
+    status: "phoenix_config_applied",
+    proposed_event_id: proposedEventId,
+    rules_added: proposals.length,
+  }));
 }
 
 // --- Action layer (task #15) ---
