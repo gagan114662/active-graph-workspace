@@ -40,20 +40,60 @@ import { emitTodoCreated } from "./factory-events.mjs";
 installCrashGuard("sasha-skeptic");
 
 // Routing: which agent picks up a todo for a given failure event.
-// Returns null when the failure should NOT create a todo. Reasons to skip:
-//   - transient rate limits (handled by Sasha pausing the bridge)
-//   - network errors (handled by bridge retry)
-//   - the event's extras.synthetic === true (test/probe scaffolding — must
-//     not contaminate the production todo list; designed in the flywheel-test
-//     contamination incident 2026-05-28 where a synthetic test triggered a
-//     cascading multi-agent debate. Field-absent defaults to "real" — the
-//     fail-safe per Theo's "(c) field-absent treats-as-real" check.)
+//
+// Logic is data-driven (task #18 from the factory-autonomous goal doc):
+// rules live in agent-os/factory-routing-config.json. This makes routing
+// changes a versioned data delta that factory-learn.mjs can propose +
+// apply deterministically, instead of a code edit that requires a daemon
+// restart. The config is reloaded each tick (cheap; ~2KB read) so the
+// next-event-after-edit picks up new rules without a restart.
+import { readFileSync as _readFileSyncSasha, existsSync as _existsSyncSasha } from "node:fs";
+const ROUTING_CONFIG_PATH = process.env.FACTORY_ROUTING_CONFIG ||
+  "/Users/gaganarora/Desktop/my projects/active_graph/agent-os/factory-routing-config.json";
+
+let _cachedRouting = null;
+let _cachedRoutingMtime = 0;
+function loadRoutingConfig() {
+  if (!_existsSyncSasha(ROUTING_CONFIG_PATH)) return null;
+  try {
+    const stat = _readFileSyncSasha(ROUTING_CONFIG_PATH).length;  // cheap freshness check
+    if (_cachedRouting && stat === _cachedRoutingMtime) return _cachedRouting;
+    _cachedRouting = JSON.parse(_readFileSyncSasha(ROUTING_CONFIG_PATH, "utf8"));
+    _cachedRoutingMtime = stat;
+    return _cachedRouting;
+  } catch {
+    return _cachedRouting;  // keep last good config if reload fails
+  }
+}
+
+function matchPredicate(when, event) {
+  if (!when) return false;
+  if (when.always === true) return true;
+  const reason = event?.payload?.reason || null;
+  const behavior = event?.payload?.behavior || null;
+  if ("extras.synthetic" in when) {
+    if ((event?.payload?.synthetic === true) !== (when["extras.synthetic"] === true)) return false;
+  }
+  if (when.reason_equals !== undefined && reason !== when.reason_equals) return false;
+  if (when.reason_prefix !== undefined && !(reason && reason.startsWith(when.reason_prefix))) return false;
+  if (when.behavior_equals !== undefined && behavior !== when.behavior_equals) return false;
+  return true;
+}
+
 function routeFailureToAgent(event) {
-  // Support both old signature (reason string) and new signature (event obj).
-  // Callers in this file always pass the full event now; defensive for any
-  // external consumer that may still pass a bare reason string.
-  const reason = typeof event === "string" ? event : event?.payload?.reason;
-  const synthetic = typeof event === "object" && event?.payload?.synthetic === true;
+  // Support legacy string-only callers (reason as bare string).
+  if (typeof event === "string") event = { payload: { reason: event } };
+  const config = loadRoutingConfig();
+  if (config?.rules?.length) {
+    for (const rule of config.rules) {
+      if (!matchPredicate(rule.when, event)) continue;
+      if (rule.skip_todo) return null;
+      if (rule.route) return { agent: rule.route.agent, priority: rule.route.priority, matched_rule: rule.name };
+    }
+  }
+  // Fall back to the original hardcoded ladder if config is missing/empty.
+  const reason = event?.payload?.reason;
+  const synthetic = event?.payload?.synthetic === true;
   if (synthetic) return null;
   if (!reason) return { agent: "sasha", priority: "p2" };
   if (reason === "llm.rate_limited") return null;

@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "last_updated": "2026-05-28",
+  "purpose": "Routing rules consumed by sasha-skeptic.mjs::routeFailureToAgent(event). Reading from JSON instead of hardcoded logic makes config changes a versioned data delta (task #18 from frames/codex-goals/factory-fully-autonomous-goal-20260528.md), which factory-learn.mjs can propose and apply deterministically.",
+
+  "rules": [
+    {
+      "name": "synthetic_short_circuit",
+      "when": { "extras.synthetic": true },
+      "skip_todo": true,
+      "rationale": "Test scaffolding events MUST NOT route. Per the 2026-05-28 contamination incident: an unmarked synthetic todo cascaded into a multi-agent debate costing real $. Field-absent defaults to real (fail-safe)."
+    },
+    {
+      "name": "transient_rate_limit_skip",
+      "when": { "reason_equals": "llm.rate_limited" },
+      "skip_todo": true,
+      "rationale": "Sasha pauses the bridge separately. Creating a todo would generate work that the rate limit blocks from completing."
+    },
+    {
+      "name": "transient_network_skip",
+      "when": { "reason_equals": "llm.network_error" },
+      "skip_todo": true,
+      "rationale": "Bridge already retries. Todo creation would dedupe-thrash."
+    },
+    {
+      "name": "llm_provider_error_to_sasha",
+      "when": { "reason_equals": "llm.provider_error" },
+      "route": { "agent": "sasha", "priority": "p1" },
+      "rationale": "Provider failure (e.g. invalid auth, 5xx) needs operator-facing investigation."
+    },
+    {
+      "name": "agent_failures_to_sasha",
+      "when": { "reason_prefix": "agent." },
+      "route": { "agent": "sasha", "priority": "p1" },
+      "rationale": "Agent-quality failures (satisfaction_of_search, etc.) escalate to Sasha for human review."
+    },
+    {
+      "name": "verifier_check_failed_to_maya",
+      "when": { "reason_equals": "verifier.check_failed" },
+      "route": { "agent": "maya", "priority": "p1" },
+      "rationale": "Verifier check failures usually indicate a code-fix is needed. Maya gets the worktree."
+    },
+    {
+      "name": "script_crash_to_maya",
+      "when": { "reason_equals": "script.crash" },
+      "route": { "agent": "maya", "priority": "p1" },
+      "rationale": "Script crashes are bugs in factory tooling. Maya fixes them."
+    },
+    {
+      "name": "phoenix_dispatch_failed_to_sasha",
+      "when": { "reason_equals": "phoenix.dispatch_failed" },
+      "route": { "agent": "sasha", "priority": "p1" },
+      "rationale": "Meta-flywheel: dispatch failures may indicate Pentagon REST issues. Sasha investigates."
+    },
+    {
+      "name": "infrastructure_to_sasha",
+      "when": { "reason_prefix": "infrastructure." },
+      "route": { "agent": "sasha", "priority": "p2" },
+      "rationale": "Infrastructure events (no-trigger, ghost completion, etc.) are Pentagon-side; Sasha aggregates."
+    },
+    {
+      "name": "default_to_sasha_p2",
+      "when": { "always": true },
+      "route": { "agent": "sasha", "priority": "p2" },
+      "rationale": "Catch-all: unrecognized failure reasons go to Sasha for triage. p2 means tomorrow-not-today."
+    }
+  ],
+
+  "schema": {
+    "rule": {
+      "name": "unique identifier for the rule (used in audit logs)",
+      "when": "predicate object — matched in order, first match wins",
+      "route": "{agent, priority} when matched",
+      "skip_todo": "true if matched failures should NOT create a todo",
+      "rationale": "free-text — surfaced in logs when this rule fires"
+    },
+    "when_predicates": {
+      "extras.synthetic": "matches event.payload.synthetic === <value>",
+      "reason_equals": "matches event.payload.reason === <value>",
+      "reason_prefix": "matches event.payload.reason starts with <value>",
+      "behavior_equals": "matches event.payload.behavior === <value>",
+      "always": "true matches every event (catch-all)"
+    },
+    "priority_values": ["p0", "p1", "p2"],
+    "valid_agents": ["sasha", "maya", "quinn", "rowan", "grace", "theo", "sofia", "sam", "riley", "blake", "carmen", "avery", "taylor", "priya", "casey", "simone", "parker", "ravi", "finn", "t5d"]
+  }
+}
