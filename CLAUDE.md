@@ -1476,4 +1476,40 @@ gagan114662/active-graph-workspace main, SHA-verified local==remote each push
 
 ---
 
+### 2026-05-28 (pt.15 — two blocking bugs found by RUNNING P15, fixed + verified green)
+
+"Anything left?" → running the T7 4.8 batch surfaced two real blockers that all the green
+unit-tests had hidden. Both fixed + verified end-to-end.
+
+**Bug 1 — opus-4.8 multi-turn thinking-preservation 400 (THE blocker).** Every T7 gauntlet dispatch
+fast-failed (looked like ghost_completion). Root cause: on agentic multi-turn tool use (Maya:
+read→pytest→commit), the claude CLI mangles a `thinking`/`redacted_thinking` block from an earlier
+assistant turn on the follow-up request → API `400 ... thinking blocks ... must remain as they were in
+the original response`. Single-turn T6 reviews never hit it; intermittent across runs. **Fix:**
+`activegraph/llm/claude_code_cli.py::_build_env` sets `MAX_THINKING_TOKENS=0` (no thinking blocks →
+nothing to mangle), overridable via `FACTORY_CLAUDE_MAX_THINKING_TOKENS`. Inner commit `abb7121`.
+Verified: Maya then ran `end_turn` cleanly.
+
+**Bug 2 — runner crashes on transient Supabase 5xx.** A single `500 57014 "canceling statement due to
+statement timeout"` on the messages poll crashed the whole run and LOST Maya's completed work (she'd
+run end_turn $3.30; the runner died polling for her ACK → false proof_missing). **Fix:**
+`run-native-pentagon-task.mjs::request()` retries 5xx up to 3× with backoff. Outer commit `466d310`.
+
+**Verified GREEN end-to-end (opus-4.8):** clean run → `PASS target=activegraph.runtime.budget.Budget.consume
+tests+2 wall=305.9s`, runner exit=0, proof written, ledger recorded. The full T7 path works on 4.8.
+Maya inner commits landed: `ca67934` (Budget.consume), `77c000d` (redact_payload), `2d10fad`
+(decode_event) — pushed to gagan114662/activegraph main.
+
+**P15 status:** the 4.8 path is PROVEN (1 clean ledger PASS); the cohort-C ledger
+(`t7-native-repetition-progress-medium-cohortC-opus48-20260528.jsonl`) is the fresh 4.8 sample (no
+4.7 mixing). Completing the 25-run gate is now just running `t7-medium-cohortC-opus48-fire.mjs 2..25`
+(~2h, MAX session capacity) — unblocked, just long. Use the f1-style 3-consecutive-fail guard.
+
+**Lesson:** green unit tests + offline checks did NOT catch either bug — only actually RUNNING the
+gauntlet did. The single most valuable thing was firing a real dispatch.
+
+Pushed: outer `466d310` (+ pt.15), inner `ca67934`. All SHA-verified.
+
+---
+
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._
