@@ -796,6 +796,22 @@ if (!existsSync(PENTAGON_BIN)) {
   throw new Error("Pentagon.app is not installed at the expected path.");
 }
 
+// Sender-only agents: identities the daemons use ONLY to originate dispatches,
+// never to respond. Priya (Goal Reaper) is the SENDER_AGENT_KEY in
+// pentagon-rest.mjs (chosen because the Pentagon MCP context can seed
+// {Priya, reviewer} 2-party convs that the RLS-blocked daemon INSERT can't —
+// see frames/codex-goals/rls-unblock-kit-20260528.md). Pentagon auto-creates a
+// trigger for the NON-sender on every message, so when a reviewer replies into
+// {Priya, reviewer} Pentagon makes a trigger for Priya. Dispatching her would
+// run claude on an agent with no responder role and risk a 2-party ping-pong.
+// We complete such triggers WITHOUT dispatch. Env override:
+//   FACTORY_SENDER_ONLY_AGENT_IDS=<uuid,uuid>
+const SENDER_ONLY_AGENT_IDS = new Set(
+  (process.env.FACTORY_SENDER_ONLY_AGENT_IDS ||
+    "642755a2-a869-440b-b4f7-e5a718e0fb8b") // Priya (Goal Reaper)
+    .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
+);
+
 async function processCandidates(candidates) {
   const results = [];
   for (const candidate of candidates) {
@@ -826,6 +842,28 @@ async function processCandidates(candidates) {
     // NO factory event. The catch (loop end) emits + releases the claim.
     let claimed = null;
     try {
+    // Sender-only guard (anti-ping-pong): complete Priya's echo triggers without
+    // dispatch. Runs BEFORE the cascade guard because a {Priya, reviewer} conv is
+    // a legitimate 2-party conv that the cascade guard would (correctly) let
+    // through — the issue isn't fan-out here, it's that Priya must never respond.
+    if (candidate.agent_id && SENDER_ONLY_AGENT_IDS.has(String(candidate.agent_id).toLowerCase())) {
+      const claimedSender = candidate.claimed_at ? candidate : await claimTrigger(candidate.id);
+      if (claimedSender) await completeTrigger(claimedSender.id);
+      try {
+        emitInfrastructureEvent({
+          subtype: "sender_only_trigger_completed",
+          message: `completed trigger for sender-only agent ${candidate.agent_id} without dispatch (anti-ping-pong)`,
+          extras: {
+            trigger_id: candidate.id,
+            conversation_id: candidate.conversation_id ?? null,
+            agent_id: candidate.agent_id,
+          },
+        });
+      } catch {}
+      results.push({ status: "sender_only_completed", trigger: summarizeTrigger(candidate) });
+      continue;
+    }
+
     // Cascade guard: Pentagon creates one agent_trigger per non-sender
     // participant when a message lands, and the bridge re-posts each agent's
     // reply back into the conversation. In a >2-participant conversation that

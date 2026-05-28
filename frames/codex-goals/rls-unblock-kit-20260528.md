@@ -10,6 +10,46 @@
 > Option B below is kept only IF you (or Pentagon) ever get admin DB access. The `rpcDispatchToAgent`
 > code path is harmless either way (it 404s → falls back to the REST path, which Option 0 unblocks).
 
+---
+
+## ✅ VERIFIED CLOSURE (2026-05-28) — Gap A is CLOSED
+
+The working path turned out to be **MCP-as-Priya**, not GUI seeding. Confirmed end-to-end:
+
+- The Pentagon **MCP tool context authenticates as `Priya (Goal Reaper)`** (`642755a2-…`) with a
+  `pentagon_agent:true` JWT that the gateway accepts (`gateway_passed:true`, ~99y expiry,
+  `pentagon_owner_id=8e327bb0-…` — same backend `ieetsizejvdpsvaiuukb.supabase.co` the daemon uses).
+- `mcp__pentagon__find_conversation` **auto-includes the caller (Priya)**, so it can only mint
+  `{Priya, X}` 2-party convs — but that's exactly why `pentagon-rest.mjs` already set
+  `SENDER_AGENT_KEY = "priya"`. The MCP path creates convs the daemon's raw REST INSERT can't, and
+  the daemon **can read them** (READ was never RLS-blocked).
+
+**Seeded + verified 2-party reviewer conversations (daemon-visible, exactly 2 active participants):**
+
+| Pair | conversation_id |
+|---|---|
+| Priya ↔ Rowan | `9508cf6a-f096-4c04-93e1-d45e5496b7c7` |
+| Priya ↔ Grace | `41286169-cade-4d73-852b-b31c75318e4c` |
+| Priya ↔ Theo  | `e8b581b8-1938-498b-84a3-9bf661b5dba1` |
+
+`findOrCreateConversation(priya, <reviewer>)` now short-circuits on SELECT forever; the blocked INSERT
+is never reached. **Reproduce the seeding:** call `find_conversation([<reviewer_uuid>])` from a
+Pentagon-MCP-connected claude session (the operator's), once per reviewer.
+
+### Two latent issues surfaced during verification (fix before relying on it at scale)
+1. **`pentagon-rest.refreshSession()` doesn't actually refresh** — it just re-reads the plist, which
+   can hold a stale/rotated accessToken → daemon 401s even when `expiresAt` is in the future. The real
+   fix is a `grant_type=refresh_token` POST (proven to work here). The bridge has its own refresh; this
+   bug bites pentagon-rest/Phoenix dispatch specifically.
+2. **2-party Priya-echo ping-pong** — Pentagon auto-creates a trigger for the *non-sender* on every
+   message, so when Rowan replies into `{Priya, Rowan}`, Pentagon makes a trigger for **Priya**, which
+   the bridge would claim + dispatch. Priya is a daemon-side *sender only*, never a responder. **Before
+   the first live reviewer dispatch, the bridge must treat Priya's triggers as non-dispatchable**
+   (complete-without-running-claude). Otherwise a reviewer reply could ping-pong. This is the one gate
+   between "RLS unblocked" and "safe to fire a live review."
+
+---
+
 Two ways to unblock reviewer dispatch. **Do Option 0 first (5 min, no SQL); Option B is the durable
 fallback.** The code is already wired for both: `pentagon-rest.mjs::dispatchReviewer` now tries the
 `dispatch_to_agent` RPC first (Option B) and falls back to the REST path (works after Option 0).
