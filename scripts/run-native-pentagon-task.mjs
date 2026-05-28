@@ -93,7 +93,7 @@ function isExpiredJwtResponse(status, parsed) {
   return status === 401 && (parsed?.code === "PGRST303" || /jwt expired/i.test(String(parsed?.message ?? parsed ?? "")));
 }
 
-async function request(path, { method = "GET", body, prefer, retryOnExpiredJwt = true } = {}) {
+async function request(path, { method = "GET", body, prefer, retryOnExpiredJwt = true, retries5xx = 3 } = {}) {
   const res = await fetch(state.supabaseOrigin + path, {
     method,
     headers: {
@@ -110,7 +110,15 @@ async function request(path, { method = "GET", body, prefer, retryOnExpiredJwt =
   try { parsed = JSON.parse(text); } catch {}
   if (!res.ok && retryOnExpiredJwt && isExpiredJwtResponse(res.status, parsed)) {
     refreshSession();
-    return request(path, { method, body, prefer, retryOnExpiredJwt: false });
+    return request(path, { method, body, prefer, retryOnExpiredJwt: false, retries5xx });
+  }
+  // Transient Supabase 5xx (notably 57014 "canceling statement due to statement
+  // timeout" on the messages poll) must NOT crash the whole run — that loses an
+  // agent's completed work (Maya ran end_turn but the runner died on the poll).
+  // Retry with backoff; only throw if it persists.
+  if (!res.ok && res.status >= 500 && retries5xx > 0) {
+    await new Promise((r) => setTimeout(r, 1500 * (4 - retries5xx)));
+    return request(path, { method, body, prefer, retryOnExpiredJwt, retries5xx: retries5xx - 1 });
   }
   if (!res.ok) throw new Error(method + " " + path + " failed " + res.status + ": " + JSON.stringify(parsed));
   return parsed;
