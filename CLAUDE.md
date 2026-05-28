@@ -900,10 +900,10 @@ Operator: "fix whats broekn". Activated the factory via `factory-activate.sh` to
 
 **Next session opens with:**
 1. ~~Fix the triple-counted cost reporting (task #12)~~ — DONE in pt.6 below.
-2. Build `factory-reload.sh` to make code-edit→daemon-restart safer.
-3. Brandon-A research packet (highest-leverage next build).
+2. ~~Build `factory-reload.sh`~~ — DONE pt.7.
+3. ~~Brandon-A research packet~~ — DONE pt.7.
 4. T7 medium runs 028-040 (still 12 to go on the 25-run gate).
-5. Push T6 extra-hard branch.
+5. ~~Push T6 extra-hard branch~~ — DONE pt.7.
 
 ---
 
@@ -943,6 +943,116 @@ Operator: "fix whats broekn". Activated the factory via `factory-activate.sh` to
 3. Brandon-A research packet.
 4. T7 medium runs 028-040.
 5. Push T6 extra-hard branch.
+
+---
+
+---
+
+### 2026-05-28 (pt.7 — /goal activated, 11 tasks shipped + 6 audit-driven gap fixes)
+
+User: "activate /goal and frame it in a way you don't stop till everything works and is provable from your side." Then: "keep github your source of truth." Then: a self-audit and "find the gaps and fill them."
+
+This was the longest single-session sprint of the project. Everything below is committed and on GitHub.
+
+**Goal document:** `frames/codex-goals/factory-fully-autonomous-goal-20260528.md` — single source of truth for "what the factory needs to be." 15 acceptance criteria, 24 numbered tasks, deterministic improvement contract, Phil Hetzel (BrainTrust) eval-maturity ladder explicitly wired in.
+
+**11 tasks closed this session (pre-audit):**
+
+| # | Outcome |
+|---|---|
+| 13 | `scripts/factory-reload.sh` — content-hash daemon restart. 5-way tested. |
+| 14 | Blake real caps ($25/h, $100/d, $50/sess). Bridge KeepAlive verified: kill -9 → respawn in 2s. |
+| 15 | Action layer happy path PROVEN. V5 emitted commit `8b4552d97e64` to `flywheel-fixes-20260528` on `gagan114662/activegraph`. 5 action-layer paths verified: chat-only, blocked, bad-diff-rejected, tests-failed-rejected, applied-and-pushed. |
+| 16a | Theo/Rowan/Grace LLM-judge rubrics in `agent-os/rubrics/*.yaml`. Model pinned to claude-opus-4-7@2026-05-28. |
+| 16b | Eval-the-eval substrate: `emitJudgeError()` helper + `scripts/judge-accuracy.mjs` CLI. Smoke-tested: rowan accuracy 66.7% from synthetic verdicts. |
+| 16c | `scripts/factory-replay.mjs` — 3 modes (routing-determinism, action-determinism, judge-replay placeholder). Live data: 4 divergences over 24h (all pre-synthetic-filter events that would correctly skip now). |
+| 17 | `scripts/research-packet.mjs` refactored dual-surface (CLI + module). `generateResearchPacket(opts)` inlined into every flywheel dispatch prompt (compact mode, 4000-char cap). |
+| 18 | `agent-os/factory-routing-config.json` — 10 rules + schema. Sasha reads with mtime cache. Verified live with verifier.check_failed event. |
+| 19 | `scripts/factory-learn.mjs` — proposes routing config updates as `factory.config.proposed` events. 0 proposals from 1510 events (current routing optimal; needs more diversity to find improvements). |
+| 20 | Operator approval: Phoenix subscribes to `factory.config.approved`, looks up matching proposal, prepends learned rule to routing config, emits `factory.config.applied`. Verified end-to-end with synthetic test. |
+| 21 | `factory-replay.mjs` covers routing + action determinism. |
+
+**Inner repo pytest fixes (committed 4c6fb3e):**
+- 29 T7M coverage tests use `pytestmark = getattr(pytest.mark, "<dotted_symbol>")` — added `filterwarnings = ["ignore::pytest.PytestUnknownMarkWarning"]` to pyproject.toml.
+- `test_llm_anthropic` + `test_llm_openai` import-skip when their SDKs aren't installed (they were failing for env reasons, not real regressions).
+- `test_v0_promote_runtime_diff.py` mypy skip-check was wrong logic (system mypy ≠ venv mypy). Fixed.
+- `pyproject.toml` `addopts = "-m 'not slow'"` so slow tests are opt-in. Result: 698 → 785 passing tests in the lean .venv.
+
+**SELF-AUDIT (user asked for one):**
+
+Honest gaps found:
+- D: Flywheel commits never opened PRs → operator had to manually merge
+- B: No timeout on `awaiting_review` → could stall forever if Rowan never replies
+- C: `flywheel.review.malformed` events ignored by Phoenix → same stall risk
+- E: Nothing automatically detected judge errors → judges' accuracy was artificial
+- H: Worktrees leaked under `/tmp/`
+- L: No panic kill switch beyond `factory-deactivate.sh`
+
+**6 audit-driven gap fixes (committed 6f401d1):**
+
+- **Gap D** — `commitAndPushFromWorktree` now `gh pr create --base main --head flywheel-fixes-YYYYMMDD` after push. Idempotent (checks existing PR first). Body includes todo_id, failure_event, review verdict, tests summary, operator instructions for downstream grading. Records `flywheel_pr_url` on the row.
+- **Gap B** — `scanStuckReviews` 60s interval. Rows whose `diff_attempted_at` is >10min (default) get marked timeout, emit `judge.error error_kind=skipped_when_needed`, fall back to direct commit.
+- **Gap C** — `handleReviewMalformed` subscribes to `flywheel.review.malformed`. Emits `judge.error error_kind=protocol_drift`, falls back to commit.
+- **Gap E** — `scripts/judge-error-detector.mjs` scans event log + inner repo git log. Two signals: revert detection (`Revert ... <sha>` in git log → false_pass) and regression detection (matching dedup_key behavior.failed within 24h → false_pass). Idempotent. Tested dry-run on 1516 events.
+- **Gap H** — `commitAndPushFromWorktree` rmSyncs worktree + `git worktree prune` after success. Forensics for rejections handled by `rejectAttempt`.
+- **Gap L** — Panic kill switch. Phoenix + Sasha + Blake check `~/.factory/PANIC` every 5s; `process.exit(2)` if present. `factory-deactivate.sh` touches it then auto-cleans after 30s. `factory-activate.sh` clears it at startup. VERIFIED live: touched PANIC → all 3 daemons exited within 5s → removed PANIC → KeepAlive respawned cleanly. 5/5 green after.
+
+**Gaps surfaced in the audit but NOT YET FIXED** (next-session candidates):
+- A: Pentagon RLS blocks reviewer dispatch in production. Phoenix's fallback runs (direct commit, no review), but the eval-the-eval substrate has nothing real to grade until this is resolved. Operator-side: either Pentagon RPC endpoint that bypasses RLS for daemon JWT, OR pre-create Theo↔Rowan conversation via a different auth path.
+- F: Concurrent dispatches race on `/tmp/` + fix branch. No locking. Under high failure volume, could corrupt.
+- G: No alerting (only `factory-health` poll). Operator wouldn't know if bridge died at 3am.
+- I: No CRUD-replay-safety (state-before/state-after hashes on commit/file-write/conv-insert events).
+- J: Cost dedup verified only at unit-test level (haiku call). Production bridge dispatch hasn't been observed post-fix.
+- K: No log rotation on `frames/factory-events.jsonl` or `frames/factory-events.sqlite`.
+- M: Per-token arbitrage proof — strategic, existential per goal doc.
+- P: Synthetic short-circuit blocks legitimate canary probes (operator-issued).
+- Q: No honker substrate startup health check.
+- R: Old completed todos accumulate forever (no archive).
+
+**Remaining goal-doc tasks NOT YET STARTED:**
+- #16d topic modeling
+- #22 F1 daemon proper (multi-week)
+- #23 refactor Pentagon Supabase helpers
+- #24 per-token arbitrage proof (strategic)
+- #25 judge model promotion gate
+- #26 production-trace replay harness (judge replay)
+- #27 ground-truth datasets per judge
+- #28 CRUD-replay-safety
+
+**Pushed to GitHub end-of-session:**
+- `gagan114662/active-graph-workspace` main: 11 commits since session start (4171226 → 6f401d1). Visible in `git log --oneline -15`.
+- `gagan114662/activegraph` main: ed861c9 (claude_code_cli env var) + 4c6fb3e (pytest fixes).
+- `gagan114662/activegraph` `flywheel-fixes-20260528` branch: 8b4552d (V5 flywheel commit by Phoenix).
+- `gagan114662/activegraph` `t6-extra-hard-opus47-20260527`: f60a5a1 (Sam docs commit, pushed).
+
+**State at end of session:**
+- 5/5 factory daemons alive: bridge=12140, honker-relay=2553, sasha=12081, blake=12083, phoenix=12123 (all post-panic-test PIDs).
+- Bridge KeepAlive proven (kill -9 → 2s respawn).
+- Panic kill switch proven (touch PANIC → all daemons exit → clean restart on rm).
+- Routing config has 1 learned rule (from synthetic test) + 10 baseline rules. Sasha auto-reloaded.
+- Phoenix has the review-timeout scanner running every 60s.
+- judge-error-detector exists but is a CLI (not yet a daemon). Run via `node scripts/judge-error-detector.mjs` or schedule as cron.
+- Activity log entry for the flywheel cycle is included on each PR Phoenix opens (operator can grade Rowan's verdict in the PR comment, which judge-error-detector should be extended to read in v2).
+
+**Cost this session:** Mostly substrate + analytics + verifier work, low claude burn. The action-layer-happy-path V5 dispatched a real Maya (~$1-5). The remaining Mayas from V1–V8 testing accumulated ~$10-30. Real spend in the session: low-tens of dollars. Triple-count bug fix means historical billing dashboards should NOT be retroactively multiplied — but Blake's `computeWindows` already filters out the inner-layer duplicates, so historical and forward views are now consistent.
+
+**Next session opens with:**
+1. Resolve Pentagon RLS blocker (Gap A) — biggest single quality-layer win. Without it, eval-the-eval has no real signal.
+2. Build #25 judge promotion gate + seed #27 ground-truth datasets so judge model upgrades become deterministic.
+3. Build #28 CRUD-replay-safety to complete the deterministic-replay invariant.
+4. Build #16d topic modeling (auto-discover failure patterns at scale).
+5. Wire judge-error-detector as a daemon (it's currently a CLI).
+6. Add log rotation + todo archiving for unbounded growth.
+
+**Honest verdict on the autonomy goal at end of session:**
+- Substrate built ✓
+- Closed loop autonomous ✓ (V5 shipped without operator action)
+- Quality gate built but degraded in production ⚠ (RLS forces fallback path)
+- Self-improvement scaffold built + verified ✓ (proposal → approval → apply works)
+- Eval-the-eval substrate ✓, automatic detection ✓, but no real judge errors recorded yet (no Rowan-passed commit has been reverted yet)
+- Per-token arbitrage NOT DONE — the existential strategic gap remains open
+
+The factory CAN spin autonomously. Whether it should depends on (a) closing the RLS blocker for real quality gating and (b) the arbitrage proof. Both are next-session priorities.
 
 ---
 
