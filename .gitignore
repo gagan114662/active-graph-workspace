@@ -29,3 +29,8 @@ node_modules/
 
 # Local review worktrees from /ultrareview etc.
 .review-worktrees/
+
+# Runtime event-log binary mirror (regenerable from factory-events.jsonl by
+# honker_relay on start). The JSONL stays tracked as the audit trail; the
+# 1MB+ SQLite mirror churns every commit and adds no source value (P17).
+frames/factory-events.sqlite
