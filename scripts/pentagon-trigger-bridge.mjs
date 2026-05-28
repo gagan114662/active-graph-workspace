@@ -32,55 +32,10 @@ function flywheelReceiptPresent(agentReply, todoId) {
 // for a flywheel review, their reply lands as a regular agent message and
 // flows through this bridge. We detect their ack format here + emit a
 // flywheel.review.completed event that Phoenix subscribes to.
-// Strip markdown decoration (backticks, bold/italic asterisks) before matching a
-// judge ack. Real proof, 2026-05-28: Rowan returned the CORRECT verdict but
-// wrapped it as **`ROWAN_REVIEW_PASS pending findings=6`** in its result text,
-// and the strict parser rejected a valid PASS as malformed. Rejecting a correct
-// verdict is itself a false signal — so the parser must tolerate the way a
-// well-behaved LLM naturally formats. The LOAD-BEARING fields (verdict + count)
-// stay REQUIRED; only the descriptive trailing field (top_finding / reasoning /
-// dirty_files) is optional, because agents sometimes put it on a separate line.
-function stripAckMarkdown(s) {
-  return String(s ?? "").replace(/[`*]/g, " ");
-}
-function parseRowanReviewAck(agentReply, todoId) {
-  if (!todoId) return null;
-  const text = stripAckMarkdown(agentReply);
-  const m = text.match(/ROWAN_REVIEW_(PASS|FAIL)\s+(\S+)\s+findings=(\d+)(?:\s+top_finding=([^\n]+))?/);
-  if (!m) return null;
-  return {
-    judge: "rowan",
-    verdict: m[1],
-    sha: m[2],
-    findings: Number(m[3]),
-    top_finding: (m[4] || "").trim() || "(not provided)",
-  };
-}
-function parseTheoTestReviewAck(agentReply, todoId) {
-  if (!todoId) return null;
-  const text = stripAckMarkdown(agentReply);
-  const m = text.match(/THEO_TEST_REVIEW_(PASS|FAIL)\s+(\S+)\s+tests=(\d+)(?:\s+reasoning=([^\n]+))?/);
-  if (!m) return null;
-  return {
-    judge: "theo",
-    verdict: m[1],
-    hash: m[2],
-    tests: Number(m[3]),
-    reasoning: (m[4] || "").trim() || "(not provided)",
-  };
-}
-function parseGraceGateAck(agentReply, todoId) {
-  if (!todoId) return null;
-  const text = stripAckMarkdown(agentReply);
-  const m = text.match(/GRACE_GATE_(OPEN|BLOCKED)\s+(\S+)(?:\s+dirty_files=([^\n]+))?/);
-  if (!m) return null;
-  return {
-    judge: "grace",
-    verdict: m[1],
-    tier: m[2],
-    dirty_files: (m[3] || "").trim() || "(not provided)",
-  };
-}
+// Judge-ack parsers now live in the shared module scripts/judge-ack-parse.mjs
+// (single source of truth — the verifier imports the same logic). Imported below
+// alongside the other imports. They tolerate markdown, are unanchored, and keep
+// the descriptive trailing field optional while requiring verdict+count.
 
 function extractFlywheelReviewId(triggerContent) {
   const m = String(triggerContent ?? "").match(/^FLYWHEEL_REVIEW\s+(\S+)/);
@@ -122,6 +77,11 @@ import {
   refreshAccessToken,
   isAccessTokenExpired,
 } from "./pentagon-auth.mjs";
+import {
+  parseRowanReviewAck,
+  parseTheoTestReviewAck,
+  parseGraceGateAck,
+} from "./judge-ack-parse.mjs";
 
 installCrashGuard("bridge");
 

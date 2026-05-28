@@ -2,6 +2,10 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join as pathJoin } from "node:path";
+import {
+  parseTheoAck, parseRowanAck, parseGraceAck,
+  parseReviewersField, evaluateReviewerAcks,
+} from "./judge-ack-parse.mjs";
 
 const ROOT = "/Users/gaganarora/Desktop/my projects/active_graph";
 
@@ -897,46 +901,11 @@ function parseQuinnAck(content) {
 // Until each tier wires that in, these parsers are inert and harmless —
 // they just make the contract machine-checkable from outside.
 
-function parseTheoAck(content) {
-  // THEO_TEST_REVIEW_{PASS|FAIL} <hash> tests=<N> reasoning=<one_line>
-  const match = String(content ?? "").trim().match(
-    /^THEO_TEST_REVIEW_(PASS|FAIL)\s+(\S+)\s+tests=(\d+)\s+reasoning=(.+)$/
-  );
-  if (!match) return null;
-  return {
-    verdict: match[1],
-    hash: match[2],
-    tests: Number(match[3]),
-    reasoning: match[4].trim(),
-  };
-}
-
-function parseRowanAck(content) {
-  // ROWAN_REVIEW_{PASS|FAIL} <commit_sha> findings=<count> top_finding=<one_line>
-  const match = String(content ?? "").trim().match(
-    /^ROWAN_REVIEW_(PASS|FAIL)\s+(\S+)\s+findings=(\d+)\s+top_finding=(.+)$/
-  );
-  if (!match) return null;
-  return {
-    verdict: match[1],
-    commit_sha: match[2],
-    findings: Number(match[3]),
-    top_finding: match[4].trim(),
-  };
-}
-
-function parseGraceAck(content) {
-  // GRACE_GATE_{OPEN|BLOCKED} <tier> dirty_files=<list>
-  const match = String(content ?? "").trim().match(
-    /^GRACE_GATE_(OPEN|BLOCKED)\s+(\S+)\s+dirty_files=(.*)$/
-  );
-  if (!match) return null;
-  return {
-    verdict: match[1],
-    tier: match[2],
-    dirty_files: match[3].trim(),
-  };
-}
+// Theo/Rowan/Grace ack parsers now live in the shared module
+// scripts/judge-ack-parse.mjs (single source of truth — the bridge imports the
+// same functions). They tolerate markdown decoration, are unanchored, and make
+// the descriptive trailing field optional while keeping verdict+count required.
+// Imported at the top of this file alongside the other imports.
 
 function parseExtraHardAck(content) {
   const text = String(content ?? "").trim();
@@ -1290,6 +1259,36 @@ async function verifyT6QuinnAck(proof, proofFile, hash = "T6_NATIVE_HARD_2026052
     canonicalFieldFilter,
     triggerMatches: (content) => nativeInstructionBody(content).startsWith("NATIVE_GAUNTLET HARD " + hash + " QUINN_VERIFICATION"),
   });
+}
+
+// P2a (pt.13): enforce reviewer (Theo/Rowan/Grace) acks when a proof opts in via
+// `reviewers=theo,rowan,grace`. Records via must() (module-level). INERT when no
+// reviewers declared — existing proofs are unaffected. Uses the same fetch path
+// as verifyT6QuinnAck: find the reviewer's hash-bearing dispatch trigger, then
+// scan that conversation's messages for the reviewer's parseable ack. The live
+// dispatch path for these reviewers was proven end-to-end in pt.13 (Pentagon RLS
+// unblocked via MCP-as-Priya); this is the verifier side of that wiring.
+const REVIEWER_FULL_NAME = {
+  theo: "Theo (Test Owner)",
+  rowan: "Rowan (Code Reviewer)",
+  grace: "Grace (Gate Sentinel)",
+};
+async function verifyT6ReviewerAcks(proof, hash) {
+  const reviewers = parseReviewersField(proof.reviewers);
+  if (!reviewers.length) return;
+  const since = optionalSinceParam();
+  for (const reviewer of reviewers) {
+    const checkName = `T6 reviewer ACK present (${reviewer})`;
+    try {
+      const { state, agent } = await fetchExpectedAgent(REVIEWER_FULL_NAME[reviewer] ?? reviewer);
+      if (!agent) { must(checkName, false, `${reviewer} agent row not found`); continue; }
+      const { messages } = await fetchAckAuditRows(state, agent, hash, since);
+      const [res] = evaluateReviewerAcks({ reviewers: [reviewer], messages, expectedHash: hash });
+      must(checkName, res.ok, res.detail);
+    } catch (error) {
+      must(checkName, false, error.message);
+    }
+  }
 }
 
 function parseAssignmentList(text) {
@@ -1790,6 +1789,13 @@ async function runT6HardVerifier() {
     } catch (error) {
       must("T6 hard messages table has Quinn verification ACK", false, error.message);
     }
+    // P2a: reviewer acks (Theo/Rowan/Grace) — ENFORCED only when the proof
+    // declares `reviewers=theo,rowan,grace`. Existing proofs have no reviewers
+    // field, so this block is inert for them (no extra checks recorded). When a
+    // reviewer-augmented gauntlet sets the field, each named reviewer must have a
+    // parseable ack (matching the run hash) in the messages table. The dispatch
+    // path for these reviewers is live as of pt.13 (Pentagon RLS unblocked).
+    await verifyT6ReviewerAcks(proof, hash);
   }
 
   const failed = checks.filter((check) => !check.ok);
