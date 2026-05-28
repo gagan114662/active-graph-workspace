@@ -387,7 +387,18 @@ function collectCountFromOutput(output) {
 }
 
 function pytestCollectCountForSymbol(symbol) {
-  const res = spawnSync("uv", ["run", "pytest", "--collect-only", "-q", "-k", String(symbol ?? "")], {
+  // Two fixes here (found 2026-05-28 by running the honest gate):
+  // 1. `uv run pytest` was the c1c2603 global-leak anti-pattern — use the inner
+  //    venv python directly.
+  // 2. `-k <dotted_symbol>` collected 0: agents name tests like
+  //    test_<symbol-with-dots-as-underscores>_... so the dotted form never
+  //    substring-matches the node id. Match BOTH the dotted symbol AND its
+  //    underscored form so the verifier actually finds the agent's valid tests.
+  const sym = String(symbol ?? "");
+  const kExpr = sym ? `${sym} or ${sym.replace(/\./g, "_")}` : "";
+  const py = ROOT + "/activegraph/.venv/bin/python";
+  const bin = existsSync(py) ? py : "python3";
+  const res = spawnSync(bin, ["-m", "pytest", "--collect-only", "-q", "-k", kExpr], {
     cwd: ROOT + "/activegraph",
     encoding: "utf8",
     maxBuffer: 20 * 1024 * 1024,
