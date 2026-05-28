@@ -1271,11 +1271,25 @@ needs-ACK-contract / no-work-yet).
   5/5 on Claude Code auth. NOT loosened — the gate is now correct (blocks contract/CI, proceeds on
   normal work).
 
-**New backlog (operator request):** **RESOLVER.md context-routing framework** (Garry Tan / gbrain) —
-`frames/codex-goals/resolver-framework-backlog-20260528.md`. A hierarchical "if editing X → load doc Y"
-routing table + MECE dirs + `inbox/` to replace dumping all of CLAUDE.md (~1200 lines) into every
-context. Strong fit: the monolithic CLAUDE.md is exactly the anti-pattern it fixes, and the pt.10
-research packet (3a) is already a primitive per-dispatch resolver.
+- ✅ **RESOLVER.md context-routing framework** (Garry Tan / gbrain; the CS153 "Agentic Company"
+  *filing-rules / where-information-lives* primitive — the slide's weakest-pillar for us). Built
+  `RESOLVER.md` (a machine-readable "when editing glob X → load docs Y" RULES table + `inbox/` +
+  MECE roadmap) and `scripts/resolve-context.mjs` (parses it; `resolveContext(path)→docs`; CLI +
+  module; **7/7 tests** in resolve-context.test.mjs). Wired into the bridge's `researchPacketFor` so
+  every dispatch appends ROUTED CONTEXT (the docs the target file maps to) — the resolver is
+  OPERATIONAL, not just documentation. Proven: rubric edit → routes to the eval suite (the canonical
+  talk example); bridge edit → routes to cascade/defects. Staged follow-on: split the 1200-line
+  CLAUDE.md into MECE topic docs under agent-os/context/ so rows point at focused docs (P18).
+
+**Committed + pushed (GitHub = source of truth):** outer `dce46b4` → gagan114662/active-graph-workspace
+main (verified remote==local); inner `e31565f` → gagan114662/activegraph main (verified). RESOLVER
+batch follows.
+
+**Backlog expanded (operator request "add anything not implemented from CLAUDE.md"):** tasks P5–P18
+added — per-token arbitrage (existential), grow judge ground-truth, Brandon-B/D verifier checks, F1
+daemon, F4 unified memory, activegraph OTel issue #23 (first customer feature), extensibility refactor,
+MCP exposure, audit remainder (H4/H7/H8/H12), T7 medium 25-run gate, Slack approval UI, op-hygiene
+(incl. gitignore runtime artifacts), per-agent skills structure.
 
 **A+ scorecard delta this session:** reliability (gates live, silent-death noise gone, cascade
 killed), efficiency (6× research packet on hot path, real Blake caps), safety (Sentinel harm gate +

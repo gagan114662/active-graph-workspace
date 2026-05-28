@@ -12,6 +12,7 @@ import {
 } from "./factory-events.mjs";
 import { judgePinnedModel } from "./judge-rubric.mjs";
 import { generateResearchPacket } from "./research-packet.mjs";
+import { resolveContext } from "./resolve-context.mjs";
 
 // Detect the closed-loop flywheel envelope in trigger content. Phoenix
 // dispatches todos as messages that start with "FLYWHEEL_TODO <todo_id>";
@@ -276,8 +277,23 @@ function researchPacketFor(trigger) {
       compact: true,
       limit: 3,
     });
-    if (!packet || packet.startsWith("(no research-packet")) return "";
-    return "\n\nPRE-FLIGHT RESEARCH PACKET (use this instead of crawling the repo):\n" + packet + "\n";
+    // RESOLVER (where info lives): route the target file to its context docs so
+    // the agent loads exactly those instead of guessing the repo structure.
+    let routed = "";
+    try {
+      if (fileMatch) {
+        const r = resolveContext(fileMatch[1]);
+        if (r.matched && r.docs.length) {
+          routed = "\n\nROUTED CONTEXT (per RESOLVER.md — read these for this file):\n" +
+            r.docs.map((d) => `- ${d}`).join("\n") + "\n";
+        }
+      }
+    } catch {}
+    if ((!packet || packet.startsWith("(no research-packet")) && !routed) return "";
+    const pkt = (packet && !packet.startsWith("(no research-packet"))
+      ? "\n\nPRE-FLIGHT RESEARCH PACKET (use this instead of crawling the repo):\n" + packet + "\n"
+      : "";
+    return pkt + routed;
   } catch {
     return "";
   }
