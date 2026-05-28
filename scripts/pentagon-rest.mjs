@@ -94,7 +94,20 @@ export const AGENT_MAP = {
   theo: "1343cc84-5a06-44b7-88f7-f2c3e82d7e1c",    // Test Owner
 };
 
-export const SENDER_AGENT_KEY = "theo";  // Theo is the canonical sender for runner/Phoenix dispatch
+// SENDER_AGENT_KEY: which Pentagon agent posts on behalf of the daemons
+// (Phoenix, runner, bridge). Switched from "theo" → "priya" 2026-05-28
+// after Gap-A repro: conversations INSERT via the daemon JWT is blocked
+// by RLS (code 42501). The MCP context the operator's claude-code session
+// runs in (Priya, Goal Reaper) CAN create 2-party conversations through
+// the find_conversation MCP tool, which satisfies the workspace/org
+// membership RLS check that the daemon JWT doesn't. So we pre-seed
+// Priya↔Rowan + Priya↔Grace via MCP once, then findOrCreateConversation
+// short-circuits on its SELECT path forever after.
+//
+// Future: if a SECURITY DEFINER `dispatch_to_agent` RPC ever exists (see
+// frames/codex-goals/pentagon-rls-investigation-20260528.md Option B), we
+// can switch back to theo without UX seeding.
+export const SENDER_AGENT_KEY = "priya";
 
 /**
  * Read a rubric YAML file from agent-os/rubrics/<name>.yaml and return its
