@@ -444,17 +444,42 @@ async function main() {
             response_count: responses.length,
           },
         });
+      } else if (result.activation_path === "agent_trigger" && result.outcome_class === "incomplete") {
+        // H12: a trigger row was claimed but the run never completed (no agent
+        // response / proof before the deadline). Previously emitted NO event —
+        // the claimed-but-stalled case fell through the cracks.
+        emitInfrastructureEvent({
+          subtype: "trigger_incomplete",
+          message: "agent_triggers row claimed but the run did not complete (no response/proof before deadline)",
+          extras: {
+            hash: hash,
+            agent_id: target?.id ?? null,
+            agent_name: target?.name ?? null,
+            conversation_id: conversationId,
+            message_id: message?.id ?? null,
+            trigger_id: finalTrigger?.id ?? null,
+            trigger_claimed_at: finalTrigger?.claimed_at ?? null,
+            trigger_completed_at: finalTrigger?.completed_at ?? null,
+            watch_seconds: watchSeconds,
+            response_count: responses.length,
+            file_passed: filePassed,
+            infrastructure_failure_root_cause: result.infrastructure_failure_root_cause ?? null,
+          },
+        });
       }
-      if (result.outcome_class === "fail_verifier" && result.agent_failure_root_cause) {
+      if (result.outcome_class === "fail_verifier") {
+        // H12: emit on EVERY verifier rejection, even when the classifier
+        // couldn't attribute a root cause (was previously gated on root_cause).
+        const rootCause = result.agent_failure_root_cause || "unspecified";
         emitBehaviorFailed({
           behavior: target?.name ?? "native_task_runner",
-          reason: "agent." + result.agent_failure_root_cause,
+          reason: "agent." + rootCause,
           message: "verifier rejected agent output",
           extras: {
             hash: hash,
             agent_id: target?.id ?? null,
             trigger_id: finalTrigger?.id ?? null,
-            agent_failure_root_cause: result.agent_failure_root_cause,
+            agent_failure_root_cause: rootCause,
           },
         });
       }

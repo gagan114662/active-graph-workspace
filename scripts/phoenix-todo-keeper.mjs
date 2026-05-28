@@ -738,6 +738,11 @@ function handleDiffProposed(event) {
   row.diff_rationale = payload.rationale || null;
   row.test_summary = testSummaryLine.slice(0, 200);
   row.source_event_id = event.id;
+  // H7: mark the dispatch as PENDING synchronously, BEFORE the async call, so a
+  // crash mid-dispatch is distinguishable from "never dispatched" (the .then
+  // clears it on settle). Without this, the metadata is only written after the
+  // promise resolves — a crash in between looked identical to no dispatch.
+  row.review_dispatch_pending = true;
   rewriteAllTodos();
 
   // Dispatch Rowan with the rubric inline. dispatchReviewer is async; we
@@ -753,6 +758,7 @@ function handleDiffProposed(event) {
     failureContext: { reason: row.failure_reason, behavior: row.source_behavior },
   })
     .then((info) => {
+      row.review_dispatch_pending = false;  // H7: settled cleanly
       row.review_dispatched_at = new Date().toISOString();
       row.review_conversation_id = info.conversation_id;
       row.review_message_id = info.message_id;
@@ -768,6 +774,7 @@ function handleDiffProposed(event) {
     })
     .catch((err) => {
       console.error("[phoenix] dispatchReviewer failed:", err.message);
+      row.review_dispatch_pending = false;  // H7: settled (failed)
       // Reviewer dispatch failed — fall back to direct commit (degraded mode)
       // so we don't strand the todo. Surface the failure as a factory event.
       emitFactoryEvent({

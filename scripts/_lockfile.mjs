@@ -18,7 +18,7 @@
 //   if (!release) { console.error("could not acquire lock"); return; }
 //   try { ... } finally { release(); }
 
-import { openSync, closeSync, writeSync, readFileSync, existsSync, unlinkSync, mkdirSync } from "node:fs";
+import { openSync, closeSync, writeSync, writeFileSync, readFileSync, existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -65,7 +65,14 @@ export function acquireLock(name, opts = {}) {
       const age = Date.now() - (meta.acquired_at_ms || 0);
       const holderAlive = pidAlive(meta.pid);
       const expired = age > ttlMs;
-      if (!holderAlive || expired) {
+      // H8: a hung-but-alive holder otherwise keeps a long-TTL lock (e.g. the
+      // 30-min per-todo lock) forever, blocking every retry. If the holder
+      // advertised a heartbeat, treat the lock as stale once the heartbeat is
+      // older than 3× its interval — even if the PID is still alive.
+      const hbInterval = Number(meta.heartbeat_interval_ms || 0);
+      const hbStale = hbInterval > 0 &&
+        (Date.now() - (meta.heartbeat_ms || meta.acquired_at_ms || 0)) > 3 * hbInterval;
+      if (!holderAlive || expired || hbStale) {
         // Stale: reclaim.
         try { unlinkSync(lockPath); } catch {}
       } else {
@@ -86,20 +93,40 @@ export function acquireLock(name, opts = {}) {
     if (e.code === "EEXIST") return null;
     throw e;
   }
+  const heartbeatMs = Number(opts.heartbeatMs || 0);
   const meta = {
     name,
     pid: process.pid,
     acquired_at: new Date().toISOString(),
     acquired_at_ms: Date.now(),
     ttl_ms: ttlMs,
+    ...(heartbeatMs ? { heartbeat_ms: Date.now(), heartbeat_interval_ms: heartbeatMs } : {}),
   };
   writeSync(fd, JSON.stringify(meta));
   closeSync(fd);
+
+  // H8: if a heartbeat was requested, refresh heartbeat_ms on an interval so
+  // other acquirers can tell a live-and-working holder from a hung one. The
+  // timer is unref'd so it never keeps the process alive on its own.
+  let hbTimer = null;
+  if (heartbeatMs) {
+    hbTimer = setInterval(() => {
+      try {
+        const cur = readLockMeta(lockPath);
+        if (cur && cur.pid === process.pid) {
+          cur.heartbeat_ms = Date.now();
+          writeFileSync(lockPath, JSON.stringify(cur));
+        }
+      } catch {}
+    }, heartbeatMs);
+    if (hbTimer.unref) hbTimer.unref();
+  }
 
   let released = false;
   return function release() {
     if (released) return;
     released = true;
+    if (hbTimer) { try { clearInterval(hbTimer); } catch {} }
     try {
       // Only unlink if we still own it (PID match) — prevents stomping on
       // a stale-reclaim that took over.

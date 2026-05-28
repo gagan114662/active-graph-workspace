@@ -72,3 +72,28 @@ test("acquireLock refuses a fresh lock held by a live holder", () => {
   const r = acquireLock(name, { ttlMs: 600000 });
   assert.equal(r, null, "fresh live-holder lock is NOT reclaimed");
 });
+
+test("H8: acquireLock reclaims a hung-but-alive holder via stale heartbeat", () => {
+  const name = "t-hung-heartbeat";
+  const lockPath = resolve(LOCK_DIR, `${name}.lock`);
+  // Alive PID (this process), long TTL not expired, but heartbeat is way older
+  // than 3× its interval → hung holder → reclaimable.
+  writeFileSync(lockPath, JSON.stringify({
+    name, pid: process.pid, acquired_at_ms: Date.now() - 5000, ttl_ms: 600000,
+    heartbeat_interval_ms: 100, heartbeat_ms: Date.now() - 5000,
+  }));
+  const r = acquireLock(name, { ttlMs: 600000 });
+  assert.ok(r, "hung-holder (stale heartbeat) lock is reclaimed even though PID is alive and TTL not expired");
+  r();
+});
+
+test("H8: a fresh heartbeat from a live holder is NOT reclaimed", () => {
+  const name = "t-live-heartbeat";
+  const lockPath = resolve(LOCK_DIR, `${name}.lock`);
+  writeFileSync(lockPath, JSON.stringify({
+    name, pid: process.pid, acquired_at_ms: Date.now(), ttl_ms: 600000,
+    heartbeat_interval_ms: 10000, heartbeat_ms: Date.now(),
+  }));
+  const r = acquireLock(name, { ttlMs: 600000 });
+  assert.equal(r, null, "fresh-heartbeat live holder is NOT reclaimed");
+});
