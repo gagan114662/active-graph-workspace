@@ -1467,11 +1467,26 @@ enforcement activates when a reviewer-augmented gauntlet sets the field (bounded
 gagan114662/active-graph-workspace main, SHA-verified local==remote each push
 (`0e804a2`→`5dba950`→`2b9b3d1`→`8aca592`→`c6ee2d2`).
 
-**Still open in the to-do (honest):** P5 arbitrage (harness done 2.28×; real SALE operator-gated),
-P6 grow judge ground-truth (harvest now possible from real reviews; promotion is operator-graded),
-P9 F1 scheduled-gauntlet daemon (MVP solo-doable), P15 T7 25-run gate (live-$; cohort-mixing trap —
-fresh 4.8 ledger needed, decision pending), P16 Slack approval (adapter solo; webhook external),
-P21 CLAUDE.md MECE rewrite (large solo refactor), P25 GTM squad (revenue-gated). Working through them.
+**Then shipped P9 + P16 (commits `e93e121`, `79fbaa3`, `06120fd`):**
+- **P9** — `scripts/f1-gauntlet-scheduler.mjs`: scheduled-verification daemon. Free default (node test
+  suite + routing-determinism gate) on a 6h cadence; emits `gauntlet.replay.completed` +
+  `gauntlet.regression`; state-file regression detection; 5 tests. Registered in factory-activate.sh +
+  bootstrapped LIVE. Live gauntlet dispatch is opt-in (`--live-tiers`, off — no $ on a timer). Fixed a
+  bug en route (`node --test <dir>` mis-discovers tests → switched to the repo glob via shell).
+- **P16** — `scripts/factory-slack.mjs`: outbound Slack ledger notifier. Notable events → Slack;
+  pure formatter tested (6 tests); dry-run default; activate via `FACTORY_SLACK_WEBHOOK`. Inbound
+  one-tap approval needs a hosted Slack-app endpoint (scaffolded via approval hints).
+
+**Genuinely operator-gated remainder (NOT solo-completable — honest):**
+- **P5** arbitrage: harness + measurement done (2.28× cost-vs-price); a real SALE needs a customer.
+- **P6** grow judge ground-truth: harvest mechanism done; promotion is operator-graded ("founders build
+  the evals" — me self-grading would be the homework-grading anti-pattern). Needs real flywheel cycles
+  + operator labels.
+- **P15** T7 25-run gate on 4.8: the 15 existing runs are opus-4.7; a valid 4.8 gate is a FRESH 25-run
+  batch (~2h, consumes MAX session capacity, risks the session-limit wall). Needs operator go on the
+  fresh-4.8-ledger + the long batch (the dispatch path itself is proven).
+- **P16-inbound / P21 / P25**: hosted Slack endpoint / large dedicated CLAUDE.md MECE refactor /
+  revenue-gated GTM activation.
 
 ---
 
