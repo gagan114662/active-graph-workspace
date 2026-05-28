@@ -25,6 +25,55 @@ function flywheelReceiptPresent(agentReply, todoId) {
   return String(agentReply ?? "").includes(`FLYWHEEL_TODO_${todoId}_RECEIVED`);
 }
 
+// Reviewer ACK parsers. When a reviewer (Rowan/Theo/Grace) is dispatched
+// for a flywheel review, their reply lands as a regular agent message and
+// flows through this bridge. We detect their ack format here + emit a
+// flywheel.review.completed event that Phoenix subscribes to.
+function parseRowanReviewAck(agentReply, todoId) {
+  if (!todoId) return null;
+  const text = String(agentReply ?? "");
+  // Permissive match — Rowan may include surrounding context.
+  const m = text.match(/ROWAN_REVIEW_(PASS|FAIL)\s+(\S+)\s+findings=(\d+)\s+top_finding=([^\n]+)/);
+  if (!m) return null;
+  return {
+    judge: "rowan",
+    verdict: m[1],
+    sha: m[2],
+    findings: Number(m[3]),
+    top_finding: m[4].trim(),
+  };
+}
+function parseTheoTestReviewAck(agentReply, todoId) {
+  if (!todoId) return null;
+  const text = String(agentReply ?? "");
+  const m = text.match(/THEO_TEST_REVIEW_(PASS|FAIL)\s+(\S+)\s+tests=(\d+)\s+reasoning=([^\n]+)/);
+  if (!m) return null;
+  return {
+    judge: "theo",
+    verdict: m[1],
+    hash: m[2],
+    tests: Number(m[3]),
+    reasoning: m[4].trim(),
+  };
+}
+function parseGraceGateAck(agentReply, todoId) {
+  if (!todoId) return null;
+  const text = String(agentReply ?? "");
+  const m = text.match(/GRACE_GATE_(OPEN|BLOCKED)\s+(\S+)\s+dirty_files=([^\n]+)/);
+  if (!m) return null;
+  return {
+    judge: "grace",
+    verdict: m[1],
+    tier: m[2],
+    dirty_files: m[3].trim(),
+  };
+}
+
+function extractFlywheelReviewId(triggerContent) {
+  const m = String(triggerContent ?? "").match(/^FLYWHEEL_REVIEW\s+(\S+)/);
+  return m ? m[1] : null;
+}
+
 // Action-layer parser (task #15 / pt.7). When the agent's reply contains
 // FLYWHEEL_TODO_<id>_PROPOSE_DIFF followed by a ```diff fenced block, parse
 // out the unified diff so Phoenix can apply it to a worktree and gate on
@@ -829,7 +878,50 @@ async function processCandidates(candidates) {
             },
           });
         }
+        // Detect either FLYWHEEL_TODO (proposal) or FLYWHEEL_REVIEW (review)
+        // envelopes in the trigger content. They route differently downstream.
         const flywheelTodoId = extractFlywheelTodoId(claimed.content);
+        const flywheelReviewId = extractFlywheelReviewId(claimed.content);
+
+        if (flywheelReviewId) {
+          // Reviewer dispatch — try each judge's ack parser.
+          const ack = parseRowanReviewAck(finalText, flywheelReviewId) ||
+                      parseTheoTestReviewAck(finalText, flywheelReviewId) ||
+                      parseGraceGateAck(finalText, flywheelReviewId);
+          if (ack) {
+            emitFactoryEvent({
+              type: "flywheel.review.completed",
+              behavior: "factory-flywheel",
+              extras: {
+                todo_event_id: flywheelReviewId,
+                judge: ack.judge,
+                verdict: ack.verdict,
+                ack: ack,
+                reviewer_agent_id: claimed.agent_id,
+                reviewer_agent_name: agent?.name ?? null,
+                trigger_id: claimed.id,
+                conversation_id: claimed.conversation_id,
+                reply_chars: String(finalText ?? "").length,
+              },
+            });
+          } else {
+            // Reviewer didn't follow the ack contract. Surface as a soft
+            // event so the eval-the-eval layer can flag judge protocol drift.
+            emitFactoryEvent({
+              type: "flywheel.review.malformed",
+              behavior: "factory-flywheel",
+              reason: "judge.protocol_drift",
+              extras: {
+                todo_event_id: flywheelReviewId,
+                reviewer_agent_id: claimed.agent_id,
+                reviewer_agent_name: agent?.name ?? null,
+                trigger_id: claimed.id,
+                reply_first_200: String(finalText ?? "").slice(0, 200),
+              },
+            });
+          }
+        }
+
         emitBehaviorCompleted({
           behavior: behaviorName,
           message: persistedMessage ? "agent response persisted" : "subprocess succeeded; no new message persisted",

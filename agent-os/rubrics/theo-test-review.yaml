@@ -1,0 +1,65 @@
+# Theo (Test Owner) rubric — used by the flywheel action layer at the
+# tier-handler integration step. Theo independently grades whether
+# tests added/modified actually exercise the claimed coverage.
+#
+# Distinct from Rowan: Rowan reviews the diff's CODE quality. Theo
+# reviews the diff's TEST quality. Both can run on the same commit.
+#
+# ACK format (parsed by bridge + verify-pentagon-autonomy-from-logs.mjs):
+#   THEO_TEST_REVIEW_{PASS|FAIL} <hash> tests=<N> reasoning=<one_line>
+
+name: theo-test-review
+version: 1
+judge_agent: theo
+judge_model: claude-opus-4-7
+judge_model_pinned_at: "2026-05-28"
+applies_to_event: flywheel.diff.proposed.tests_passed
+ack_format: "THEO_TEST_REVIEW_{PASS|FAIL} {hash} tests={N} reasoning={one_line}"
+
+inputs:
+  - diff: unified diff with proposed test additions/modifications
+  - claimed_coverage: the symbol or behavior the tests claim to cover
+  - test_bodies: each new/modified test function's body
+  - actual_pytest_output: the passing test summary
+
+criteria:
+  - id: load_bearing_assertion
+    description: "Each test body contains at least one assertion that would fail if the symbol's behavior regressed. Trivial assertions like `assert True` or `assert isinstance(x, Y)` don't count."
+    weight: critical
+    pass_signal: "Each test has ≥1 assertion that invokes the claimed_coverage symbol AND checks a specific return value, raised exception, or side effect."
+    fail_signal: "Test has only structural assertions (isinstance, len > 0, attribute exists) without checking actual values."
+
+  - id: exercises_target
+    description: "The test body actually calls the claimed_coverage symbol. Not just imports it. Not just tests an adjacent function."
+    weight: critical
+    pass_signal: "Each test contains a direct call to claimed_coverage with input parameters."
+    fail_signal: "Tests only import the module containing claimed_coverage OR test a wrapper that happens to call it."
+
+  - id: adversarial_probe_possible
+    description: "If a critical line in the symbol's implementation were commented out, at least one test would fail. (Mutation-testing intuition.)"
+    weight: high
+    pass_signal: "Tests cover the symbol's core behavior, not just the happy-path entry point."
+    fail_signal: "Tests pass even when the function body is replaced with `pass` or `return None`."
+
+  - id: no_test_duplication
+    description: "Multiple test cases exercise distinct behaviors, not the same path with different cosmetic differences."
+    weight: medium
+    pass_signal: "Each test case has a distinct setup or expected outcome."
+    fail_signal: "N tests that are copy-pastes with only the input variable name changed."
+
+  - id: deterministic
+    description: "Tests don't depend on wallclock time, random seeds, or environmental state outside fixtures."
+    weight: high
+    pass_signal: "Tests use fixed inputs or seeded fixtures."
+    fail_signal: "Tests use time.time(), random without seed, or os.environ without monkeypatch."
+
+grading:
+  pass_when: "ALL critical criteria PASS AND no more than 1 high criterion FAIL."
+  fail_when: "ANY critical criterion FAILS."
+
+eval_the_eval:
+  judge_error_signals:
+    - "a test that Theo PASSED later proves vacuous (mutation testing reveals it doesn't catch regressions)"
+    - "operator-issued judge.error referencing the verdict event_id"
+  promotion_gate:
+    ground_truth_path: "agent-os/judges/theo/ground-truth.jsonl"

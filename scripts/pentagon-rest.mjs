@@ -143,6 +143,88 @@ export const AGENT_MAP = {
 export const SENDER_AGENT_KEY = "theo";  // Theo is the canonical sender for runner/Phoenix dispatch
 
 /**
+ * Read a rubric YAML file from agent-os/rubrics/<name>.yaml and return its
+ * raw text for inlining into a reviewer dispatch prompt.
+ */
+import { readFileSync as _readFileSyncRest, existsSync as _existsSyncRest } from "node:fs";
+function readRubric(judgeAgent) {
+  const path = `/Users/gaganarora/Desktop/my projects/active_graph/agent-os/rubrics/${judgeAgent}-code-review.yaml`;
+  const altPath = `/Users/gaganarora/Desktop/my projects/active_graph/agent-os/rubrics/${judgeAgent}-test-review.yaml`;
+  const gatePath = `/Users/gaganarora/Desktop/my projects/active_graph/agent-os/rubrics/${judgeAgent}-gate.yaml`;
+  for (const p of [path, altPath, gatePath]) {
+    if (_existsSyncRest(p)) return _readFileSyncRest(p, "utf8");
+  }
+  return null;
+}
+
+/**
+ * Dispatch a reviewer agent (e.g. Rowan) to grade a flywheel-proposed diff.
+ * The reviewer reads the rubric, applies it, and replies with the ack format
+ * the rubric specifies. The bridge parses the ack and emits
+ * flywheel.review.completed for Phoenix to resume the commit gate.
+ */
+export async function dispatchReviewer({
+  reviewerAgentKey,
+  todo,
+  diff,
+  rationale,
+  testSummary,
+  failureContext,
+}) {
+  const reviewerId = AGENT_MAP[reviewerAgentKey];
+  if (!reviewerId) throw new Error(`unknown reviewer agent "${reviewerAgentKey}"`);
+  const senderId = AGENT_MAP[SENDER_AGENT_KEY];
+  const convId = await findOrCreateConversation(senderId, reviewerId);
+
+  const rubric = readRubric(reviewerAgentKey);
+
+  const content = [
+    `FLYWHEEL_REVIEW ${todo.id}`,
+    "",
+    `You are ${reviewerAgentKey} reviewing a flywheel-proposed diff that has already passed the test suite.`,
+    "",
+    `Failure context (the original todo): ${todo.title}`,
+    `Failure reason: ${todo.failure_reason}`,
+    `Tests result: ${testSummary || "(pass — exit 0)"}`,
+    "",
+    "## Diff to review",
+    "```diff",
+    diff.slice(0, 8000),  // cap to keep prompt under model limit
+    "```",
+    "",
+    "## Rationale from the proposing agent",
+    rationale || "(no rationale provided)",
+    "",
+    "## Your rubric",
+    rubric ? "```yaml\n" + rubric + "\n```" : "(rubric not found on disk — use your judgment)",
+    "",
+    "## Reply contract (REQUIRED — parsed mechanically by the bridge)",
+    "",
+    `Reply EXACTLY one line in this format:`,
+    `  ROWAN_REVIEW_PASS <sha> findings=<N> top_finding=<one_line>`,
+    `  ROWAN_REVIEW_FAIL <sha> findings=<N> top_finding=<one_line>`,
+    "",
+    "Where:",
+    "  - <sha> is the commit-not-yet-landed (use 'pending' since the commit happens AFTER your review)",
+    "  - <N> is the number of distinct findings you considered (≥0)",
+    "  - <one_line> summarizes the most important finding in ≤80 chars (newlines forbidden)",
+    "",
+    "If you have concerns but PASS overall, list them in subsequent lines as `- <concern>`.",
+    "If you FAIL, the top_finding must explain the rubric criterion that drove the fail.",
+    "",
+    "Do not commit, do not push, do not edit files. Your reply is the entire intervention.",
+  ].join("\n");
+
+  const message = await insertMessage(convId, senderId, content);
+  return {
+    conversation_id: convId,
+    message_id: message?.id ?? null,
+    reviewer_agent_id: reviewerId,
+    reviewer_agent_key: reviewerAgentKey,
+  };
+}
+
+/**
  * Find or create a conversation containing EXACTLY the two agents.
  *
  * Why exactly-2 matters: Pentagon's server-side trigger logic creates one

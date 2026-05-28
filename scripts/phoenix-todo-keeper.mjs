@@ -37,7 +37,7 @@ import { spawnSync } from "node:child_process";
 import { installCrashGuard } from "./factory-crash-guard.mjs";
 import { subscribeToFactoryEvents } from "./honker-subscribe.mjs";
 import { emitFactoryEvent } from "./factory-events.mjs";
-import { dispatchTodo } from "./pentagon-rest.mjs";
+import { dispatchTodo, dispatchReviewer } from "./pentagon-rest.mjs";
 
 installCrashGuard("phoenix-todo-keeper");
 
@@ -390,9 +390,13 @@ function processEvent(event) {
   } else if (event.type === "todo.completed") {
     handleTodoCompletion(event);
   } else if (event.type === "flywheel.diff.proposed") {
-    // Action layer (task #15): an agent proposed a unified diff. Apply
-    // it to a worktree, run tests, commit on pass or discard on fail.
+    // Action layer phase 1 (task #15): apply diff, run tests. If tests
+    // pass, dispatch reviewer (Rowan) instead of committing directly.
     handleDiffProposed(event);
+  } else if (event.type === "flywheel.review.completed") {
+    // Action layer phase 2 (task #16): reviewer issued verdict.
+    // PASS → commit + push. FAIL → revert + emit attempt.rejected.
+    handleReviewCompleted(event);
   }
   // Also consider any behavior.completed with extras.todo_id as an implicit
   // todo completion (lets agents close their assigned todos by emitting the
@@ -532,7 +536,111 @@ function handleDiffProposed(event) {
     return;
   }
 
-  // Tests pass: stage + commit in the worktree.
+  const testSummaryLine = (pytest.stdout || "").split("\n").reverse()
+    .find((l) => /passed|failed|skipped|error/.test(l)) || "(no summary line)";
+
+  // Tests pass — stage in the worktree (preserves diff state across review)
+  // then dispatch Rowan as code reviewer. Commit + push happens in phase 2
+  // (handleReviewCompleted) only if Rowan PASSes.
+  spawnSync("git", ["add", "-A"], { cwd: worktreePath });
+
+  // Persist enough state for handleReviewCompleted to resume:
+  row.action_phase = "awaiting_review";
+  row.worktree_path = worktreePath;
+  row.diff_b64 = payload.diff_b64;
+  row.diff_rationale = payload.rationale || null;
+  row.test_summary = testSummaryLine.slice(0, 200);
+  row.source_event_id = event.id;
+  rewriteAllTodos();
+
+  // Dispatch Rowan with the rubric inline. dispatchReviewer is async; we
+  // fire-and-forget here. The bridge's flywheel.review.completed event
+  // will land within ~60s and re-enter this daemon via handleReviewCompleted.
+  const diffText = Buffer.from(payload.diff_b64 || "", "base64").toString("utf8");
+  dispatchReviewer({
+    reviewerAgentKey: "rowan",
+    todo: row,
+    diff: diffText,
+    rationale: payload.rationale,
+    testSummary: testSummaryLine,
+    failureContext: { reason: row.failure_reason, behavior: row.source_behavior },
+  })
+    .then((info) => {
+      row.review_dispatched_at = new Date().toISOString();
+      row.review_conversation_id = info.conversation_id;
+      row.review_message_id = info.message_id;
+      row.review_reviewer_agent_id = info.reviewer_agent_id;
+      row.review_reviewer_agent_key = info.reviewer_agent_key;
+      rewriteAllTodos();
+      console.log(JSON.stringify({
+        status: "phoenix_review_dispatched",
+        todo_id: row.id,
+        reviewer: info.reviewer_agent_key,
+        message_id: info.message_id,
+      }));
+    })
+    .catch((err) => {
+      console.error("[phoenix] dispatchReviewer failed:", err.message);
+      // Reviewer dispatch failed — fall back to direct commit (degraded mode)
+      // so we don't strand the todo. Surface the failure as a factory event.
+      emitFactoryEvent({
+        type: "behavior.failed",
+        behavior: "phoenix-todo-keeper",
+        reason: "phoenix.reviewer_dispatch_failed",
+        message: String(err.message || err).slice(0, 280),
+        extras: { todo_id: row.id, reviewer: "rowan" },
+      });
+      commitAndPushFromWorktree(row, dedupKey, event, worktreePath);
+    });
+  // Phase 1 done — actual commit deferred to phase 2.
+  return;
+}
+
+function handleReviewCompleted(event) {
+  const payload = event.payload || {};
+  const todoId = payload.todo_event_id;
+  if (!todoId) return;
+  // Find the row that was awaiting this review.
+  let row = null;
+  let dedupKey = null;
+  for (const [k, r] of index) {
+    if (r.id === todoId && r.action_phase === "awaiting_review") {
+      row = r;
+      dedupKey = k;
+      break;
+    }
+  }
+  if (!row) {
+    // No matching pending row — review for an already-resolved or non-flywheel
+    // event. Log and skip.
+    return;
+  }
+  const verdict = payload.verdict;
+  const ack = payload.ack || {};
+
+  if (verdict === "PASS") {
+    row.review_verdict = "PASS";
+    row.review_judge = ack.judge || "rowan";
+    row.review_top_finding = ack.top_finding || null;
+    row.review_completed_at = event.created_at;
+    rewriteAllTodos();
+    commitAndPushFromWorktree(row, dedupKey, event, row.worktree_path);
+  } else if (verdict === "FAIL") {
+    row.review_verdict = "FAIL";
+    row.review_judge = ack.judge || "rowan";
+    row.review_top_finding = ack.top_finding || null;
+    row.review_completed_at = event.created_at;
+    rewriteAllTodos();
+    rejectAttempt(row, dedupKey, event,
+      `${ack.judge || "rowan"} review failed: ${ack.top_finding || "no detail provided"}`,
+      row.worktree_path);
+  } else {
+    // Unknown verdict — leave the row in awaiting_review and surface a warning.
+    console.error(`[phoenix] unknown verdict "${verdict}" for todo ${todoId}; leaving awaiting_review`);
+  }
+}
+
+function commitAndPushFromWorktree(row, dedupKey, event, worktreePath) {
   spawnSync("git", ["add", "-A"], { cwd: worktreePath });
   const commitMsg = `flywheel: ${row.title || "fix " + (row.failure_reason || "")}
 
@@ -541,9 +649,10 @@ todo_id: ${row.id}
 failure_event: ${row.failure_event_id}
 failure_reason: ${row.failure_reason}
 recommended_agent: ${row.recommended_agent}
-diff source: ${event.id}
+diff source: ${row.source_event_id || event.id}
+review: ${row.review_judge || "(not gated)"} ${row.review_verdict || ""} ${row.review_top_finding ? "— " + row.review_top_finding : ""}
 
-Diff was applied to a fresh worktree, tests passed.
+Diff was applied to a fresh worktree, tests passed${row.review_verdict === "PASS" ? `, ${row.review_judge || "reviewer"} approved` : ""}.
 
 Co-Authored-By: ${row.recommended_agent} (via flywheel)
 `;

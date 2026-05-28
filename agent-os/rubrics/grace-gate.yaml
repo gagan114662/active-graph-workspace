@@ -1,0 +1,56 @@
+# Grace (Gate Sentinel) rubric — fires BEFORE the action layer dispatches.
+# Refuses to allow a gauntlet OR a flywheel commit if the operator's
+# working tree has uncommitted load-bearing changes or critical proof
+# files are dirty per the verifier's pre-checks.
+#
+# ACK format: GRACE_GATE_{OPEN|BLOCKED} <tier> dirty_files=<comma_separated_list>
+
+name: grace-gate
+version: 1
+judge_agent: grace
+judge_model: claude-opus-4-7
+judge_model_pinned_at: "2026-05-28"
+applies_to_event: flywheel.diff.proposed | gauntlet.tier_starting
+ack_format: "GRACE_GATE_{OPEN|BLOCKED} {tier} dirty_files={list}"
+
+inputs:
+  - git_status_outer: git status --short on the outer repo
+  - git_status_inner: git status --short on the inner repo (activegraph/)
+  - pending_proofs: any frames/*.proof or *.evidence files marked dirty
+  - tier: the gauntlet or flywheel context being gated
+
+criteria:
+  - id: no_load_bearing_dirt
+    description: "No uncommitted changes to files that the action layer or verifier depends on. CLAUDE.md, agent-os/*, scripts/verify-*.mjs, scripts/pentagon-rest.mjs, scripts/factory-events.mjs — these MUST be committed before a gauntlet starts so post-mortem replay is possible."
+    weight: critical
+    pass_signal: "git status shows no uncommitted changes to load-bearing files."
+    fail_signal: "ANY of CLAUDE.md, agent-os/factory-routing-config.json, scripts/factory-events.mjs, scripts/verify-pentagon-autonomy-from-logs.mjs, scripts/pentagon-trigger-bridge.mjs has uncommitted changes."
+
+  - id: no_dirty_proofs
+    description: "No partially-edited proof files. A proof file with uncommitted changes invalidates the run it claims to grade."
+    weight: critical
+    pass_signal: "No frames/*.proof or *.evidence files in git-status output."
+    fail_signal: "ANY proof file shows up as modified in either repo."
+
+  - id: inner_repo_alignment
+    description: "The inner repo is on a clean main HEAD (or an explicitly-named feature branch like flywheel-fixes-YYYYMMDD). No detached HEADs, no rebase-in-progress, no merge conflicts."
+    weight: high
+    pass_signal: "git -C activegraph branch --show-current returns either main OR flywheel-fixes-*."
+    fail_signal: "Detached HEAD, REBASE_HEAD exists, or unmerged paths."
+
+  - id: bridge_alive
+    description: "The Pentagon trigger bridge is loaded and running. Without it, no flywheel dispatch can be claimed."
+    weight: critical
+    pass_signal: "launchctl print gui/$UID/run.pentagon.trigger-bridge returns state=running."
+    fail_signal: "Bridge not loaded, not running, or in spawn state for >10 seconds."
+
+grading:
+  open_when: "ALL critical criteria PASS AND no high criterion FAILS."
+  blocked_when: "ANY critical criterion FAILS."
+
+eval_the_eval:
+  judge_error_signals:
+    - "an OPEN verdict was issued and a gauntlet ran with dirty state that later required cleanup"
+    - "operator-issued judge.error referencing the verdict event_id"
+  promotion_gate:
+    ground_truth_path: "agent-os/judges/grace/ground-truth.jsonl"
