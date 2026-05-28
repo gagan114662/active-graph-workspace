@@ -32,6 +32,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { lookupSuccessFlows } from "./success-flow-capture.mjs";
 
 const ROOT = process.env.FACTORY_REPO || "/Users/gaganarora/Desktop/my projects/active_graph";
 const EVENTS_PATH = resolve(process.env.FACTORY_EVENTS_PATH || `${ROOT}/frames/factory-events.jsonl`);
@@ -222,6 +223,22 @@ export function generateResearchPacket(opts = {}) {
     }
   } else {
     out.push("- _(no prior gauntlet runs in this area)_");
+  }
+  out.push("");
+
+  // P23 success-flow memory: replay what WORKED on a past similar task so the
+  // agent starts from a proven playbook instead of re-deriving from scratch.
+  out.push("");
+  out.push("### Proven approach (success flows — what worked before)");
+  let flows = [];
+  try { flows = lookupSuccessFlows({ targetFile: o.targetFile, targetSymbol: o.targetSymbol, taskClass: o.taskClass, limit: 2 }); } catch {}
+  if (flows.length) {
+    for (const f of flows) {
+      out.push(`- [${f.task_class}] commit ${f.sha || "?"}: ${f.approach || "(no rationale)"}${f.diff_summary ? ` — ${f.diff_summary}` : ""}`);
+    }
+    out.push("Reuse the proven approach above where it fits; deviate only with a reason.");
+  } else {
+    out.push("- _(no prior success flow for this target — you are the first; if you succeed it becomes the playbook)_");
   }
   out.push("");
 
