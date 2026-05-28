@@ -36,8 +36,9 @@ import { resolve, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { installCrashGuard } from "./factory-crash-guard.mjs";
 import { subscribeToFactoryEvents } from "./honker-subscribe.mjs";
-import { emitFactoryEvent } from "./factory-events.mjs";
+import { emitFactoryEvent, emitStateMutation, hashGitState } from "./factory-events.mjs";
 import { dispatchTodo, dispatchReviewer } from "./pentagon-rest.mjs";
+import { acquireLock } from "./_lockfile.mjs";
 
 installCrashGuard("phoenix-todo-keeper");
 
@@ -518,6 +519,17 @@ function handleConfigApproved(event) {
 const INNER_REPO = "/Users/gaganarora/Desktop/my projects/active_graph/activegraph";
 const FLYWHEEL_FIX_BRANCH_PREFIX = "flywheel-fixes-";
 
+// In-memory map of held action locks. Keyed by todoId. Lock-release callbacks
+// are NOT serializable to JSON so they must live outside the persisted row.
+const actionLocks = new Map();
+function releaseActionLock(todoId) {
+  const fn = actionLocks.get(todoId);
+  if (fn) {
+    try { fn(); } catch {}
+    actionLocks.delete(todoId);
+  }
+}
+
 function git(args, opts = {}) {
   const r = spawnSync("git", args, {
     cwd: opts.cwd || INNER_REPO,
@@ -539,6 +551,15 @@ function handleDiffProposed(event) {
     console.error("[phoenix] flywheel.diff.proposed missing todo_event_id; skipping");
     return;
   }
+  // Per-todo lock (Gap F). Prevents two phoenix instances (or a phoenix +
+  // operator manual replay) from racing on the same todo's worktree path
+  // and fix-branch refs. Released by rejectAttempt or by the
+  // commitAndPushFromWorktree end-of-flow path.
+  const todoLock = acquireLock(`flywheel-todo-${todoId.slice(0, 64)}`, { ttlMs: 30 * 60 * 1000 });
+  if (!todoLock) {
+    console.error(`[phoenix] could not acquire todo lock for ${todoId}; another instance may be processing this todo`);
+    return;
+  }
   // Find the matching todo row (must exist + still be open).
   let row = null;
   let dedupKey = null;
@@ -546,18 +567,22 @@ function handleDiffProposed(event) {
     if (r.id === todoId) { row = r; dedupKey = k; break; }
   }
   if (!row) {
+    try { todoLock(); } catch {}
     console.error(`[phoenix] flywheel.diff.proposed for unknown todo ${todoId}; skipping`);
     return;
   }
   if (row.completed_at) {
+    try { todoLock(); } catch {}
     console.error(`[phoenix] todo ${todoId} already completed; skipping diff application`);
     return;
   }
   if (row.diff_attempted_at) {
+    try { todoLock(); } catch {}
     console.error(`[phoenix] todo ${todoId} already had a diff attempt; skipping duplicate`);
     return;
   }
   row.diff_attempted_at = new Date().toISOString();
+  actionLocks.set(todoId, todoLock);
   rewriteAllTodos();
 
   const diff = Buffer.from(payload.diff_b64 || "", "base64").toString("utf8");
@@ -852,6 +877,33 @@ function handleReviewCompleted(event) {
 }
 
 function commitAndPushFromWorktree(row, dedupKey, event, worktreePath) {
+  // Per-fix-branch lock (Gap F). Serializes `git update-ref` + `git push`
+  // on the day's flywheel-fixes branch so two concurrent commit-and-push
+  // sequences never race to push and produce intermittent non-fast-forward
+  // rejections (or worse, a lost commit if the loser's worktree gets cleaned
+  // up before retry).
+  const fixBranch = todayBranchName();
+  const branchLock = acquireLock(`flywheel-fixbranch-${fixBranch}`, { ttlMs: 5 * 60 * 1000 });
+  if (!branchLock) {
+    rejectAttempt(row, dedupKey, event,
+      `could not acquire fix-branch lock for ${fixBranch}; another commit is in flight`,
+      worktreePath);
+    return;
+  }
+  try {
+    return commitAndPushFromWorktreeImpl(row, dedupKey, event, worktreePath);
+  } finally {
+    try { branchLock(); } catch {}
+    releaseActionLock(row.id);
+  }
+}
+
+function commitAndPushFromWorktreeImpl(row, dedupKey, event, worktreePath) {
+  // CRUD-replay-safety (Gap I / Task #28). Capture worktree state hash BEFORE
+  // any mutation, then again after, and emit a state-mutation event so the
+  // commit can be replayed deterministically from the event log alone.
+  let stateBefore = null;
+  try { stateBefore = hashGitState(worktreePath); } catch {}
   spawnSync("git", ["add", "-A"], { cwd: worktreePath });
   const commitMsg = `flywheel: ${row.title || "fix " + (row.failure_reason || "")}
 
@@ -945,6 +997,25 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
     }
   }
 
+  // Capture state-after for the CRUD-replay-safety record.
+  let stateAfter = null;
+  try { stateAfter = hashGitState(worktreePath); } catch {}
+  emitStateMutation({
+    type: "state.git_commit",
+    behavior: "factory-flywheel",
+    mutation_kind: "git_commit",
+    state_before_hash: stateBefore,
+    state_after_hash: stateAfter,
+    target: `${INNER_REPO}#${sha}`,
+    extras: {
+      todo_event_id: row.id,
+      sha,
+      worktree_path: worktreePath,
+      branch,
+      pushed,
+    },
+  });
+
   row.completed_at = new Date().toISOString();
   row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch}${pushed ? " (pushed)" : " (push failed)"}${prUrl ? " PR: " + prUrl : ""}`;
   row.flywheel_commit_sha = sha;
@@ -952,6 +1023,8 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
   row.flywheel_push_succeeded = pushed;
   row.flywheel_pr_url = prUrl;
   row.flywheel_pr_created_at = prCreated ? new Date().toISOString() : null;
+  row.state_before_hash = stateBefore;
+  row.state_after_hash = stateAfter;
   counts.todos_completed++;
   rewriteAllTodos();
 
@@ -990,6 +1063,10 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
 }
 
 function rejectAttempt(row, dedupKey, sourceEvent, reason, worktreePath = null) {
+  // Release the per-todo action lock so this slot is reusable. The lock
+  // exists only while the action is in flight; rejection terminates the
+  // action.
+  if (row?.id) releaseActionLock(row.id);
   row.completed_at = new Date().toISOString();
   row.completion_evidence = `attempt_rejected: ${reason}`;
   row.flywheel_rejection_reason = reason;

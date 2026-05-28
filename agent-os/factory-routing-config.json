@@ -18,12 +18,25 @@
       "learned_at": "2026-05-28T13:22:49.909Z"
     },
     {
+      "name": "canary_probe_authorized",
+      "when": {
+        "extras.synthetic": true,
+        "extras.canary_authorized": true
+      },
+      "route": {
+        "agent": "sasha",
+        "priority": "p2",
+        "canary": true
+      },
+      "rationale": "Canary probes (Gap P): operator-issued end-to-end tests bypass the synthetic short-circuit so the full failure->todo->dispatch->completion loop can be exercised in production. emitCanaryProbe() is the ONLY producer-side path that sets canary_authorized=true; ad-hoc synthetic events do not."
+    },
+    {
       "name": "synthetic_short_circuit",
       "when": {
         "extras.synthetic": true
       },
       "skip_todo": true,
-      "rationale": "Test scaffolding events MUST NOT route. Per the 2026-05-28 contamination incident: an unmarked synthetic todo cascaded into a multi-agent debate costing real $. Field-absent defaults to real (fail-safe)."
+      "rationale": "Test scaffolding events MUST NOT route. Per the 2026-05-28 contamination incident: an unmarked synthetic todo cascaded into a multi-agent debate costing real $. Field-absent defaults to real (fail-safe). Canary path above is the explicit authorized override."
     },
     {
       "name": "transient_rate_limit_skip",

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>run.factory.alert</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/gaganarora/Desktop/my projects/active_graph/scripts/factory-alert.mjs</string>
+    <string>--interval-ms</string>
+    <string>60000</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/gaganarora/Desktop/my projects/active_graph</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/gaganarora/.factory/alert.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/gaganarora/.factory/alert.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <!-- Optional: set FACTORY_ALERT_WEBHOOK to a Slack/Discord webhook URL
+         to receive alerts in chat. Without it, alerts only land in
+         ~/.factory/ALERT and as factory events. -->
+  </dict>
+</dict>
+</plist>

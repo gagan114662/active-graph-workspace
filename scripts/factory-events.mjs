@@ -19,6 +19,8 @@
 
 import { appendFileSync, readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 
 const DEFAULT_PATH = resolve(
   process.env.FACTORY_EVENTS_PATH || "frames/factory-events.jsonl"
@@ -302,6 +304,112 @@ export function emitJudgeError({
       original_verdict_event_id,
       downstream_evidence_event_id,
       error_kind,
+      ...extras,
+    },
+    path,
+  });
+}
+
+/**
+ * Authorized canary probe (Gap P) — explicit end-to-end test that bypasses
+ * the synthetic short-circuit in routing. Use this when you want the FULL
+ * factory loop (Sasha → todo → Phoenix → dispatch → completion) to run on
+ * a known-controlled payload. Sets BOTH extras.synthetic=true AND
+ * extras.canary_authorized=true; the routing config rule
+ * `canary_probe_authorized` matches the combination and routes the event.
+ * Ad-hoc emitFactoryEvent() callers cannot accidentally produce this —
+ * the routing config requires the second flag set explicitly.
+ */
+export function emitCanaryProbe(reason, opts = {}) {
+  let probeOrigin = opts.probe_origin || null;
+  if (!probeOrigin) {
+    const stack = new Error().stack || "";
+    const lines = stack.split("\n");
+    const callerFrame = lines[2] || "";
+    const match = callerFrame.match(/\((.+):(\d+):(\d+)\)/) ||
+                  callerFrame.match(/at (.+):(\d+):(\d+)/);
+    probeOrigin = match ? `${match[1]}:${match[2]}` : "unknown";
+  }
+  const canaryId = "canary_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+  return emitFactoryEvent({
+    type: opts.type || "behavior.failed",
+    behavior: opts.behavior || "factory-canary",
+    reason: reason,
+    message: opts.message || `canary probe: ${reason}`,
+    extras: {
+      synthetic: true,
+      canary_authorized: true,
+      probe_origin: probeOrigin,
+      canary_id: canaryId,
+      operator_initiated: opts.operator_initiated !== false,
+      ...(opts.extras || {}),
+    },
+    path: opts.path,
+  });
+}
+
+/**
+ * Hash a file's contents on disk. Returns null if the file does not exist
+ * (which is the right semantics for a "state_before" hash when the file is
+ * about to be created — distinguishes deliberate absence from corruption).
+ */
+export function hashFileState(path) {
+  if (!existsSync(path)) return null;
+  const buf = readFileSync(path);
+  return "sha256:" + createHash("sha256").update(buf).digest("hex");
+}
+
+/**
+ * Hash a git working tree's HEAD commit SHA + status (so the before-state
+ * captures both committed AND uncommitted changes). Use this as the
+ * state_before_hash for git operations: commit, push, update-ref.
+ */
+export function hashGitState(cwd) {
+  const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf-8" });
+  const status = spawnSync("git", ["status", "--porcelain=v1"], { cwd, encoding: "utf-8" });
+  const headSha = (head.stdout || "").trim();
+  const statusText = (status.stdout || "").trim();
+  const combined = `head:${headSha}\nstatus:\n${statusText}`;
+  return "sha256:" + createHash("sha256").update(combined).digest("hex");
+}
+
+/**
+ * Emit a state-modifying factory event with mandatory before+after hashes.
+ *
+ * Per task #28 / Gap I (CRUD-replay-safety, Phil Hetzel's "CRUD makes replay
+ * hard — represent system state in the trace itself"): every state-modifying
+ * action must emit a factory event with state_before_hash + state_after_hash
+ * so replay reads state from the event log, not from the current world.
+ *
+ * The verifier scans events; any commit/file-write/conv-insert without both
+ * hashes is a check failure.
+ */
+export function emitStateMutation({
+  type,
+  behavior,
+  reason = null,
+  message = null,
+  mutation_kind, // "git_commit" | "git_push" | "file_write" | "conv_insert" | "trigger_create" | "todo_mutation"
+  state_before_hash,
+  state_after_hash,
+  target = null,    // file path / branch / conv id / etc.
+  extras = {},
+  path,
+}) {
+  if (!mutation_kind) throw new Error("emitStateMutation: mutation_kind required");
+  if (state_before_hash === undefined) throw new Error("emitStateMutation: state_before_hash required (use null for create-from-nothing)");
+  if (state_after_hash === undefined) throw new Error("emitStateMutation: state_after_hash required");
+  return emitFactoryEvent({
+    type,
+    behavior,
+    reason,
+    message,
+    extras: {
+      mutation_kind,
+      state_before_hash,
+      state_after_hash,
+      target,
+      crud_replay_safe: true,
       ...extras,
     },
     path,

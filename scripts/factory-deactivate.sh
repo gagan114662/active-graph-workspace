@@ -17,6 +17,9 @@ touch "$HOME/.factory/PANIC"
 ( sleep 30; rm -f "$HOME/.factory/PANIC" ) &
 
 LABELS=(
+  "run.factory.f1-daemon"
+  "run.factory.alert"
+  "run.factory.rotate-logs"
   "run.factory.phoenix-todo-keeper"
   "run.factory.blake-budget-marshal"
   "run.factory.sasha-skeptic"

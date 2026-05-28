@@ -74,6 +74,9 @@ function matchPredicate(when, event) {
   if ("extras.synthetic" in when) {
     if ((event?.payload?.synthetic === true) !== (when["extras.synthetic"] === true)) return false;
   }
+  if ("extras.canary_authorized" in when) {
+    if ((event?.payload?.canary_authorized === true) !== (when["extras.canary_authorized"] === true)) return false;
+  }
   if (when.reason_equals !== undefined && reason !== when.reason_equals) return false;
   if (when.reason_prefix !== undefined && !(reason && reason.startsWith(when.reason_prefix))) return false;
   if (when.behavior_equals !== undefined && behavior !== when.behavior_equals) return false;
@@ -88,13 +91,20 @@ function routeFailureToAgent(event) {
     for (const rule of config.rules) {
       if (!matchPredicate(rule.when, event)) continue;
       if (rule.skip_todo) return null;
-      if (rule.route) return { agent: rule.route.agent, priority: rule.route.priority, matched_rule: rule.name };
+      if (rule.route) return {
+        agent: rule.route.agent,
+        priority: rule.route.priority,
+        canary: rule.route.canary === true,
+        matched_rule: rule.name,
+      };
     }
   }
   // Fall back to the original hardcoded ladder if config is missing/empty.
   const reason = event?.payload?.reason;
   const synthetic = event?.payload?.synthetic === true;
-  if (synthetic) return null;
+  const canaryAuthorized = event?.payload?.canary_authorized === true;
+  if (synthetic && !canaryAuthorized) return null;
+  if (synthetic && canaryAuthorized) return { agent: "sasha", priority: "p2", canary: true };
   if (!reason) return { agent: "sasha", priority: "p2" };
   if (reason === "llm.rate_limited") return null;
   if (reason === "llm.network_error") return null;

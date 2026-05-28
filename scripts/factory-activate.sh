@@ -30,6 +30,9 @@ LABELS=(
   "run.factory.sasha-skeptic"
   "run.factory.blake-budget-marshal"
   "run.factory.phoenix-todo-keeper"
+  "run.factory.rotate-logs"
+  "run.factory.alert"
+  "run.factory.f1-daemon"
 )
 
 for label in "${LABELS[@]}"; do
@@ -56,6 +59,19 @@ for label in "${LABELS[@]}"; do
   pid=$(launchctl print "gui/$UID_NUM/$label" 2>/dev/null | awk -F' = ' '/^\tpid/ {print $2; exit}')
   echo "  $label: state=$state pid=${pid:-?}"
 done
+
+echo ""
+echo "=== honker substrate health check ==="
+# Wait for honker-relay to be ready (it tails JSONL → SQLite, needs both alive)
+sleep 2
+HEALTH_OUT=$("$REPO/scripts/factory-honker-healthcheck.mjs" 2>&1 || true)
+echo "$HEALTH_OUT"
+if echo "$HEALTH_OUT" | grep -q "HONKER_HEALTHY"; then
+  echo "  honker substrate verified end-to-end"
+else
+  echo "  WARNING: honker substrate did NOT respond — events may not surface to consumers"
+  echo "  check: tail ~/.factory/honker-relay.err.log"
+fi
 
 echo ""
 echo "factory activated. logs at ~/.factory/. monitor via: node scripts/factory-health.mjs"

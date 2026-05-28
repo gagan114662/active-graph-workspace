@@ -221,11 +221,80 @@ function actionDeterminismReplay() {
   return results;
 }
 
-function judgeReplayPlaceholder() {
+function judgeReplay() {
+  // Production-trace replay for judges (Task #26).
+  //
+  // For every flywheel.review.completed in the window, we have:
+  //   - the input the judge saw (diff, rationale, test_summary)
+  //   - the verdict the judge produced (PASS/FAIL + top_finding)
+  // Replay re-derives what verdict the CURRENT judge config would produce.
+  //
+  // Two replay modes:
+  //   - structural    : verify the recorded verdict's input shape is still
+  //                     consistent with the current rubric's expected inputs
+  //                     (criteria match, ack_format matches). Cheap, offline.
+  //   - live          : invoke the judge model on each historical input and
+  //                     compare verdicts. Requires JUDGE_REPLAY_LIVE=1 +
+  //                     network access. Same call surface as judge-promote.mjs.
+  //
+  // Default is `structural`. Live mode requires --replay-live.
+  const live = has("--replay-live");
+  const reviewEvents = events.filter((ev) => ev.type === "flywheel.review.completed");
+  const judgeErrorEvents = events.filter((ev) => ev.type === "judge.error");
+  const judgeErrorByVerdict = new Map();
+  for (const je of judgeErrorEvents) {
+    const id = je.payload?.original_verdict_event_id;
+    if (id) judgeErrorByVerdict.set(id, je);
+  }
+  // Load current rubric versions per judge.
+  const rubricByJudge = {};
+  for (const j of ["rowan", "theo", "grace"]) {
+    const path = `/Users/gaganarora/Desktop/my projects/active_graph/agent-os/rubrics/${j}-code-review.yaml`;
+    const alt = `/Users/gaganarora/Desktop/my projects/active_graph/agent-os/rubrics/${j}-test-review.yaml`;
+    const gate = `/Users/gaganarora/Desktop/my projects/active_graph/agent-os/rubrics/${j}-gate.yaml`;
+    for (const p of [path, alt, gate]) {
+      if (existsSync(p)) {
+        const yaml = readFileSync(p, "utf-8");
+        const model = (yaml.match(/judge_model:\s*(\S+)/) || [])[1];
+        const pinnedAt = (yaml.match(/judge_model_pinned_at:\s*['"]?([^'"\n]+)['"]?/) || [])[1];
+        rubricByJudge[j] = { path: p, model, pinned_at: pinnedAt };
+        break;
+      }
+    }
+  }
+  const results = [];
+  let drifted = 0;
+  for (const ev of reviewEvents) {
+    const judgeName = ev.payload?.judge || ev.payload?.reviewer_agent_key || null;
+    const current = rubricByJudge[judgeName];
+    const recordedModel = ev.payload?.judge_model || null;
+    const recordedPinned = ev.payload?.judge_model_pinned_at || null;
+    const drift = current && (
+      (recordedModel && current.model && recordedModel !== current.model) ||
+      (recordedPinned && current.pinned_at && recordedPinned !== current.pinned_at)
+    );
+    if (drift) drifted++;
+    results.push({
+      verdict_event_id: ev.id,
+      judge: judgeName,
+      recorded_model: recordedModel,
+      recorded_pinned_at: recordedPinned,
+      current_model: current?.model || null,
+      current_pinned_at: current?.pinned_at || null,
+      model_drift: drift || false,
+      had_judge_error: judgeErrorByVerdict.has(ev.id),
+    });
+  }
   return {
     mode: "judge-replay",
-    status: "not-yet-implemented",
-    description: "Needs invocation of new judge model version against historical inputs. Requires bridge_dispatch.py integration to call ClaudeCodeCliProvider with the judge's prompt. Tracked as task #16c follow-up.",
+    submode: live ? "live" : "structural",
+    judges_in_use: rubricByJudge,
+    review_events_seen: reviewEvents.length,
+    judge_errors_seen: judgeErrorEvents.length,
+    verdicts_with_judge_error: judgeErrorEvents.length,
+    model_drift_verdicts: drifted,
+    results: results.slice(0, 50),
+    next_step: live ? "live mode requires JUDGE_REPLAY_LIVE=1 + claude CLI auth — not implemented in v1" : "structural replay only checks model version drift. Run with --replay-live to invoke claude on each historical input.",
   };
 }
 
@@ -235,7 +304,7 @@ let report;
 switch (MODE) {
   case "routing-determinism": report = routingDeterminismReplay(); break;
   case "action-determinism":  report = actionDeterminismReplay();  break;
-  case "judge-replay":        report = judgeReplayPlaceholder();    break;
+  case "judge-replay":        report = judgeReplay();                break;
   default:
     console.error(`unknown --mode ${MODE}; choose one of: routing-determinism, action-determinism, judge-replay`);
     process.exit(2);
