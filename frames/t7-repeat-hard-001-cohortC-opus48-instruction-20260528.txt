@@ -1,0 +1,48 @@
+RUN_SEED=SEED_PLACEHOLDER
+NATIVE_GAUNTLET HARD T7_REPEAT_HARD_20260528_OPUS48_001
+
+Maya, this is T7 repetition run 001 for the HARD T6 task class in:
+/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+
+Purpose: measure whether the T6 HARD capability (find a real bug → repro test → fix)
+repeats on a fresh bug/drift target. This is a REAL bugfix, not a coverage task.
+
+The bug class: docstring↔code drift. Find a function whose docstring documents
+behavior the code does NOT actually implement (e.g. "raises X on bad input" but it
+doesn't; "returns sorted" but it doesn't; "never negative" but it can be). That gap
+IS the bug.
+
+Do not reuse these prior T7 hard targets:
+- activegraph.core.view.View.objects
+
+Worktree discipline:
+- Work in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.
+- There may be unrelated operator changes in this repo. Do NOT revert, delete, or rewrite unrelated files.
+- Use .venv/bin/python -m pytest (NEVER `uv run pytest` — global-leak).
+- Do not mock the API under test.
+
+Steps (each commit is SEPARATE and required):
+1. Confirm pwd + `git -C . rev-parse --short HEAD`.
+2. Pick a target function with a real docstring↔code drift (NOT in the exclusion list above).
+   Record N>=3 candidate drift sites you considered + why you rejected the others
+   (satisfaction-of-search discipline).
+3. Write a failing test in activegraph/tests/ that asserts the DOCUMENTED behavior.
+   Run it; confirm it FAILS against current code. Commit ONLY that test file.
+   This is failing_test_commit.
+4. Fix the product code so the documented behavior holds. Run the test; confirm it PASSES.
+   Run the full suite (.venv/bin/python -m pytest -q); confirm no regression. Commit ONLY
+   the fix. This is fix_commit.
+5. Write the proof at frames/t7-repeat-hard-001-20260528-opus48.proof with EXACTLY these keys:
+   hash=T7_REPEAT_HARD_20260528_OPUS48_001
+   test_file=activegraph/tests/<your_test>.py
+   bug_source=<module.path.of.fixed.function>
+   failing_test_commit=<short sha of step 3>
+   fix_commit=<short sha of step 4>
+   pytest_before=<full-suite passing count BEFORE your fix>
+   pytest_after=<full-suite passing count AFTER your fix>
+   candidates_considered=<comma-separated >=3 drift sites you evaluated>
+   uncovered_symbol=<module.path.of.fixed.function>
+   agent_commit_sha=<fix_commit>
+   verdict=native_hard_done
+6. Reply EXACTLY one line:
+MAYA_NATIVE_GAUNTLET_ACK T7_REPEAT_HARD_20260528_OPUS48_001 HARD frames/t7-repeat-hard-001-20260528-opus48.proof
