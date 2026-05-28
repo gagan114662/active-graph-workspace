@@ -59,6 +59,10 @@ export function arbitrageProof(opts = {}) {
   const costPerUnit = unitsShipped ? totalCost / unitsShipped : null;
   const ratio = costPerUnit ? sellPrice / costPerUnit : null;
   const positive = ratio != null && ratio >= 1.0;
+  // Break-even = the minimum sell price for positive arbitrage (= cost/unit).
+  // Margin = profit fraction of revenue at the modeled sell price.
+  const breakEven = costPerUnit != null ? round(costPerUnit) : null;
+  const marginPct = (ratio != null && sellPrice > 0) ? round(((sellPrice - costPerUnit) / sellPrice) * 100, 1) : null;
 
   return {
     unit,
@@ -67,11 +71,17 @@ export function arbitrageProof(opts = {}) {
     total_cost_usd: round(totalCost, 2),
     cost_per_unit_usd: costPerUnit != null ? round(costPerUnit) : null,
     sell_price_per_unit_usd: sellPrice,
+    break_even_price_usd: breakEven,        // floor: price ABOVE this to be positive
+    margin_pct: marginPct,                  // profit share of revenue at sell price
     arbitrage_ratio: ratio != null ? round(ratio, 3) : null,
     positive,
+    // A modeled ratio is necessary but NOT sufficient — it becomes a real proof
+    // only when a customer pays >= sell_price for a shipped unit. Until then this
+    // is "defensible to scale at the modeled price", not "revenue-validated".
+    proof_status: ratio == null ? "insufficient_data" : "modeled_pending_real_sale",
     verdict: ratio == null ? "INSUFFICIENT DATA — no units shipped yet"
-      : positive ? `ARBITRAGE POSITIVE (${round(ratio, 2)}× — scaling is defensible)`
-      : `ARBITRAGE NEGATIVE (${round(ratio, 2)}× — do NOT scale; cut cost-per-${unit} below $${sellPrice})`,
+      : positive ? `ARBITRAGE POSITIVE (${round(ratio, 2)}× modeled; break-even $${breakEven}/unit; ${marginPct}% margin @ $${sellPrice}) — needs a real sale to validate`
+      : `ARBITRAGE NEGATIVE (${round(ratio, 2)}× — do NOT scale; cut cost-per-${unit} below $${sellPrice} or price above $${breakEven})`,
   };
 }
 
