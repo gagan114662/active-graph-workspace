@@ -27,6 +27,7 @@ const O = [
   ["selfheal", "accept_selfheal.py", "ref_selfheal_logic.py", "noop_selfheal.py"],
 ].map(([n, a, p, ng]) => ({ n, accept: path.join(P, a), pos: path.join(P, p), neg: path.join(P, ng) }));
 O.push({ n: "selfheal_post", accept: path.join(SH, "accept_post.py"), pos: path.join(SH, "ref_fixed_post.py"), neg: path.join(SH, "flaky_post.py") });
+O.push({ n: "frontend", accept: path.join(P, "frontend", "accept_frontend.py"), pos: path.join(P, "frontend", "ref_landing.html"), neg: path.join(P, "frontend", "bad_landing.html") });
 // the meta-referee's OWN negative control: a vacuous oracle (must be REJECTED)
 O.push({ n: "__VACUOUS_CONTROL__", accept: path.join(P, "_vacuous_accept.py"), pos: path.join(P, "ref_gate.py"), neg: path.join(P, "noop_gate.py"), expectBroken: true });
 

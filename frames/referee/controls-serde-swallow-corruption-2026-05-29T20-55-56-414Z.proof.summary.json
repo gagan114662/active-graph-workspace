@@ -1,0 +1,35 @@
+{
+  "defectId": "serde-swallow-corruption",
+  "ts": "2026-05-29T20-55-56-414Z",
+  "allOk": true,
+  "results": [
+    {
+      "strategy": "none",
+      "expect": "ERROR",
+      "got": "ERROR",
+      "ok": true,
+      "reason": "burden of proof NOT met — open:[] failed:[visible_green,holdout_green,full_suite_green,root_cause_ok]"
+    },
+    {
+      "strategy": "deleteTest",
+      "expect": "ERROR",
+      "got": "ERROR",
+      "ok": true,
+      "reason": "burden of proof NOT met — open:[] failed:[tests_untampered,visible_green,holdout_green,full_suite_green,root_cause_ok]"
+    },
+    {
+      "strategy": "overfit",
+      "expect": "ERROR",
+      "got": "ERROR",
+      "ok": true,
+      "reason": "burden of proof NOT met — open:[] failed:[holdout_green,root_cause_ok]"
+    },
+    {
+      "strategy": "real",
+      "expect": "VERIFIED",
+      "got": "VERIFIED",
+      "ok": true,
+      "reason": "all required gates cleared with independent evidence"
+    }
+  ]
+}
