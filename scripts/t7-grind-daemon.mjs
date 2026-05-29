@@ -33,6 +33,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { emitInfrastructureEvent, emitBehaviorCompleted } from "./factory-events.mjs";
 
 // ---------------------------------------------------------------------------
 // Pure, unit-testable helpers (exported for t7-grind-daemon.test.mjs)
@@ -122,6 +123,16 @@ async function main() {
 
   const log = (...a) => console.log(`[grind-daemon ${new Date().toISOString()}]`, ...a);
 
+  // Emit grind-LEVEL decisions to the factory event store so orchestration failures
+  // (the grind stopping, backing off, walling) are first-class events — not just
+  // /tmp stdout. Without this, "the autonomous grind died" is invisible to
+  // Sasha/Phoenix/operator. Per-RUN failures are already emitted by the fire helper.
+  const grindEvent = (subtype, message, extras = {}) => {
+    try {
+      emitInfrastructureEvent({ subtype, message, extras: { tier, fire_helper: fireHelper, ledger: ledgerPath, ...extras } });
+    } catch (e) { console.error(`[grind-daemon] event emit failed: ${e.message}`); }
+  };
+
   // Re-grade an existing proof with the current verifier (uniform, --no-db).
   const regrade = (proofPath, t) => {
     if (!proofPath || !existsSync(proofPath)) {
@@ -196,9 +207,16 @@ async function main() {
     log(`state: uniform passed=${passCount}/${target} realFail=[${[...realFail].sort((a,b)=>a-b).join(",")}] next=${idx ?? "NONE"}`);
 
     if (idx === null) {
-      const verdict = passCount >= gate ? "GATE MET" : "GATE MISSED";
+      const met = passCount >= gate;
+      const verdict = met ? "GATE MET" : "GATE MISSED";
       log(`DONE: ${target} runs reached. uniform PASS=${passCount}/${target} (gate ${gate}) => ${verdict}`);
-      process.exit(passCount >= gate ? 0 : 1);
+      if (met) {
+        try { emitBehaviorCompleted({ behavior: `t7_${tier}_gate`, message: `T7 ${tier} gate MET: uniform ${passCount}/${target} (gate ${gate})`, extras: { tier, pass: passCount, target, gate } }); }
+        catch (e) { console.error(`[grind-daemon] emit failed: ${e.message}`); }
+      } else {
+        grindEvent("grind_gate_missed", `T7 ${tier} gate MISSED: uniform ${passCount}/${target} < gate ${gate}`, { pass: passCount, target, gate });
+      }
+      process.exit(met ? 0 : 1);
     }
 
     if (dryRun) { log(`dry-run: would fire index ${idx}; stopping`); process.exit(0); }
@@ -222,6 +240,7 @@ async function main() {
       if (reset) {
         const waitMs = Math.max(0, reset.getTime() - Date.now()) + resetBufferMs;
         log(`SESSION LIMIT detected. resets ${reset.toISOString()} — sleeping ${(waitMs/1000/60).toFixed(1)}min then retrying SAME index ${idx} (attempt not consumed)`);
+        grindEvent("grind_rate_limited", `T7 ${tier} grind hit session limit; sleeping until ${reset.toISOString()} then retrying index ${idx}`, { run_idx: idx, reset_at: reset.toISOString(), wait_ms: waitMs });
         if (once) { log("once mode: not sleeping; exiting after rate-limit detection"); process.exit(75); }
         await sleep(waitMs);
         continue; // retry same idx, no attempt consumed
@@ -241,9 +260,11 @@ async function main() {
         transientBackoffs += 1;
         if (transientBackoffs > maxTransientBackoffs) {
           log(`index ${idx} hit ${maxTransientBackoffs} transient-infra backoffs (timeouts persisting). STOPPING for operator.`);
+          grindEvent("grind_stopped", `T7 ${tier} grind STOPPED at index ${idx}: ${maxTransientBackoffs} transient-infra backoffs exhausted (persistent timeouts)`, { run_idx: idx, reason: "transient_infra_exhausted", transient_backoffs: transientBackoffs });
           process.exit(2);
         }
         log(`TRANSIENT INFRA (timeout/network) detected. backoff ${transientBackoffs}/${maxTransientBackoffs}: sleeping ${(transientBackoffMs/60000).toFixed(0)}min then retrying SAME index ${idx} (attempt not consumed)`);
+        grindEvent("grind_transient_backoff", `T7 ${tier} grind transient backoff ${transientBackoffs}/${maxTransientBackoffs} at index ${idx}`, { run_idx: idx, backoff: transientBackoffs });
         if (once) { log("once mode: not sleeping; exiting after transient-infra detection"); process.exit(75); }
         await sleep(transientBackoffMs);
         continue;
@@ -253,6 +274,7 @@ async function main() {
       infraRetries += 1;
       if (infraRetries > maxInfraRetries) {
         log(`index ${idx} exceeded ${maxInfraRetries} infra retries with no rate-limit signal. STOPPING for operator.`);
+        grindEvent("grind_stopped", `T7 ${tier} grind STOPPED at index ${idx}: ${maxInfraRetries} infra retries exhausted (ghost/proof-missing, not rate-limited)`, { run_idx: idx, reason: "infra_retries_exhausted", rc, infra_retries: infraRetries });
         process.exit(2);
       }
       log(`infra failure (rc=${rc}), not rate-limited. retrying same index after 30s.`);
@@ -267,5 +289,9 @@ async function main() {
 // Use pathToFileURL so paths containing spaces (e.g. "my projects") match —
 // process.argv[1] has a literal space but import.meta.url URL-encodes it.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((e) => { console.error("[grind-daemon] fatal", e); process.exit(70); });
+  main().catch((e) => {
+    console.error("[grind-daemon] fatal", e);
+    try { emitInfrastructureEvent({ subtype: "grind_crashed", message: `T7 grind daemon crashed: ${e?.message || e}`, extras: { stack: String(e?.stack || "").slice(0, 500) } }); } catch {}
+    process.exit(70);
+  });
 }
