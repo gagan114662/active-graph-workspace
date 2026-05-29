@@ -80,10 +80,17 @@ function arg(name, def) {
 }
 const has = (n) => process.argv.includes(n);
 
-function main() {
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+async function main() {
   const enabled = new Set((arg("--enable-tiers", "medium")).split(",").map((s) => s.trim()).filter(Boolean));
   const once = has("--once");
   const dryRun = has("--dry-run");
+  // --keep-alive: in terminal states (all gates met / helper missing / stuck), SLEEP
+  // and re-check instead of exiting. Required when run as a KeepAlive LaunchAgent —
+  // otherwise exit -> launchd restart -> exit is a tight crash loop.
+  const keepAlive = has("--keep-alive");
+  const idleSleepMs = Number(arg("--idle-sleep-ms", String(15 * 60 * 1000)));
   const log = (...a) => console.log(`[gate-runner ${new Date().toISOString()}]`, ...a);
 
   const regrade = (proofPath, t) => {
@@ -106,13 +113,19 @@ function main() {
 
   for (;;) {
     const t = nextTier(TIERS, enabled, gateMet);
-    if (!t) { log("ALL ENABLED TIERS AT GATE. factory reliability ladder complete for enabled set."); process.exit(0); }
+    if (!t) {
+      log("ALL ENABLED TIERS AT GATE. factory reliability ladder complete for enabled set.");
+      if (keepAlive) { log(`keep-alive: sleeping ${(idleSleepMs/60000).toFixed(0)}min then re-checking`); await sleep(idleSleepMs); continue; }
+      process.exit(0);
+    }
 
     const pass = ledgerPassCount(t.ledger, (pp) => regrade(pp, t.verifierTier));
     log(`working tier=${t.name} (uniform ${pass}/${t.target}, gate ${t.gate})`);
 
     if (!existsSync(t.fireHelper)) {
-      log(`tier=${t.name} fire helper missing (${t.fireHelper}); STOPPING for operator to build it.`);
+      log(`tier=${t.name} fire helper missing (${t.fireHelper}); cannot grind it.`);
+      if (keepAlive) { log(`keep-alive: sleeping ${(idleSleepMs/60000).toFixed(0)}min then re-checking (operator may add the helper)`); await sleep(idleSleepMs); continue; }
+      log("STOPPING for operator to build it.");
       process.exit(3);
     }
     if (dryRun) { log(`dry-run: would run grind daemon for ${t.name}; stopping`); process.exit(0); }
@@ -128,7 +141,9 @@ function main() {
 
     if (r.status === 0) { log(`tier=${t.name} GATE MET. advancing.`); }
     else {
-      log(`tier=${t.name} grind daemon exited ${r.status} (stuck / target reached below gate). STOPPING for operator.`);
+      log(`tier=${t.name} grind daemon exited ${r.status} (stuck / target reached below gate).`);
+      if (keepAlive) { log(`keep-alive: sleeping ${(idleSleepMs/60000).toFixed(0)}min then retrying`); await sleep(idleSleepMs); continue; }
+      log("STOPPING for operator.");
       process.exit(r.status ?? 2);
     }
     if (once) { log("once mode: one tier processed; exiting"); process.exit(0); }
@@ -136,5 +151,5 @@ function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  main().catch((e) => { console.error("[gate-runner] fatal", e); process.exit(70); });
 }

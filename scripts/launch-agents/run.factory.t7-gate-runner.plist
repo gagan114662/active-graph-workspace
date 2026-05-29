@@ -21,7 +21,13 @@
     <string>/opt/homebrew/bin/node</string>
     <string>/Users/gaganarora/Desktop/my projects/active_graph/scripts/t7-gate-runner.mjs</string>
     <string>--enable-tiers</string>
-    <string>medium</string>
+    <string>medium,hard</string>
+    <!-- --keep-alive: sleep-and-recheck in terminal states (all gates met / helper
+         missing / stuck) instead of exiting, so KeepAlive=true does not tight-loop.
+         hard is enabled because its chain is validated (run 1 = 16/16 on opus-4.8).
+         extra-hard stays disabled until its fire helper exists + passes one
+         supervised validation. -->
+    <string>--keep-alive</string>
   </array>
 
   <key>WorkingDirectory</key>
