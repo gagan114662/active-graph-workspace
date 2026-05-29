@@ -98,7 +98,7 @@ const res = spawnSync("node", [
   "--hash", HASH,
   "--instruction-file", instrPath,
   "--expect-file", innerProofPath,
-  "--watch-seconds", "720", // hard is dual-commit; allow longer
+  "--watch-seconds", "960", // hard is dual-commit; must exceed bridge --claude-timeout-ms (900s) + overhead
   "--keep-bridge-running",
 ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 900_000 });
 

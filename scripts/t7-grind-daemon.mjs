@@ -164,6 +164,26 @@ async function main() {
     return reset;
   };
 
+  // Detect a TRANSIENT infra storm (claude CLI timeout / network error) in events
+  // since `sinceMs`. Unlike a session-limit wall (fixed reset time), these are
+  // transient API slowness — the resilient move is to back off and retry the SAME
+  // index later rather than hard-stop. Returns true if a recent llm.network_error /
+  // timeout failure is present.
+  const detectTransientInfra = (sinceMs) => {
+    if (!existsSync(eventsPath)) return false;
+    const lines = readFileSync(eventsPath, "utf8").split(/\n/).filter(Boolean);
+    for (let i = lines.length - 1; i >= 0 && i > lines.length - 400; i--) {
+      let ev; try { ev = JSON.parse(lines[i]); } catch { continue; }
+      const created = Date.parse(ev.created_at || "");
+      if (!Number.isFinite(created) || created < sinceMs) continue;
+      const p = ev.payload || {};
+      if (p.reason === "llm.network_error" || /timed out|timeout|network_error/i.test(p.message || "")) return true;
+    }
+    return false;
+  };
+  const transientBackoffMs = Number(arg("--transient-backoff-ms", String(10 * 60 * 1000)));
+  const maxTransientBackoffs = Number(arg("--max-transient-backoffs", "6"));
+
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
   log(`config: tier=${tier} target=${target} gate=${gate} fire=${fireHelper} ledger=${ledgerPath} once=${once} dryRun=${dryRun}`);
@@ -184,6 +204,7 @@ async function main() {
     if (dryRun) { log(`dry-run: would fire index ${idx}; stopping`); process.exit(0); }
 
     let infraRetries = 0;
+    let transientBackoffs = 0;
     let fired = false;
     while (!fired) {
       const fireStart = Date.now();
@@ -213,7 +234,22 @@ async function main() {
         break;
       }
 
-      // Non-rate-limited ghost/infra failure (rc===3 proof-missing, or other).
+      // Transient infra storm (claude CLI timeout / network error) — back off and
+      // retry the SAME index (attempt not consumed), like the rate-limit wall. This
+      // keeps an unattended grind alive through API slowness instead of hard-stopping.
+      if (detectTransientInfra(fireStart - 5_000)) {
+        transientBackoffs += 1;
+        if (transientBackoffs > maxTransientBackoffs) {
+          log(`index ${idx} hit ${maxTransientBackoffs} transient-infra backoffs (timeouts persisting). STOPPING for operator.`);
+          process.exit(2);
+        }
+        log(`TRANSIENT INFRA (timeout/network) detected. backoff ${transientBackoffs}/${maxTransientBackoffs}: sleeping ${(transientBackoffMs/60000).toFixed(0)}min then retrying SAME index ${idx} (attempt not consumed)`);
+        if (once) { log("once mode: not sleeping; exiting after transient-infra detection"); process.exit(75); }
+        await sleep(transientBackoffMs);
+        continue;
+      }
+
+      // Non-rate-limited, non-transient ghost/infra failure (rc===3 proof-missing, or other).
       infraRetries += 1;
       if (infraRetries > maxInfraRetries) {
         log(`index ${idx} exceeded ${maxInfraRetries} infra retries with no rate-limit signal. STOPPING for operator.`);
