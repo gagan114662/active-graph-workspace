@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>run.factory.t7-gate-runner</string>
+
+  <!-- LIVE capstone: grinds the T7 reliability gates unattended across reboots
+       and Claude Code session-limit walls (the grind daemon parses the reset time
+       and auto-resumes). KeepAlive=true so it relaunches if it crashes or after a
+       reboot; it is resumable (re-grades each ledger at startup).
+
+       SAFETY: --enable-tiers defaults to "medium" only. Enable hard/extra-hard ONLY
+       after each tier's fire helper passes one SUPERVISED live validation run:
+         <string>--enable-tiers</string><string>medium,hard</string>
+       Do NOT run this while a standalone t7-grind-daemon is already grinding the
+       same tier — two grinders dispatch Maya into the same inner repo and conflict.
+       PANIC file (~/.factory/PANIC) is the hard kill switch; Blake budget caps gate spend. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/gaganarora/Desktop/my projects/active_graph/scripts/t7-gate-runner.mjs</string>
+    <string>--enable-tiers</string>
+    <string>medium</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/gaganarora/Desktop/my projects/active_graph</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/gaganarora/.factory/t7-gate-runner.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/gaganarora/.factory/t7-gate-runner.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HONKER_EXTENSION_PATH</key>
+    <string>/Users/gaganarora/.local/lib/libhonker_ext.dylib</string>
+  </dict>
+</dict>
+</plist>
