@@ -85,6 +85,11 @@ const ALLOW_UNGATED_FALLBACK = has("--allow-ungated-fallback") ||
 // explicit `safety.allowed` — fail-closed for unattended autodispatch.
 const REQUIRE_SAFETY = has("--require-safety") ||
   process.env.FACTORY_REQUIRE_SAFETY === "1";
+// pt.18 Phase 3: AUTONOMOUS MERGE. Default OFF. Only the safest path ever lands to
+// main without a human: gh pr merge --auto (GitHub merges only after required CI —
+// branch protection requires deploy-verification) gated by Rowan PASS + a FRESH
+// Sentinel safety.allowed + REQUIRE_SAFETY. Enable with --auto-merge or FACTORY_AUTO_MERGE=1.
+const AUTO_MERGE = has("--auto-merge") || process.env.FACTORY_AUTO_MERGE === "1";
 
 const counts = {
   events_seen: 0,
@@ -1073,6 +1078,7 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
   // review/merge buttons; the flywheel just makes the changeset visible.
   let prUrl = null;
   let prCreated = false;
+  let merged = false; // pt.18 Phase 3: set true when auto-merge is queued/landed
   if (pushed) {
     // Use gh CLI from the inner repo. `gh pr create` returns the PR URL
     // on success; `gh pr view --json url` after if we need to re-derive.
@@ -1122,6 +1128,46 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
         });
       }
     }
+
+    // pt.18 Phase 3: AUTONOMOUS MERGE (flag-gated, default OFF). Four-gate chain —
+    // AUTO_MERGE on, a real PR exists, Rowan PASS (never a bypass), a FRESH Sentinel
+    // safety.allowed (re-read here to close the merge-races-safety window), and
+    // REQUIRE_SAFETY in force. `gh pr merge --auto` then lets GitHub merge ONLY after
+    // the required CI check (deploy-verification) passes. Every decision is an event.
+    if (AUTO_MERGE && prUrl) {
+      const freshSafety = safetyVerdictForTodo(row.id);
+      const gates = {
+        review_pass: row.review_verdict === "PASS",
+        safety_allowed: freshSafety === "allowed",
+        require_safety: REQUIRE_SAFETY,
+      };
+      const failedGates = Object.entries(gates).filter(([, v]) => !v).map(([k]) => k);
+      if (failedGates.length === 0) {
+        const m = spawnSync("gh", ["pr", "merge", branch, "--repo", REPO_SLUG, "--auto", "--squash", "--delete-branch"],
+          { cwd: INNER_REPO, encoding: "utf8" });
+        if (m.status === 0) {
+          merged = true; // --auto: queued; GitHub completes the merge after required CI passes
+          emitFactoryEvent({
+            type: "flywheel.pr.merged", behavior: "factory-flywheel",
+            extras: { todo_event_id: row.id, branch, sha, pr_url: prUrl,
+              merge_method: "squash-auto", safety: freshSafety, review_verdict: row.review_verdict },
+          });
+        } else {
+          emitFactoryEvent({
+            type: "flywheel.merge.failed", behavior: "factory-flywheel", reason: "flywheel.merge_failed",
+            message: String(m.stderr || "gh pr merge failed").slice(0, 300),
+            extras: { todo_event_id: row.id, branch, sha, pr_url: prUrl },
+          });
+        }
+      } else {
+        emitFactoryEvent({
+          type: "flywheel.merge.skipped", behavior: "factory-flywheel", reason: "flywheel.merge_skipped",
+          message: `auto-merge skipped; gates not met: ${failedGates.join(",")}`,
+          extras: { todo_event_id: row.id, branch, sha, pr_url: prUrl,
+            failed_gates: failedGates, fresh_safety: freshSafety, review_verdict: row.review_verdict || null },
+        });
+      }
+    }
   }
 
   // Capture state-after for the CRUD-replay-safety record.
@@ -1147,17 +1193,23 @@ Co-Authored-By: ${row.recommended_agent} (via flywheel)
   // A push failure leaves the commit local-only — the work is NOT done, so
   // marking it completed would orphan the commit and stop any retry. Park it in
   // a needs_push state instead so the operator (or a future retry) can finish.
-  if (pushed) {
-    row.completed_at = new Date().toISOString();
-    row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch} (pushed)${prUrl ? " PR: " + prUrl : ""}`;
-    counts.todos_completed++;
-  } else {
+  if (!pushed) {
     row.action_phase = "needs_push";
     row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch} — PUSH FAILED, NOT completed (local only)`;
+  } else if (AUTO_MERGE && !merged) {
+    // pt.18 Phase 3: auto-merge was expected but the gates/merge didn't go through.
+    // The PR is open; do NOT mark done — park needs_merge so it's visibly unfinished.
+    row.action_phase = "needs_merge";
+    row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch} pushed${prUrl ? " PR: " + prUrl : ""} — AUTO-MERGE NOT completed (gates unmet or merge failed)`;
+  } else {
+    row.completed_at = new Date().toISOString();
+    row.completion_evidence = `flywheel commit ${sha.slice(0, 12)} on ${branch} (pushed)${prUrl ? " PR: " + prUrl : ""}${merged ? " [auto-merge queued]" : ""}`;
+    counts.todos_completed++;
   }
   row.flywheel_commit_sha = sha;
   row.flywheel_branch = branch;
   row.flywheel_push_succeeded = pushed;
+  row.flywheel_merge_queued = merged;
   row.flywheel_pr_url = prUrl;
   row.flywheel_pr_created_at = prCreated ? new Date().toISOString() : null;
   row.state_before_hash = stateBefore;

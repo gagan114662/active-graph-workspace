@@ -87,7 +87,11 @@ test("no empty catch swallows a high-risk factory action", () => {
 //     in Phase 3 once auto-merge lands.) ------------------------------------
 test("Phoenix review/PR gate decisions emit named events", () => {
   const src = read(join(SCRIPTS, "phoenix-todo-keeper.mjs"));
-  for (const ev of ["flywheel.review.bypassed", "flywheel.pr.create_failed"]) {
+  for (const ev of [
+    "flywheel.review.bypassed", "flywheel.pr.create_failed",
+    // Phase 3 auto-merge: every merge-path decision must name a distinct event.
+    "flywheel.pr.merged", "flywheel.merge.failed", "flywheel.merge.skipped",
+  ]) {
     assert.ok(src.includes(ev), `phoenix-todo-keeper.mjs should reference event "${ev}"`);
   }
 });
