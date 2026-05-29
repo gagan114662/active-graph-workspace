@@ -45,6 +45,7 @@ const results = [];
 for (const strat of STRATEGIES) {
   const grader = new Grader({ repoRoot: REPO_ROOT, innerRepo: INNER, venvPython: VENV, sandboxRoot: SANDBOX_ROOT });
   const ledger = new Ledger(proofPath, `${defectId}::${strat.name}`);
+  ledger.note("provenance", "harness", `DET-CONTROL strategy=${strat.name} (deterministic, operator-injected, not an LLM build)`);
   ledger.note("control", "harness", `running control '${strat.name}' — ${strat.desc}`, { expect: strat.expect });
 
   const builder = async ({ grader, sandbox, defect }) => {

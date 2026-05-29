@@ -63,7 +63,8 @@ const grader = new Grader({ repoRoot: REPO_ROOT, innerRepo: INNER, venvPython: V
 const ts = new Date().toISOString().replace(/[:.]/g, "-");
 const ledgerPath = path.join(REPO_ROOT, "frames", "referee", `tier-easy-fix-${ts}.proof.jsonl`);
 const ledger = new Ledger(ledgerPath, "tier-easy::snapshot-fix");
-ledger.note("control", "harness", "EASY tier refereed fix — regenerate stale quickstart snapshot under discipline");
+ledger.note("provenance", "operator", "OPERATOR-TASK: snapshot regeneration (UPDATE_SNAPSHOTS), not an LLM build");
+  ledger.note("control", "harness", "EASY tier refereed fix — regenerate stale quickstart snapshot under discipline");
 
 let sandbox;
 let verdict;

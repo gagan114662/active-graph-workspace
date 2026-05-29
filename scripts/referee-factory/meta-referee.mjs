@@ -64,7 +64,47 @@ serde.exit === 0
   : L.failGate("oracle:serde_control_suite", "meta-referee", "serde control suite did not pass 4/4");
 results.push({ n: "serde_control_suite", correct: serde.exit === 0, valid: serde.exit === 0 });
 
-const verdict = L.verdict(O.map((o) => `oracle:${o.n}`).concat("oracle:serde_control_suite"));
+// ---- META-CHECK 3: provenance present on every build ledger ----
+import fsx from "node:fs";
+L.openGate("meta:provenance_present", "meta-referee");
+const led = fsx.readdirSync(path.join(ROOT, "frames", "referee")).filter((x) => x.endsWith(".proof.jsonl"));
+let provViolations = [];
+for (const f of led) {
+  const ev = fsx.readFileSync(path.join(ROOT, "frames", "referee", f), "utf8").split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  const hasBuild = ev.some((e) => e.stage === "build");
+  const hasProv = ev.some((e) => e.stage === "provenance");
+  // provenance is valid as an explicit event OR as a self-identifying task_id
+  // (deterministic control strategies / operator tasks encode it in the id).
+  const tids = [...new Set(ev.map((e) => e.task_id))];
+  const selfProvenanced = tids.length > 0 && tids.every((t) => /::(none|deleteTest|overfit|real|snapshot-fix)$/.test(t));
+  if (hasBuild && !hasProv && !selfProvenanced) provViolations.push(f.slice(0, 40));
+}
+provViolations.length === 0
+  ? L.clearGate("meta:provenance_present", "meta-referee", { ledgers: led.length }, "every ledger with a build step carries a provenance stamp")
+  : L.failGate("meta:provenance_present", "meta-referee", `${provViolations.length} build ledgers missing provenance`, { provViolations });
+results.push({ n: "provenance_present", correct: provViolations.length === 0, valid: provViolations.length === 0 });
+
+// ---- META-CHECK 4: report cannot contradict the ledgers ----
+L.openGate("meta:report_consistent", "meta-referee");
+// independent recount of LLM verified/error straight from the ledgers
+let v = 0, e = 0;
+for (const f of led) {
+  const ev = fsx.readFileSync(path.join(ROOT, "frames", "referee", f), "utf8").split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  if (!ev.find((x) => x.stage === "provenance" && /LLM-AGENT/.test(x.detail || ""))) continue;
+  const verd = [...ev].reverse().find((x) => x.stage === "verdict");
+  if (!verd) continue;
+  verd.status === "VERIFIED" ? v++ : e++;
+}
+const rep = node(["scripts/referee-factory/report.mjs", "/tmp/_meta_report_check.txt"]);
+const repTxt = fsx.existsSync("/tmp/_meta_report_check.txt") ? fsx.readFileSync("/tmp/_meta_report_check.txt", "utf8") : "";
+const m = repTxt.match(/VERIFIED:\s*(\d+)\s*\|\s*caught-and-blocked.*?:\s*(\d+)/);
+const repV = m ? parseInt(m[1], 10) : -1, repE = m ? parseInt(m[2], 10) : -1;
+(repV === v && repE === e)
+  ? L.clearGate("meta:report_consistent", "meta-referee", { ledger: { v, e }, report: { v: repV, e: repE } }, "report's headline numbers match an independent recount from the ledgers")
+  : L.failGate("meta:report_consistent", "meta-referee", "report contradicts the ledgers", { ledger: { v, e }, report: { v: repV, e: repE } });
+results.push({ n: "report_consistent", correct: repV === v && repE === e, valid: repV === v && repE === e });
+
+const verdict = L.verdict(O.map((o) => `oracle:${o.n}`).concat("oracle:serde_control_suite", "meta:provenance_present", "meta:report_consistent"));
 console.log("\n══════════════════════════════════════════════════════════════════════");
 console.log("  META-REFEREE — auditing the auditor (every oracle must fail honestly)");
 console.log("══════════════════════════════════════════════════════════════════════");
