@@ -1,0 +1,47 @@
+# T7 medium cohort-C (opus-4.8) — uniform re-grade
+
+Generated picking up the grind, after the integrity-chain fixes (commits 05d7b54,
+e10d4a0, c438913). Purpose: the historical ledger
+(frames/t7-native-repetition-progress-medium-cohortC-opus48-20260528.jsonl) recorded
+each run's outcome as graded by WHATEVER verifier version existed at run time. The
+symbol-collect bug was being fixed mid-grind, so run-time grades are NOT uniform.
+
+This file records every existing cohort-C proof RE-VERIFIED with the SINGLE current
+verifier (verify-pentagon-autonomy-from-logs.mjs --t6 --tier=medium --no-db).
+
+## Uniform re-grade result (2026-05-28, current verifier @ c438913)
+
+| run | run-time outcome | uniform re-grade | proof path |
+|-----|------------------|------------------|------------|
+| 001 | pass  (12/12)    | PASS 12/12       | activegraph/frames/...001... |
+| 002 | FAIL  (11/12)    | PASS 12/12       | frames/...002... |
+| 003 | pass  (12/12)    | PASS 12/12       | activegraph/frames/...003... |
+| 004 | pass  (12/12)    | PASS 12/12       | frames/...004... |
+| 005 | pass  (12/12)    | PASS 12/12       | activegraph/frames/...005... |
+| 006 | pass  (12/12)    | PASS 12/12       | frames/...006... |
+| 007 | pass  (12/12)    | PASS 12/12       | frames/...007... |
+| 008 | pass  (12/12)    | PASS 12/12       | activegraph/frames/...008... |
+| 011 | pass  (12/12)    | PASS 12/12       | frames/...011... |
+| 012 | pass  (12/12)    | PASS 12/12       | frames/...012... |
+| 013 | pass  (12/12)    | PASS 12/12       | frames/...013... |
+| 014 | pass  (12/12)    | PASS 12/12       | frames/...014... |
+
+## Uniform tally: 12 / 12 PASS
+
+## Why run 002 flipped (epistemic note — NOT a loosening)
+
+Run 002 covers activegraph.runtime.budget.Budget.has_cost_limit; Maya named her
+tests test_has_cost_limit_* (underscored). The verifier check #10
+("re-run collect for uncovered_symbol returns >= 2") originally ran
+`pytest -k <dotted.symbol.path>`, which matches ZERO tests (pytest -k matches test
+names, not module-qualified symbols), so it failed 11/12. The fix (e10d4a0 / c438913)
+collects by the underscored leaf form that agents actually use, AND uses the venv
+python (c1c2603 anti-pattern). Re-running check #10 on run 002 now collects 4 tests.
+This is the same valid proof; only the verifier's collection logic was wrong before.
+The fix matches real agent test-naming — it does not weaken any assertion.
+
+## Runs still needed for the 25-run gate
+
+Missing: 009, 010, 015, 016, 017, 018, 019, 020, 021, 022, 023, 024, 025 (13 runs).
+Gate: >= 22/25 PASS for T7 medium reliability on the opus-4.8 cohort.
+Current: 12/12 — on track, 13 runs remain.

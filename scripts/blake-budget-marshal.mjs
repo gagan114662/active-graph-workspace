@@ -139,10 +139,19 @@ function pauseBridge(reason, totals) {
   }
   const uid = process.getuid?.() ?? process.env.UID;
   const result = spawnSync("launchctl", ["bootout", `gui/${uid}/${BRIDGE_LABEL}`], { encoding: "utf8" });
+  // CRITICAL (pt.17 fix): `launchctl bootout` only DEREGISTERS the LaunchAgent — it
+  // does NOT terminate the already-running bridge process, which keeps dispatching
+  // (and spending) indefinitely. Proven 2026-05-29: Blake "paused" at 00:58 yet the
+  // live bridge kept firing gauntlet runs. A budget marshal whose pause can't stop
+  // spend is not a real cap. So after bootout, kill the running bridge process(es)
+  // by command signature. maybeUnpause() re-bootstraps the LaunchAgent later.
+  const kill = spawnSync("pkill", ["-f", "scripts/pentagon-trigger-bridge.mjs"], { encoding: "utf8" });
   pauseActiveUntil = Date.now() + 3600 * 1000;
-  logAction("budget_pause", `bootout ${BRIDGE_LABEL} (exit=${result.status}); auto-resume in 1h unless cap still breached`, {
+  logAction("budget_pause", `bootout+kill ${BRIDGE_LABEL} (bootout=${result.status} kill=${kill.status}); auto-resume in 1h unless cap still breached`, {
     cap_breached: reason,
     totals,
+    bootout_exit: result.status,
+    kill_exit: kill.status,
     pause_until: new Date(pauseActiveUntil).toISOString(),
   });
   // Schedule an auto-unpause + cap recheck.

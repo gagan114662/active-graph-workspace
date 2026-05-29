@@ -104,8 +104,22 @@ if (!proofPath) {
 }
 console.log(`[fire] proof found at ${proofPath}`);
 
+// INTEGRITY (pt.17 rubber-stamp audit): this helper previously HARDCODED
+// verifier_exit:0 + outcome:"pass" on proof-existence alone — the exact soft-fail
+// the discipline forbids (it recorded a PASS for an unverified/gamed proof). Now it
+// RUNS THE REAL verifier per run and gates the recorded outcome on its exit code,
+// matching scripts/t7-medium-cohortC-opus48-fire.mjs.
+const verRes = spawnSync("node", [
+  "scripts/verify-pentagon-autonomy-from-logs.mjs",
+  "--t6", "--tier=medium", "--proof-file", proofPath, "--no-db",
+], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 120_000 });
+const verifierExit = verRes.status;
+const verSummary = (String(verRes.stdout || "").match(/^summary: .+$/m) || ["no summary"])[0];
+const verifierPass = verifierExit === 0;
+console.log(`[fire] verifier exit=${verifierExit} :: ${verSummary}`);
+
 // Parse + append ledger entry
-const runResult = JSON.parse(res.stdout);
+const runResult = (() => { try { return JSON.parse(res.stdout); } catch { return {}; } })();
 const proof = readFileSync(proofPath, "utf8");
 const m = (re) => (proof.match(re) || [])[1];
 const instrSha = createHash("sha256").update(body).digest("hex");
@@ -133,39 +147,56 @@ const entry = {
   pytest_collect_after: Number(m(/pytest_collect_after=(.+)/)),
   pytest_before: Number(m(/pytest_before=(.+)/)),
   pytest_after: Number(m(/pytest_after=(.+)/)),
-  verifier_exit: 0,
-  verifier_summary: `proof_present; symbol fresh; pytest +${Number(m(/pytest_after=(.+)/)) - Number(m(/pytest_before=(.+)/))}; ruff 0`,
-  outcome: "pass",
-  outcome_class: "pass",
-  native_pass_final: true,
+  verifier_exit: verifierExit,
+  verifier_summary: verSummary,
+  outcome: verifierPass ? "pass" : "fail",
+  outcome_class: verifierPass ? "pass" : "fail",
+  native_pass_final: verifierPass,
   harness_exit: res.status,
   harness_native_pass: runResult.native_pass === true,
-  harness_wall_seconds: (new Date(runResult.final_trigger.completed_at) - new Date(runResult.initial_trigger.created_at)) / 1000,
+  harness_wall_seconds: (runResult.final_trigger?.completed_at && runResult.initial_trigger?.created_at)
+    ? (new Date(runResult.final_trigger.completed_at) - new Date(runResult.initial_trigger.created_at)) / 1000
+    : null,
 };
 appendFileSync("frames/t7-native-repetition-progress-medium-cohortB-20260527.jsonl", JSON.stringify(entry) + "\n");
-console.log(`[fire] PASS run ${idx}: target=${entry.target_symbol} tests+${entry.new_test_count} wall=${entry.harness_wall_seconds.toFixed(1)}s`);
+const wallStr = entry.harness_wall_seconds != null ? entry.harness_wall_seconds.toFixed(1) + "s" : "n/a";
+console.log(`[fire] ${verifierPass ? "PASS" : "FAIL"} run ${idx}: target=${entry.target_symbol} tests+${entry.new_test_count} wall=${wallStr} verifier_exit=${verifierExit}`);
 
 // Emit a behavior.completed factory event so the success lands in the
 // same activegraph-shaped log that captures dispatch failures. Lets a
 // future query report both numerator (passes) and denominator (attempts)
 // without joining JSONL files.
 try {
-  emitBehaviorCompleted({
-    behavior: "t7_medium_gauntlet",
-    message: `T7 medium run ${idx} passed: ${entry.target_symbol} (+${entry.new_test_count} tests)`,
-    extras: {
-      run_idx: idx,
-      hash: entry.hash,
-      cohort: "opus-4.7-claude-code-2026-05-27",
-      target_symbol: entry.target_symbol,
-      new_test_count: entry.new_test_count,
-      pytest_before: entry.pytest_before,
-      pytest_after: entry.pytest_after,
-      harness_wall_seconds: entry.harness_wall_seconds,
-      agent_commit_sha: entry.agent_commit_sha,
-      proof_file: entry.proof_file,
-    },
-  });
+  if (verifierPass) {
+    emitBehaviorCompleted({
+      behavior: "t7_medium_gauntlet",
+      message: `T7 medium run ${idx} VERIFIED pass: ${entry.target_symbol} (+${entry.new_test_count} tests)`,
+      extras: {
+        run_idx: idx,
+        hash: entry.hash,
+        cohort: "opus-4.7-claude-code-2026-05-27",
+        target_symbol: entry.target_symbol,
+        new_test_count: entry.new_test_count,
+        pytest_before: entry.pytest_before,
+        pytest_after: entry.pytest_after,
+        harness_wall_seconds: entry.harness_wall_seconds,
+        agent_commit_sha: entry.agent_commit_sha,
+        proof_file: entry.proof_file,
+        verifier_exit: verifierExit,
+      },
+    });
+  } else {
+    emitInfrastructureEvent({
+      subtype: "verifier_rejected_proof",
+      message: `T7 medium (cohort-B) run ${idx} proof present but verifier exit=${verifierExit}: ${verSummary}`,
+      extras: { run_idx: idx, hash: entry.hash, cohort: "opus-4.7-claude-code-2026-05-27",
+        proof_file: entry.proof_file, verifier_exit: verifierExit, verifier_summary: verSummary },
+    });
+  }
 } catch (emitErr) {
   console.error(`[fire] factory event emit failed: ${emitErr.message}`);
 }
+
+// Exit non-zero when the verifier rejected the proof so any batch driver tallies
+// it as a real FAIL (rc==0 == pass).
+process.exit(verifierPass ? 0 : 4);
