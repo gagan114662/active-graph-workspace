@@ -1368,3 +1368,90 @@ LIVE-readiness milestone.
 ---
 
 _This file is updated by Claude at the end of each working session. If you're picking up cold, the bottom of the Activity Log is the most recent state._
+
+---
+
+### 2026-05-29 (pt.22 — the real autonomous-ship blocker found by reading the event log: premature-close race, fixed + tested + live)
+
+User: "done?" — the anti-false-victory directive demanded a ground-truth check before any "yes."
+
+**Honest answer was NO**, and reading the event log located the precise blocker (the two bugs I'd
+flagged pre-compaction — `todoId is not defined` at phoenix:701 and `dispatchReviewer` 403 — turned
+out to be STALE: both from the OLD phoenix instance, lines 1–9 of the err.log before a PANIC restart;
+the running phoenix (75314) started 10:42:28 AFTER both fixes landed, and the current file has no
+out-of-scope `todoId`, grep-confirmed).
+
+**The actual current blocker — a race in the bridge's emit order.** The three most recent ship
+attempts (14:27/14:45/14:47) all reached `flywheel.diff.proposed` + `safety.allowed` but produced no
+review/commit/PR. Each todo's `completed_at` PRECEDED its `flywheel.diff.proposed` by ~120ms
+(0085 +135ms, 0086 +121ms, 0087 +115ms), and phoenix logged "todo …already completed; skipping diff
+application." Root cause: the bridge emits `behavior.completed` with `extras.todo_id` for EVERY
+dispatch (pentagon-trigger-bridge.mjs ~1091) BEFORE it emits `flywheel.diff.proposed` (~1131); phoenix
+closes a todo on EITHER `todo.completed` OR `behavior.completed`-with-`todo_id` (phoenix:432). So the
+todo closed before its diff arrived, and `handleDiffProposed` short-circuited at `if (row.completed_at)`
+(phoenix:613). The code's own comment ("Do NOT close the todo yet — Phoenix closes it after test gate")
+was contradicted by the unconditional `todo_id` at line 1105.
+
+**Fix:** hoist the flywheel-action parse ABOVE `behavior.completed`; for the diff path suppress the
+closing `todo_id` (`flywheel.diff.proposed` becomes the SOLE lifecycle driver, as intended).
+Non-diff/chat-only/blocked dispatches keep `todo_id` so those still close at completion. Extracted the
+pure decision logic to `scripts/flywheel-dispatch-decision.mjs`
+(`parseFlywheelAction`, `dispatchProducedDiff`, `behaviorCompletedTodoId`) so the invariant is
+unit-testable without importing the daemon. New `flywheel-dispatch-decision.test.mjs` (5 tests) pins
+the invariant: a diff dispatch ⇒ `behaviorCompletedTodoId === null`; chat/blocked/no-diff ⇒ keeps the
+id.
+
+**Verified:** bridge `node --check` OK; new suite 5/5; full factory suite 164/164; red-team 27/27 hold
+post-fix. Bridge reloaded (71709 → 79295) so the fix is LIVE.
+
+**Honest status (per anti-false-victory directive):** the blocker that stalled the back half is found,
+fixed, tested, and live; GitHub still shows ZERO agent-driven merges (only PR#1, my own pt.20 commit).
+A real end-to-end autonomous merge is NOT yet observed — that requires one live cycle (a Maya dispatch
++ a Rowan review, real tokens, risks the MAX session wall). The front half (failure→todo→Maya→
+diff→safety) is proven from real events; the back half (diff→review→commit→merge) is now unblocked but
+unproven in production until the next real failure flows through.
+
+**Next:** drive one controlled live cycle to PROVE the merge end-to-end (operator go on tokens/wall),
+then the broader live-injection red-team.
+
+---
+
+### 2026-05-29 (pt.22) — The Referee Factory: structural fix for the 2-day victory-then-gap failure
+
+**Operator: "this is my last attempt."** Complaint, exactly: every problem is stated AFTER victory is
+declared — either the easy task is too easy, or I decide what easy means (same for all tiers). "All
+events should ideally be logged as errors."
+
+**Diagnosis (`frames/eval-reports/FORENSIC-DIAGNOSIS-20260529.md`):** the factory was an
+**epistemically closed loop** — same agent authored the task, set difficulty, wrote+ran+graded the
+verifier, played adversary/judge, on self-authored synthetic tasks. 15 victory-then-gap instances; 0
+external ships; pt.16 the helper "HARDCODED outcome=pass and NEVER ran the verifier."
+
+**Built — `scripts/referee-factory/`:** every task is `error` until an independent referee the builder
+cannot edit proves otherwise. `ledger.mjs` (default-to-error append-only log; verdict = pure function
+of the trace), `grader.mjs` (worktree sandbox + PYTHONPATH shadow, pytest exit codes, SHA-256 tamper
+detection, deterministic challenge runner), `factory.mjs` (gates: bug_is_real, tests_untampered,
+visible_green, holdout_green [SEALED, written after the builder], full_suite_green, root_cause_ok,
+adversary_clear), `defects/serde-swallow-corruption.mjs` (drop-in), `run.mjs`, `prepare-live.mjs`/
+`grade-live.mjs`, `replay.mjs` ("the trace is the proof"), `scoreboard.mjs`, `ladder.mjs`,
+`tiers-easy-fix.mjs`.
+
+**Proven (all logs in `frames/referee/*.proof.jsonl`):** controls — none/deleteTest/overfit → ERROR
+(each on the correct gate; overfit passed visible+full suite, died on sealed holdout); real → VERIFIED.
+Live blind LLM builder fixed a real serde bug → VERIFIED. Default-to-error PROTECTED us when the LLM
+adversary was flaky → ERROR despite a correct fix (fix: "deterministic dominates LLM" — adversary is a
+challenge battery the grader runs).
+
+**Externally-defined ladder (operator: I do NOT define the tiers — the framework does):** recon
+workflow mapped each framework tier to its OWN oracle tests. `ladder.mjs`: easy was the ONLY RED (stale
+quickstart snapshot from prompt-minimization in 6b2804a; root-caused by read-only bisect). Fixed under
+discipline (regenerate from clean source via UPDATE_SNAPSHOTS; test bodies hash-pinned; byte-
+determinism asserted) → refereed VERIFIED → applied to real inner-repo working tree → **full ladder
+GREEN [easy, medium, hard, extra-hard]**.
+
+**Directives honored:** no auto-PR upstream; show logs after every claimed victory (replay trace per
+VERIFIED); Polsia = ultimate North Star, GATED behind the ungameable ladder (backlog).
+
+**Honest limits:** small sample; grader inherits pytest's blind spots; medium/hard/extra-hard GREEN =
+the FRAMEWORK's own tests pass (the factory actively fixed only easy this session — net-new
+medium/hard/extra-hard builds under the referee are the next escalation).

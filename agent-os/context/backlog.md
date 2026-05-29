@@ -26,6 +26,15 @@ _Reconciled 2026-05-29 (pt.20) against reality — the old list predated pt.7–
 
 ## Genuinely remaining
 
+### ⭐ The Referee Factory ladder (pt.22, 2026-05-29) — the priority track
+The structural fix is built and proven ungameable (`scripts/referee-factory/`,
+`frames/eval-reports/REFEREE-FACTORY-20260529.md`). Remaining toward "factory builds
+net-new features autonomously across the WHOLE externally-defined ladder, not gamed":
+- **Net-new builds under the referee at every tier.** Proven so far: easy (refereed snapshot fix) + a live blind-builder bug fix (medium-ish). Still to prove: a BLIND builder producing net-new medium/hard/extra-hard FEATURES (custom ontology+behaviors; relation behaviors + Cypher patterns + fork-and-diff; full Pack + babyagi-as-behaviors + Postgres EventStore) graded by the framework's own oracles + sealed holdouts.
+- **More defect specs per tier** (drop-in `defects/*.mjs`) to get sample size > 1 per tier.
+- **Adversary = challenge-test arbiter**: adversary proposes a test that must PASS on HEAD and FAIL on the fix to count (deterministic dominates LLM).
+- **⭐ NORTH STAR (gated): Polsia-style autonomous agent company (https://polsia.com/).** Operator's ultimate dream — pursue ONLY after the ungameable ladder runs autonomously across all tiers. See memory [[polsia-north-star]]. Do NOT jump ahead.
+
 ### [OPERATOR] needs a human decision or external party — cannot finish solo
 - **Per-token arbitrage SALE.** Cost side measured (2.28× cost-vs-price); a real *sale* needs a customer.
 - **Grow judge ground-truth datasets** — needs operator-labeled examples (me grading my own work = anti-pattern).

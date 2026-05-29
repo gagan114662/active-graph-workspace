@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Eval — T7_REPEAT_HARD_20260528_OPUS48_019</title>
+<style>
+ body{font:14px/1.5 -apple-system,Segoe UI,sans-serif;margin:0;background:#f4f6f8;color:#222}
+ .wrap{max-width:980px;margin:0 auto;padding:28px}
+ h1{font-size:20px;margin:0 0 4px} .sub{color:#777;margin:0 0 20px}
+ .verdict{display:inline-block;padding:8px 18px;border-radius:8px;font-weight:700;font-size:18px;color:#fff;background:#27ae60}
+ .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
+ .card{background:#fff;border-radius:8px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+ .k{color:#888;font-size:12px} .v{font-weight:600;word-break:break-all}
+ table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+ td{padding:6px 10px;border-bottom:1px solid #eee;vertical-align:top} .d{color:#888;font-size:12px}
+ tr.bad td{background:#fdecea} h2{font-size:15px;margin:24px 0 8px}
+ .fc{background:#fff;border-radius:8px;padding:12px 14px;margin:8px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+ .ft{font-weight:700} .sev{color:#999;font-weight:400;font-size:12px} .fe{color:#555;margin:4px 0;font-size:13px}
+ .fp{font-size:13px} .smooth{background:#eafaf1;padding:14px;border-radius:8px;font-weight:600}
+ .score{font-size:13px;color:#777}
+</style></head><body><div class="wrap">
+ <h1>Automated Eval — T7_REPEAT_HARD_20260528_OPUS48_019</h1>
+ <p class="sub">tier=hard · target <code>activegraph.llm.openai._pricing_for</code> · 2026-05-29T13:49:12.884Z</p>
+ <div class="verdict">VERIFIED PASS</div>
+ <span class="score"> &nbsp; summary: 16/16 (reused) · friction score 2</span>
+ <h2>Evaluation pack</h2>
+ <div class="grid">
+  <div class="card"><div class="k">test file</div><div class="v">activegraph/tests/test_openai_pricing_fallback_t7_repeat_hard_019.py</div></div>
+  <div class="card"><div class="k">agent commit</div><div class="v">5183fee</div></div>
+  <div class="card"><div class="k">new tests</div><div class="v">—</div></div>
+  <div class="card"><div class="k">pytest before → after</div><div class="v">950 → 952</div></div>
+ </div>
+ <h2>Verifier checks (uncheatable ground truth)</h2>
+ <table><tr><td>no checks</td></tr></table>
+ <h2>Friction — what would have helped reach the goal faster</h2>
+ 
+      <div class="fc" style="border-left:5px solid #e67e22">
+        <div class="ft">verifier_rejection <span class="sev">medium · repo-actionable</span></div>
+        <div class="fe">verifier rejected 1 attempt(s): summary: 15/16 checks passed</div>
+        <div class="fp"><b>What would have helped:</b> A verifier check failed on a first attempt — the instruction/contract or a RESOLVER doc for this target is unclear. Make the exact expected format/behavior explicit in the task template so the agent gets it right first try.</div>
+      </div>
+</div></body></html>
