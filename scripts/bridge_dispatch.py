@@ -75,7 +75,7 @@ import sys
 import traceback
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 # Make the inner-repo activegraph package importable without uv environments.
 # Resolution order: $VIRTUAL_ENV/bin/python (if set), then add inner repo to path.
@@ -156,6 +156,47 @@ def _emit(event_type: str, **kwargs: Any) -> None:
         sys.stderr.flush()
 
 
+def _apply_dispatch_profile(agent_name: str, prompt: str) -> Optional[dict]:
+    """pt.20: per-role/tier Opus 4.8 effort routing. DEFAULT OFF — only applies when
+    FACTORY_DISPATCH_PROFILES=1 (routing hard->effort=max may re-trigger the pt.15
+    thinking-400 bug, so it needs a supervised test before going live). Sets the
+    FACTORY_CLAUDE_* env vars the provider reads. Never throws."""
+    if os.environ.get("FACTORY_DISPATCH_PROFILES") not in ("1", "true", "yes"):
+        return None
+    try:
+        cfg_path = HERE.parent / "agent-os" / "dispatch-profiles.json"
+        if not cfg_path.is_file():
+            return None
+        cfg = json.loads(cfg_path.read_text())
+        text = f"{prompt}".upper()
+        if "EXTRA_HARD" in text or "EXTRA-HARD" in text:
+            tier = "extra-hard"
+        elif "_HARD_" in text or " HARD " in text or "HARD\n" in text:
+            tier = "hard"
+        elif "_MEDIUM_" in text or " MEDIUM " in text or "MEDIUM\n" in text:
+            tier = "medium"
+        elif "_EASY_" in text or " EASY " in text or "EASY\n" in text:
+            tier = "easy"
+        else:
+            tier = None
+        role = (agent_name or "").strip().split()[0].lower() if agent_name else ""
+        resolved = dict(cfg.get("default", {}))
+        if tier and tier in cfg.get("by_tier", {}):
+            resolved.update({k: v for k, v in cfg["by_tier"][tier].items() if v is not None})
+        if role and role in cfg.get("by_role", {}):
+            resolved.update({k: v for k, v in cfg["by_role"][role].items() if v is not None})
+        if resolved.get("effort"):
+            os.environ["FACTORY_CLAUDE_EFFORT"] = str(resolved["effort"])
+        if resolved.get("max_thinking_tokens") is not None:
+            os.environ["FACTORY_CLAUDE_MAX_THINKING_TOKENS"] = str(resolved["max_thinking_tokens"])
+        if resolved.get("max_budget_usd"):
+            os.environ["FACTORY_CLAUDE_MAX_BUDGET_USD"] = str(resolved["max_budget_usd"])
+        return {"tier": tier, "role": role, "resolved": resolved}
+    except Exception as exc:  # noqa: BLE001 - routing is best-effort; never break dispatch
+        sys.stderr.write(f"[bridge_dispatch] dispatch-profile resolve failed: {exc}\n")
+        return None
+
+
 def main() -> int:
     raw = sys.stdin.read()
     if not raw.strip():
@@ -180,6 +221,10 @@ def main() -> int:
     prompt = payload.get("prompt") or ""
     model = payload.get("model") or "claude-opus-4-8"
     timeout_seconds = float(payload.get("timeout_seconds") or 540)
+
+    _profile = _apply_dispatch_profile(agent_name, prompt)
+    if _profile:
+        sys.stderr.write(f"[bridge_dispatch] dispatch profile applied: {_profile}\n")
 
     mcp_config = None
     if token and mcp_url:

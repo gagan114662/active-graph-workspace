@@ -1,0 +1,16 @@
+{
+  "_comment": "pt.20 — per-role/tier dispatch routing for Opus 4.8 (effort + thinking + native budget). Consumed by scripts/bridge_dispatch.py, which sets FACTORY_CLAUDE_EFFORT / FACTORY_CLAUDE_MAX_THINKING_TOKENS / FACTORY_CLAUDE_MAX_BUDGET_USD per dispatch; the provider (claude_code_cli.py) passes them to `claude`. DEFAULT OFF: only applied when env FACTORY_DISPATCH_PROFILES=1 (or --dispatch-profiles), because routing hard->effort=max may re-enable extended thinking and re-trigger the pt.15 multi-turn thinking-400 bug — must pass one supervised hard dispatch before going live.",
+  "_resolution_order": "by_role (most specific) overrides by_tier overrides default",
+  "default": { "effort": null, "max_thinking_tokens": "0", "max_budget_usd": null },
+  "by_tier": {
+    "easy":       { "effort": "low" },
+    "medium":     { "effort": "medium" },
+    "hard":       { "effort": "max", "max_thinking_tokens": "0", "max_budget_usd": "8.00" },
+    "extra-hard": { "effort": "max", "max_thinking_tokens": "0", "max_budget_usd": "12.00" }
+  },
+  "by_role": {
+    "rowan": { "effort": "low" },
+    "theo":  { "effort": "low" },
+    "grace": { "effort": "low" }
+  }
+}
