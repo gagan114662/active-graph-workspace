@@ -29,6 +29,8 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { installCrashGuard } from "./factory-crash-guard.mjs";
+installCrashGuard("f1-gauntlet-scheduler");
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const STATE_DIR = resolve(homedir(), ".factory");

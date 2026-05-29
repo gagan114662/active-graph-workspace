@@ -87,6 +87,19 @@ if INNER_REPO.is_dir() and str(INNER_REPO) not in sys.path:
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+# S3 (pt.18): import the event emitter + crash guard BEFORE the activegraph import,
+# so an activegraph import failure is itself a recorded event (not a silent exit 2),
+# and so an uncaught exception anywhere becomes a script.crash event.
+try:
+    import factory_events
+except Exception:  # noqa: BLE001
+    factory_events = None  # Best-effort; dispatcher works without event emission.
+try:
+    from factory_crash_guard import install_crash_guard
+    install_crash_guard("bridge_dispatch")
+except Exception:  # noqa: BLE001
+    pass
+
 try:
     from activegraph.llm.claude_code_cli import ClaudeCodeCliProvider
     from activegraph.llm.errors import LLMBehaviorError
@@ -95,17 +108,22 @@ except ImportError as e:
     sys.stderr.write(f"[bridge_dispatch] cannot import activegraph: {e}\n")
     sys.stderr.write(f"[bridge_dispatch] sys.path[:5]: {sys.path[:5]}\n")
     sys.stderr.write(f"[bridge_dispatch] INNER_REPO={INNER_REPO} exists={INNER_REPO.is_dir()}\n")
+    if factory_events is not None:
+        try:
+            factory_events.emit_behavior_failed(
+                behavior="bridge_dispatch",
+                reason="dispatcher.import_failed",
+                message=str(e),
+                extras={"sys_path_head": [str(p) for p in sys.path[:5]], "inner_repo": str(INNER_REPO)},
+            )
+        except Exception as emit_exc:  # noqa: BLE001
+            sys.stderr.write(f"[bridge_dispatch] import-failure emit failed: {emit_exc}\n")
     print(json.dumps({
         "ok": False,
         "error_reason": "dispatcher.import_failed",
         "error_message": str(e),
     }))
     sys.exit(2)
-
-try:
-    import factory_events
-except ImportError:
-    factory_events = None  # Best-effort; dispatcher works without event emission.
 
 
 def _emit(event_type: str, **kwargs: Any) -> None:
@@ -141,11 +159,13 @@ def _emit(event_type: str, **kwargs: Any) -> None:
 def main() -> int:
     raw = sys.stdin.read()
     if not raw.strip():
+        _emit("behavior.failed", behavior="bridge_dispatch", reason="dispatcher.empty_input", message="stdin was empty")
         print(json.dumps({"ok": False, "error_reason": "dispatcher.empty_input", "error_message": "stdin was empty"}))
         return 0
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as e:
+        _emit("behavior.failed", behavior="bridge_dispatch", reason="dispatcher.bad_json", message=str(e))
         print(json.dumps({"ok": False, "error_reason": "dispatcher.bad_json", "error_message": str(e)}))
         return 0
 

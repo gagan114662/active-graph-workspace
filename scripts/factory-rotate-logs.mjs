@@ -21,6 +21,8 @@ import { resolve, dirname } from "node:path";
 import { createGzip } from "node:zlib";
 import { pipeline } from "node:stream/promises";
 import { emitFactoryEvent } from "./factory-events.mjs";
+import { installCrashGuard } from "./factory-crash-guard.mjs";
+installCrashGuard("factory-rotate-logs");
 
 const FACTORY_EVENTS_PATH = resolve(process.env.FACTORY_EVENTS_PATH || "frames/factory-events.jsonl");
 const FACTORY_TODOS_PATH = resolve(process.env.FACTORY_TODOS_PATH || "frames/factory-todos.jsonl");

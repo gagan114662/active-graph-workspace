@@ -34,6 +34,12 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { emitInfrastructureEvent, emitBehaviorCompleted } from "./factory-events.mjs";
+import { installCrashGuard } from "./factory-crash-guard.mjs";
+
+// S2 (pt.18): guarantee a synchronous module-load throw becomes a script.crash event.
+// main().catch() only covers async rejections from main(); a bad import or top-level
+// parse-time throw before the entry guard would otherwise exit silently.
+installCrashGuard("t7-grind-daemon");
 
 // ---------------------------------------------------------------------------
 // Pure, unit-testable helpers (exported for t7-grind-daemon.test.mjs)

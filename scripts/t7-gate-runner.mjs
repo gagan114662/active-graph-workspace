@@ -23,6 +23,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { installCrashGuard } from "./factory-crash-guard.mjs";
+installCrashGuard("t7-gate-runner");
 
 // Ordered tier ladder. Each tier names its fire helper + ledger + gate.
 export const TIERS = [

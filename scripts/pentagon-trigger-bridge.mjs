@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, appendFileSync } from "node:fs";
 import {
   emitBehaviorFailed,
   emitInfrastructureEvent,
@@ -86,6 +86,21 @@ import {
 installCrashGuard("bridge");
 
 const WORKSPACE = "/Users/gaganarora/Desktop/my projects/active_graph";
+
+// S1 (pt.18): last-ditch failure sink. When the factory-events emitter ITSELF throws
+// inside an error handler (disk full, perms, broken import), the original failure must
+// still be recorded somewhere durable — never swallowed by an empty catch. Appends a
+// raw line to frames/emit-failures.jsonl (separate from the main log so a broken main
+// log can't take this down too) and always logs to stderr.
+function lastDitchEmitFailure(where, originalErr, emitErr) {
+  const line = JSON.stringify({
+    ts: new Date().toISOString(), sink: "emit-failure", where,
+    original: String(originalErr?.message ?? originalErr),
+    emit_error: String(emitErr?.message ?? emitErr),
+  });
+  try { appendFileSync(`${WORKSPACE}/frames/emit-failures.jsonl`, line + "\n"); } catch { /* truly nothing left */ }
+  console.error(`[bridge] EMIT FAILED at ${where}: ${line}`);
+}
 // PENTAGON_BIN is still referenced by the Pentagon watchdog (pgrep checks
 // + existsSync gate). The JWT-/anon-key plumbing migrated to pentagon-auth.mjs
 // in Task #23; this constant remains here for the watchdog path only.
@@ -1254,7 +1269,7 @@ async function processCandidates(candidates) {
             stack_tail: String(candidateErr?.stack ?? "").split(/\r?\n/).slice(-4).join("\n"),
           },
         });
-      } catch {}
+      } catch (emitErr) { lastDitchEmitFailure("candidate_processing_error", candidateErr, emitErr); }
       if (claimed) {
         try { await completeTrigger(claimed.id); }
         catch (relErr) {
@@ -1264,7 +1279,7 @@ async function processCandidates(candidates) {
               message: `completeTrigger failed in candidate catch: ${String(relErr?.message ?? relErr)}`,
               extras: { trigger_id: claimed.id, underlying_error: String(relErr?.message ?? relErr) },
             });
-          } catch {}
+          } catch (emitErr) { lastDitchEmitFailure("trigger_release_failed", relErr, emitErr); }
         }
       }
       results.push({

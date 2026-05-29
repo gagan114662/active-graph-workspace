@@ -33,6 +33,8 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { emitFactoryEvent } from "./factory-events.mjs";
 import { subscribeToFactoryEvents } from "./honker-subscribe.mjs";
+import { installCrashGuard } from "./factory-crash-guard.mjs";
+installCrashGuard("safety-monitor");
 
 function arg(name, fallback = null) {
   const i = process.argv.indexOf(name);

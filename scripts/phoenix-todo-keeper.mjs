@@ -689,7 +689,8 @@ function handleDiffProposed(event) {
   const innerVenv = `${INNER_REPO}/.venv`;
   const worktreeVenv = `${worktreePath}/.venv`;
   if (existsSync(innerVenv) && !existsSync(worktreeVenv)) {
-    try { spawnSync("ln", ["-s", innerVenv, worktreeVenv], { encoding: "utf8" }); } catch {}
+    try { spawnSync("ln", ["-s", innerVenv, worktreeVenv], { encoding: "utf8" }); }
+    catch (e) { console.error(`[phoenix] best-effort venv symlink failed: ${e?.message ?? e}`); }
   }
 
   let pytest;
