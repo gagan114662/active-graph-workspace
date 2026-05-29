@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { getProfile } from "./forge-profiles.mjs";
+import { toolsForRole } from "./forge-tool-registry.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLAUDE_BIN = process.env.FORGE_CLAUDE_BIN || `${process.env.HOME}/.local/bin/claude`;
@@ -46,17 +47,30 @@ export function buildSettings(role) {
   };
 }
 
-// Build the exact `claude` argv for a role + prompt.
-export function buildInvocation(role, prompt, settingsPath) {
+// The Forge MCP server config for a role (gives the role its permitted forge-tools).
+export function buildMcpConfig(role) {
+  const server = join(HERE, "forge-mcp-server.mjs");
+  return { mcpServers: { forge: { command: "node", args: [server, "--role", role] } } };
+}
+
+// Build the exact `claude` argv for a role + prompt. opts.forgeToolNames adds the
+// role's MCP tools to allowedTools; opts.mcpConfigPath wires the Forge MCP server.
+export function buildInvocation(role, prompt, settingsPath, opts = {}) {
   const profile = getProfile(role);
-  return [
+  const allowed = [
+    ...profile.allowedTools,
+    ...(opts.forgeToolNames || []).map((n) => `mcp__forge__${n}`),
+  ];
+  const args = [
     "-p", prompt,
     "--output-format", "stream-json",
     "--verbose",
-    "--allowedTools", profile.allowedTools.join(","),
+    "--allowedTools", allowed.join(","),
     "--settings", settingsPath,
     "--permission-mode", "default",
   ];
+  if (opts.mcpConfigPath) args.push("--mcp-config", opts.mcpConfigPath, "--strict-mcp-config");
+  return args;
 }
 
 async function main() {
@@ -70,14 +84,21 @@ async function main() {
   const cwd = resolve(arg("--cwd", process.cwd()));
   const profile = getProfile(role); // throws on unknown role
   const settings = buildSettings(role);
+  const forgeTools = await toolsForRole(role);
+  const forgeToolNames = forgeTools.map((t) => t.name);
+  const mcpConfig = buildMcpConfig(role);
 
   if (has("--print")) {
     const settingsPath = "<tempfile>/settings.json";
+    const invo = buildInvocation(role, prompt || "<PROMPT>", settingsPath, { forgeToolNames, mcpConfigPath: "<tempfile>/mcp.json" });
     console.log("# Forge invocation (role=%s, profile=%s)", role, profile.description);
-    console.log("#", CLAUDE_BIN, buildInvocation(role, prompt || "<PROMPT>", settingsPath).map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(" "));
+    console.log("#", CLAUDE_BIN, invo.map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(" "));
     console.log("# allowedTools:", profile.allowedTools.join(", "), "| bashMode:", profile.bashMode, "| canWrite:", profile.canWrite);
+    console.log("# forge MCP tools for role:", forgeToolNames.map((n) => `mcp__forge__${n}`).join(", ") || "(none)");
     console.log("# generated settings.json:");
     console.log(JSON.stringify(settings, null, 2));
+    console.log("# generated mcp.json:");
+    console.log(JSON.stringify(mcpConfig, null, 2));
     console.log("# cwd:", cwd);
     process.exit(0);
   }
@@ -87,7 +108,9 @@ async function main() {
   const dir = mkdtempSync(join(tmpdir(), "forge-"));
   const settingsPath = join(dir, "settings.json");
   writeFileSync(settingsPath, JSON.stringify(settings));
-  const invocation = buildInvocation(role, prompt, settingsPath);
+  const mcpConfigPath = join(dir, "mcp.json");
+  writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig));
+  const invocation = buildInvocation(role, prompt, settingsPath, { forgeToolNames, mcpConfigPath });
 
   const { emitInfrastructureEvent, emitBehaviorCompleted } = await import("../factory-events.mjs");
   emitInfrastructureEvent({ subtype: "forge_dispatch", message: `Forge run role=${role}`, extras: { role, cwd, allowed_tools: profile.allowedTools } });
