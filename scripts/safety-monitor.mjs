@@ -81,7 +81,7 @@ function addedLines(diff) {
     .join("\n");
 }
 
-function stubHarmCheck(diff) {
+export function stubHarmCheck(diff) {
   const added = addedLines(diff);
   const hits = [];
   for (const rule of HARM_RULES) {
