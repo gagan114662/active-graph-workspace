@@ -1,0 +1,14 @@
+hash=T7_REPEAT_MEDIUM_20260528_OPUS48_017
+run_seed=3c03f0e9-98b8-403b-b414-6632c7fe15dc
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=ef72c38
+uncovered_symbol=activegraph.errors.ActiveGraphError.is_structured
+test_file=activegraph/tests/test_errors_is_structured_t7m_017_coverage.py
+new_test_count=5
+pytest_collect_before=870
+pytest_collect_after=875
+pytest_before=857
+pytest_after=862
+agent_commit_sha=ef72c3836ab06c19b927c559b9142177acaf1132
+ruff_target_exit=0
+verdict=native_medium_done

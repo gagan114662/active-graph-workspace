@@ -1,0 +1,14 @@
+hash=T7_REPEAT_MEDIUM_20260528_OPUS48_022
+run_seed=3c03f0e9-98b8-403b-b414-6632c7fe15dc
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=ef22114
+uncovered_symbol=activegraph.trace.printer.format_event
+test_file=activegraph/tests/test_printer_format_event_t7m_022_coverage.py
+new_test_count=3
+pytest_collect_before=887
+pytest_collect_after=890
+pytest_before=874
+pytest_after=877
+agent_commit_sha=ef221149bbf04a04e92a0239da2c439681470c64
+ruff_target_exit=0
+verdict=native_medium_done

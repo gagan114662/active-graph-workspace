@@ -1,0 +1,14 @@
+hash=T7_REPEAT_MEDIUM_20260528_OPUS48_012
+run_seed=3c03f0e9-98b8-403b-b414-6632c7fe15dc
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=43d1597
+uncovered_symbol=activegraph.runtime.registry.Registry.match
+test_file=activegraph/tests/test_registry_match_t7m_012_coverage.py
+new_test_count=3
+pytest_collect_before=843
+pytest_collect_after=846
+pytest_before=830
+pytest_after=833
+agent_commit_sha=43d1597963def39cc8ab06551794bb0e0fc2e3b0
+ruff_target_exit=0
+verdict=native_medium_done

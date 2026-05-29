@@ -40,8 +40,18 @@ python (c1c2603 anti-pattern). Re-running check #10 on run 002 now collects 4 te
 This is the same valid proof; only the verifier's collection logic was wrong before.
 The fix matches real agent test-naming — it does not weaken any assertion.
 
-## Runs still needed for the 25-run gate
+## FINAL: 25-run gate COMPLETE (2026-05-29 04:17 UTC)
 
-Missing: 009, 010, 015, 016, 017, 018, 019, 020, 021, 022, 023, 024, 025 (13 runs).
-Gate: >= 22/25 PASS for T7 medium reliability on the opus-4.8 cohort.
-Current: 12/12 — on track, 13 runs remain.
+The session-limit-resilient grind daemon (scripts/t7-grind-daemon.mjs) drove runs
+009, 010, 015-025 to completion autonomously after the session limit reset at 03:10
+UTC. It correctly retried one non-rate-limit infra ghost on run 024.
+
+**T7 medium reliability gate (opus-4.8-claude-code-2026-05-28 cohort):**
+- 25 unique runs (indices 1-25), all uniformly re-graded with the current verifier.
+- **uniform PASS = 25/25** (realFail = []).
+- Gate threshold: >= 22/25. **GATE MET (25/25).**
+- Independently confirmed: 25 unique indices, 25 ledger rows, newest proofs (024/025)
+  re-verify 12/12 on a fresh verifier invocation.
+
+This is the FIRST honestly-verified T7 medium reliability gate on the opus-4.8 cohort
+— graded by the real verifier per run (the harness no longer rubber-stamps, pt.16+pt.17).

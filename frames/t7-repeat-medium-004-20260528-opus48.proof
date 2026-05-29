@@ -1,0 +1,14 @@
+hash=T7_REPEAT_MEDIUM_20260528_OPUS48_004
+run_seed=3c03f0e9-98b8-403b-b414-6632c7fe15dc
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=580d42f
+uncovered_symbol=activegraph.core.clock.FrozenClock
+test_file=activegraph/tests/test_frozenclock_t7m_004_coverage.py
+new_test_count=2
+pytest_collect_before=823
+pytest_collect_after=825
+pytest_before=810
+pytest_after=812
+agent_commit_sha=580d42f39a4a63168f32a2b64a75c28d9548c5f1
+ruff_target_exit=0
+verdict=native_medium_done

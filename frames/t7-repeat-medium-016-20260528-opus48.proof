@@ -1,0 +1,14 @@
+hash=T7_REPEAT_MEDIUM_20260528_OPUS48_016
+run_seed=3c03f0e9-98b8-403b-b414-6632c7fe15dc
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=d3b132d
+uncovered_symbol=activegraph.core.graph.Graph.remove_relation
+test_file=activegraph/tests/test_graph_remove_relation_t7m_016_coverage.py
+new_test_count=5
+pytest_collect_before=865
+pytest_collect_after=870
+pytest_before=852
+pytest_after=857
+agent_commit_sha=d3b132de2b9cd614465e320fa8aa337a7b68a93d
+ruff_target_exit=0
+verdict=native_medium_done

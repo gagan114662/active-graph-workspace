@@ -1,0 +1,14 @@
+hash=T7_REPEAT_MEDIUM_20260528_OPUS48_006
+run_seed=3c03f0e9-98b8-403b-b414-6632c7fe15dc
+pwd=/Users/gaganarora/Desktop/my projects/active_graph/activegraph
+head=8ef1813
+uncovered_symbol=activegraph.store.serde.encode_event
+test_file=activegraph/tests/test_serde_encode_event_t7m_006_coverage.py
+new_test_count=3
+pytest_collect_before=829
+pytest_collect_after=832
+pytest_before=816
+pytest_after=819
+agent_commit_sha=8ef18135292c62652df5dc24154e7b58e4d36e1a
+ruff_target_exit=0
+verdict=native_medium_done
