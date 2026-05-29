@@ -1110,7 +1110,21 @@ async function processCandidates(candidates) {
         // todo.completed for the chat-only path. Phoenix's keeper closes
         // the loop in either case.
         if (flywheelTodoId) {
-          const action = parseFlywheelAction(finalText, flywheelTodoId);
+          let action = parseFlywheelAction(finalText, flywheelTodoId);
+          let actionSource = action?.kind === "diff" ? "final_text" : null;
+          // Fix B extended (pt.20): the agent commonly posts the diff as a conversation
+          // MESSAGE while its finalText is a prose summary ("Responded in the conversation
+          // per the reply contract"). The reviewer path already falls back to posted
+          // messages (above); the DIFF path must too — otherwise a valid proposed diff is
+          // silently dropped to todo.completed. This is exactly why the first autonomous
+          // ship (pt.20) didn't ship: Maya's diff was in the posted message, not finalText.
+          if (action?.kind !== "diff") {
+            for (const posted of await agentPostedMessages(claimed)) {
+              const a = parseFlywheelAction(posted, flywheelTodoId);
+              if (a?.kind === "diff") { action = a; actionSource = "posted_message"; break; }
+              if (a?.kind === "blocked" && !action) action = a; // keep a blocked verdict too
+            }
+          }
           if (action?.kind === "diff") {
             // Emit the diff for Phoenix to apply + test. Do NOT close
             // the todo yet — Phoenix closes it after test gate runs.
@@ -1126,6 +1140,7 @@ async function processCandidates(candidates) {
                 diff_chars: action.diff.length,
                 diff_b64: Buffer.from(action.diff, "utf8").toString("base64"),
                 rationale: action.rationale,
+                diff_source: actionSource,  // "final_text" | "posted_message" (Fix B extended)
                 receipt_string_present: flywheelReceiptPresent(finalText, flywheelTodoId),
               },
             });
