@@ -1,4 +1,4 @@
-RUN_SEED=d89f777e-314f-480b-8c78-9fc507125dd7
+RUN_SEED=SEED_PLACEHOLDER
 NATIVE_GAUNTLET HARD T7_REPEAT_HARD_20260528_OPUS48_001
 
 Maya, this is T7 repetition run 001 for the HARD T6 task class in:
@@ -14,7 +14,6 @@ IS the bug.
 
 Do not reuse these prior T7 hard targets:
 - activegraph.core.view.View.objects
-- activegraph.llm.parsing.parse_structured_response
 
 Worktree discipline:
 - Work in /Users/gaganarora/Desktop/my projects/active_graph/activegraph.

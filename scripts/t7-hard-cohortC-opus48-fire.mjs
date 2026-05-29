@@ -34,8 +34,11 @@ const HASH = `T7_REPEAT_HARD_20260528_OPUS48_${NNN}`;
 const SEED = randomUUID();
 const LEDGER = "frames/t7-native-repetition-progress-hard-cohortC-opus48-20260528.jsonl";
 
-// Base spec template (the canonical 001 hard instruction).
-const baseInstr = readFileSync("frames/t7-repeat-hard-001-cohortC-opus48-instruction-20260528.txt", "utf8");
+// Base spec template — a DEDICATED file that run outputs never overwrite. (The
+// run-NNN instruction for NNN=001 would collide with the old template filename
+// `...hard-001-...`, mutating the template's baked-in exclusion list every fire;
+// the dedicated `...hard-template-...` name avoids that.)
+const baseInstr = readFileSync("frames/t7-repeat-hard-template-cohortC-opus48-instruction-20260528.txt", "utf8");
 
 // Exclusion list = template's existing list + every prior hard run's bug_source.
 const exclMatch = baseInstr.match(/Do not reuse these prior T7 hard targets:\n([\s\S]*?)\n\nWorktree discipline:/);
