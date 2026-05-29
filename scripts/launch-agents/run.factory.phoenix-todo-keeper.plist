@@ -46,6 +46,12 @@
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>HONKER_EXTENSION_PATH</key>
     <string>/Users/gaganarora/.local/lib/libhonker_ext.dylib</string>
+    <!-- pt.18 Phase 2: make the Sentinel safety gate MANDATORY. A commit now
+         requires an explicit safety.allowed verdict (not merely the absence of
+         safety.blocked) — so if Sentinel is slow/absent, the push is refused and
+         parked, not silently allowed. Hard precondition for autonomous merge. -->
+    <key>FACTORY_REQUIRE_SAFETY</key>
+    <string>1</string>
   </dict>
 </dict>
 </plist>
