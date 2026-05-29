@@ -52,6 +52,13 @@
          parked, not silently allowed. Hard precondition for autonomous merge. -->
     <key>FACTORY_REQUIRE_SAFETY</key>
     <string>1</string>
+    <!-- pt.20: AUTONOMOUS MERGE ON (operator "turn it on", 2026-05-29). The factory
+         now merges fixes to activegraph main on its own — gated by the four-gate chain
+         (tests + Rowan review PASS + fresh Sentinel safety.allowed + GitHub required CI
+         via branch protection). allow_auto_merge enabled on the repo. PANIC file kills
+         all daemons; remove this key + reload to revert to PR-only. -->
+    <key>FACTORY_AUTO_MERGE</key>
+    <string>1</string>
   </dict>
 </dict>
 </plist>

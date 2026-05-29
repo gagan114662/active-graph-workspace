@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>active_graph — Dark Factory</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#2b3340; --tx:#e6edf3;
+    --mut:#8b949e; --grn:#3fb950; --grnbg:#11271a; --amb:#d29922; --ambbg:#2a230f;
+    --red:#f85149; --redbg:#2a1416; --blu:#58a6ff; --pur:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  .wrap{display:grid;grid-template-columns:230px 1fr;max-width:1280px;margin:0 auto;min-height:100vh}
+  nav{border-right:1px solid var(--line);padding:24px 16px;position:sticky;top:0;height:100vh;overflow:auto}
+  nav h1{font-size:15px;margin:0 0 2px} nav .sub{color:var(--mut);font-size:11px;margin:0 0 20px}
+  nav a{display:block;color:var(--mut);text-decoration:none;padding:6px 10px;border-radius:6px;font-size:13px}
+  nav a:hover{background:var(--panel);color:var(--tx)}
+  main{padding:32px 40px;max-width:920px}
+  h2{font-size:20px;margin:34px 0 6px;padding-top:8px} h2:first-child{margin-top:0}
+  h3{font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:20px 0 8px}
+  p{color:#c9d1d9} code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:12px;color:var(--pur)}
+  .lead{font-size:16px;color:#c9d1d9}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+  .on{background:var(--grnbg);color:var(--grn);border:1px solid #1f5130}
+  .gate{background:var(--ambbg);color:var(--amb);border:1px solid #50420f}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:10px 0}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .k{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .big{font-size:26px;font-weight:700} .big.g{color:var(--grn)}
+  table{width:100%;border-collapse:collapse;margin:8px 0} td,th{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13px}
+  th{color:var(--mut);font-weight:600;font-size:11px;text-transform:uppercase}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0;font-size:12px}
+  .step{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;white-space:nowrap}
+  .step.gateStep{border-color:#50420f;background:var(--ambbg);color:var(--amb)}
+  .step.ship{border-color:#1f5130;background:var(--grnbg);color:var(--grn);font-weight:600}
+  .arr{color:var(--mut)}
+  .muted{color:var(--mut);font-size:12px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  ul{margin:6px 0;padding-left:18px} li{margin:3px 0;color:#c9d1d9}
+  .foot{color:var(--mut);font-size:11px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <h1>🏭 active_graph</h1>
+    <div class="sub">Dark Factory · snapshot 2026-05-29</div>
+    <a href="#thesis">The bet</a>
+    <a href="#loop">Autonomous-ship loop</a>
+    <a href="#gates">The 4-gate chain</a>
+    <a href="#components">Components</a>
+    <a href="#harness">Forge harness</a>
+    <a href="#eval">Eval &amp; learning loop</a>
+    <a href="#reliability">Reliability ladder</a>
+    <a href="#events">Every failure = an event</a>
+    <a href="#status">Live status</a>
+    <a href="#gated">What's gated</a>
+  </nav>
+  <main>
+    <h2 id="thesis">The bet</h2>
+    <p class="lead">AI agents produce production-ready software <b>autonomously</b>, with <b>full auditability</b> — and the moat is the <b>discipline of real verification</b>, not the model.</p>
+    <p>The factory takes a failure, fixes it, proves the fix with an <i>uncheatable</i> verifier, harm-gates it, and ships it to <code>main</code> — with no human in the loop and every step recorded as an event.</p>
+    <div class="card"><span class="pill on">● LIVE</span> &nbsp; Autonomous merge to <code>activegraph</code> main is ON (operator-authorized 2026-05-29). Gated by tests + review + safety + CI.</div>
+
+    <h2 id="loop">The autonomous-ship loop</h2>
+    <p>One real failure → a merged fix, no human step:</p>
+    <div class="flow">
+      <span class="step">failure event</span><span class="arr">→</span>
+      <span class="step">Sasha routes</span><span class="arr">→</span>
+      <span class="step">todo.created</span><span class="arr">→</span>
+      <span class="step">Phoenix dispatch</span><span class="arr">→</span>
+      <span class="step">bridge → Maya</span><span class="arr">→</span>
+      <span class="step">diff proposed</span><span class="arr">→</span>
+      <span class="step gateStep">tests</span><span class="arr">→</span>
+      <span class="step gateStep">Rowan review</span><span class="arr">→</span>
+      <span class="step gateStep">Sentinel safety</span><span class="arr">→</span>
+      <span class="step">commit + push</span><span class="arr">→</span>
+      <span class="step">PR</span><span class="arr">→</span>
+      <span class="step gateStep">CI (deploy-verification)</span><span class="arr">→</span>
+      <span class="step ship">auto-merge to main ✓</span>
+    </div>
+    <p class="muted">The merge half is proven end-to-end by a real auto-merged PR (#1). Resumable + session-limit-resilient: the grind daemon parses the Claude session-limit reset time and auto-resumes.</p>
+
+    <h2 id="gates">The 4-gate chain (why autonomous merge is safe)</h2>
+    <table>
+      <tr><th>Gate</th><th>What it blocks</th></tr>
+      <tr><td>① Tests pass (in a fresh worktree)</td><td>broken code</td></tr>
+      <tr><td>② Rowan review = PASS (LLM judge, model-pinned)</td><td>wrong-but-passing changes</td></tr>
+      <tr><td>③ Sentinel safety = allowed (harm gate)</td><td>rm-rf / secrets / exfil / DROP TABLE / force-push</td></tr>
+      <tr><td>④ GitHub required CI (branch protection)</td><td>anything red on the real PR</td></tr>
+    </table>
+    <p class="muted">Fail-closed: a missing/timed-out gate parks the todo (<code>needs_review</code>/<code>needs_merge</code>), never silently merges. <code>~/.factory/PANIC</code> kills all daemons in ≤5s.</p>
+
+    <h2 id="components">Components</h2>
+    <table>
+      <tr><th>Piece</th><th>Role</th></tr>
+      <tr><td><b>Verifier</b> <code>verify-pentagon-autonomy-from-logs.mjs</code></td><td>The uncheatable grader — worktree ground truth (test must FAIL at commit A, PASS at B). Can't be faked. The moat.</td></tr>
+      <tr><td><b>Bridge</b> <code>pentagon-trigger-bridge.mjs</code></td><td>THE dispatch path: claims triggers, runs agents on the installed Claude Code engine.</td></tr>
+      <tr><td><b>Sasha</b> (skeptic)</td><td>Watches the event log, routes every failure to a todo (deterministic, config-pinned).</td></tr>
+      <tr><td><b>Phoenix</b> (todo-keeper)</td><td>The action layer: dispatch → apply diff → test → review → commit → PR → auto-merge.</td></tr>
+      <tr><td><b>Sentinel</b> (safety-monitor)</td><td>Independent harm gate on every proposed diff.</td></tr>
+      <tr><td><b>Blake</b> (budget marshal)</td><td>Cost caps; can actually halt the bridge (bootout + kill).</td></tr>
+      <tr><td><b>Honker relay</b></td><td>JSONL → SQLite realtime substrate the daemons subscribe to.</td></tr>
+      <tr><td><b>F1 scheduler</b></td><td>Re-runs gauntlets on cadence + regression detection.</td></tr>
+    </table>
+
+    <h2 id="harness">Forge harness (owned, on the rented engine)</h2>
+    <p>Built from first principles + Pi's open-source layering — runs on the installed Claude Code engine, but we own the wrapper:</p>
+    <ul>
+      <li><b>Role profiles</b> — verifier/reviewer (read-only), builder/tester (write + guarded shell), least-privilege by default.</li>
+      <li><b>Permission gate</b> — a real PreToolUse hook that blocks catastrophic commands (the layer <code>--dangerously-skip-permissions</code> throws away). Every block is an event.</li>
+      <li><b>Plugin tools</b> — drop a file in <code>forge-tools/</code> → auto-discovered, role-scoped via MCP. The harness can write its own extensions.</li>
+    </ul>
+
+    <h2 id="eval">Eval &amp; learning loop (auto)</h2>
+    <p>What a human does by hand — evaluate the work, ask "what would have helped?", fix the repo — automated:</p>
+    <ul>
+      <li><b>auto-eval</b> — runs the verifier (uncheatable grade), assembles an evaluation pack, writes a single HTML report per run.</li>
+      <li><b>friction-analyzer</b> — reads the run's event trail, classifies friction, and proposes concrete repo/instruction fixes (<code>repo.friction.proposed</code>). The marble-madness learning loop, automated.</li>
+    </ul>
+
+    <h2 id="reliability">Reliability ladder (opus-4.8, honest)</h2>
+    <div class="grid">
+      <div class="card"><div class="k">T6 capability (sample 1)</div><div class="big g">4/4 ✓</div><div class="muted">easy · medium · hard · extra-hard</div></div>
+      <div class="card"><div class="k">T7 medium reliability</div><div class="big g">25 / 25</div><div class="muted">uniform PASS, honest harness</div></div>
+      <div class="card"><div class="k">T7 hard — first-attempt</div><div class="big">20 / 25</div><div class="muted">80% first-try, gate ≥19 met; 5 real flaws caught by the verifier</div></div>
+      <div class="card"><div class="k">Cost (measured)</div><div class="big">$0.96</div><div class="muted">per verified test · 2.28× vs $5 target price</div></div>
+    </div>
+
+    <h2 id="events">Every failure is an event (enforced)</h2>
+    <p>Not a hope — a CI test (<code>factory-coverage.test.mjs</code>) enforces it: every daemon installs a crash guard, no high-risk action is swallowed by an empty catch. It immediately caught 4 daemons silently missing guards.</p>
+    <div class="flow">
+      <span class="step">behavior.failed</span><span class="step">script.crash</span><span class="step">verifier.check_failed</span><span class="step">llm.rate_limited</span><span class="step">grind_stopped</span><span class="step">forge_permission_blocked</span><span class="step">flywheel.pr.merged</span>
+    </div>
+    <p class="muted">Single source of truth: <code>frames/factory-events.jsonl</code> · query: <code>node scripts/factory-events-list.mjs</code></p>
+
+    <h2 id="status">Live status</h2>
+    <div class="card">
+      <span class="pill on">● bridge</span> <span class="pill on">● sasha</span> <span class="pill on">● phoenix (auto-merge ON)</span>
+      <span class="pill on">● safety-monitor</span> <span class="pill on">● blake</span> <span class="pill on">● honker-relay</span><br><br>
+      <span class="pill on">branch protection: deploy-verification required</span> &nbsp;
+      <span class="pill on">allow_auto_merge: true</span> &nbsp;
+      <span class="pill on">FACTORY_REQUIRE_SAFETY=1</span>
+    </div>
+    <p class="muted">Session-limit posture: accept-the-wall — daemon auto-pauses/resumes, $0 extra.</p>
+
+    <h2 id="gated">What's gated (honest)</h2>
+    <div class="two">
+      <div>
+        <h3>Operator / live-$ / multi-week</h3>
+        <ul>
+          <li>Arbitrage <i>sale</i> (cost proven; needs a customer)</li>
+          <li>T7 hard→25, extra-hard, T8–T17 (paid runs)</li>
+          <li>Extensibility refactor, dogfood rewrite (multi-week)</li>
+          <li>Judge ground-truth labels (operator judgment)</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Cheap, solo (next)</h3>
+        <ul>
+          <li>satisfaction-of-search verifier check</li>
+          <li>frozen-evidence staleness re-audit</li>
+          <li>stable function ids + DRI in proofs</li>
+          <li>ghost_completion timing fields</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot">
+      Generated as a snapshot of the active_graph dark factory. The factory is LIVE: failures ship as fixes to <code>main</code> autonomously, gated by tests + Rowan + Sentinel + CI, every step an event.
+      Built across pt.1–pt.20. Source of truth: GitHub · <code>agent-os/context/activity-log.md</code>.
+    </div>
+  </main>
+</div>
+</body>
+</html>
