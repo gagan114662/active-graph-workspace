@@ -230,6 +230,20 @@ async function main() {
     let infraRetries = 0;
     let transientBackoffs = 0;
     let fired = false;
+    // pt.19: after each GRADED run, run the cheap automated eval (friction analysis +
+    // HTML report + eval.completed) reusing the verifier verdict the fire helper just
+    // produced (no expensive re-verify). Best-effort, never gates the grind.
+    const runAutoEval = (passed) => {
+      try {
+        const rows = readLedger();
+        const row = [...rows].reverse().find((r) => r.run_idx === idx);
+        if (!row || !row.proof_file) return;
+        spawnSync("node", ["scripts/auto-eval.mjs", "--proof-file", row.proof_file,
+          "--tier", tier, "--hash", row.hash || "", "--no-verify",
+          "--verdict", passed ? "pass" : "fail", "--summary", row.verifier_summary || ""],
+          { encoding: "utf8", timeout: 60_000, maxBuffer: 8 * 1024 * 1024 });
+      } catch (e) { log(`auto-eval (best-effort) failed for idx ${idx}: ${e.message}`); }
+    };
     while (!fired) {
       const fireStart = Date.now();
       log(`firing index ${idx} (infra-retry ${infraRetries}/${maxInfraRetries})`);
@@ -239,7 +253,7 @@ async function main() {
       const rc = r.status;
       log(`fire index ${idx} rc=${rc}`);
 
-      if (rc === 0) { fired = true; break; } // PASS appended; loop re-reads ledger
+      if (rc === 0) { runAutoEval(true); fired = true; break; } // PASS appended; loop re-reads ledger
 
       // Non-pass. Is it the session-limit wall?
       const reset = detectRateLimitReset(fireStart - 5_000);
@@ -255,6 +269,7 @@ async function main() {
       if (rc === 4) {
         // Verifier REJECTED the proof — a real agent failure. Counted; do not retry.
         log(`index ${idx} VERIFIER-REJECTED (real reliability fail). recorded by fire helper; advancing.`);
+        runAutoEval(false);
         fired = true; // ledger has a fail row for this idx; computeState will see realFail
         break;
       }
