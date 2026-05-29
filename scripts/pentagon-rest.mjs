@@ -155,6 +155,20 @@ function readRubric(judgeAgent) {
  * the rubric specifies. The bridge parses the ack and emits
  * flywheel.review.completed for Phoenix to resume the commit gate.
  */
+// pt.21: pre-seeded Priya<->reviewer conversation ids (RLS unblock). Reading these
+// lets dispatchReviewer insert the review message directly, skipping the
+// findOrCreateConversation participant query that times out (57014) under RLS and
+// then 403s on CREATE. Env FACTORY_REVIEWER_CONV_<KEY> overrides the file.
+function reviewerConvId(reviewerAgentKey) {
+  const envOverride = process.env[`FACTORY_REVIEWER_CONV_${reviewerAgentKey.toUpperCase()}`];
+  if (envOverride) return envOverride;
+  try {
+    const url = new URL("../agent-os/reviewer-conversations.json", import.meta.url);
+    const map = JSON.parse(_readFileSyncRest(url, "utf8"));
+    return map[reviewerAgentKey] || null;
+  } catch { return null; }
+}
+
 export async function dispatchReviewer({
   reviewerAgentKey,
   todo,
@@ -211,21 +225,33 @@ export async function dispatchReviewer({
   // conversations-INSERT 403 that blocks reviewer dispatch. If the RPC doesn't
   // exist yet (operator hasn't created it), fall back to the REST path, which
   // works once the 2-party Theo↔reviewer convs are UX-seeded (Option 0).
-  let convId, message;
-  const rpc = await rpcDispatchToAgent(senderId, reviewerId, content);
-  if (rpc) {
-    convId = rpc.conversation_id;
-    message = { id: rpc.message_id ?? null };
-  } else {
-    convId = await findOrCreateConversation(senderId, reviewerId);
+  let convId, message, dispatchPath;
+  // pt.21 PRIMARY: the reviewer 2-party convs are pre-seeded + stable. Insert the
+  // message directly into the cached conv — this skips findOrCreateConversation's
+  // participant query (which times out 57014 under RLS) AND the CREATE that 403s.
+  const cachedConv = reviewerConvId(reviewerAgentKey);
+  if (cachedConv) {
+    convId = cachedConv;
     message = await insertMessage(convId, senderId, content);
+    dispatchPath = "cached_conv";
+  } else {
+    const rpc = await rpcDispatchToAgent(senderId, reviewerId, content);
+    if (rpc) {
+      convId = rpc.conversation_id;
+      message = { id: rpc.message_id ?? null };
+      dispatchPath = "rpc_security_definer";
+    } else {
+      convId = await findOrCreateConversation(senderId, reviewerId);
+      message = await insertMessage(convId, senderId, content);
+      dispatchPath = "rest_fallback";
+    }
   }
   return {
     conversation_id: convId,
     message_id: message?.id ?? null,
     reviewer_agent_id: reviewerId,
     reviewer_agent_key: reviewerAgentKey,
-    dispatch_path: rpc ? "rpc_security_definer" : "rest_fallback",
+    dispatch_path: dispatchPath,
   };
 }
 

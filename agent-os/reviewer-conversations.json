@@ -1,0 +1,6 @@
+{
+  "_comment": "pt.21 — pre-seeded Priya<->reviewer 2-party conversation ids (RLS unblock). dispatchReviewer inserts the review message directly into these, skipping findOrCreateConversation whose participant query times out (Supabase 57014) under RLS and then falls through to CREATE -> 403. Seeded/verified via Pentagon MCP find_conversation (runs as Priya) on 2026-05-29; stable since pt.13. If a conv is ever recreated, re-run: node-less -> Pentagon MCP find_conversation([<reviewerId>]).",
+  "rowan": "9508cf6a-f096-4c04-93e1-d45e5496b7c7",
+  "theo": "e8b581b8-1938-498b-84a3-9bf661b5dba1",
+  "grace": "41286169-cade-4d73-852b-b31c75318e4c"
+}
