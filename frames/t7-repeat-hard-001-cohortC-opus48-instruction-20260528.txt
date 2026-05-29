@@ -1,4 +1,4 @@
-RUN_SEED=SEED_PLACEHOLDER
+RUN_SEED=7515af58-a6d9-4f4b-a7c0-b4260150e7ff
 NATIVE_GAUNTLET HARD T7_REPEAT_HARD_20260528_OPUS48_001
 
 Maya, this is T7 repetition run 001 for the HARD T6 task class in:
@@ -35,7 +35,13 @@ Steps (each commit is SEPARATE and required):
 5. Write the proof at frames/t7-repeat-hard-001-20260528-opus48.proof with EXACTLY these keys:
    hash=T7_REPEAT_HARD_20260528_OPUS48_001
    test_file=activegraph/tests/<your_test>.py
-   bug_source=<module.path.of.fixed.function>
+   bug_source=docstring:<relative_source_path.py>:<line>
+       ^ POINT AT THE DOCUMENTED-BEHAVIOR LINE, not a dotted symbol. The verifier
+         grades bug_source with this EXACT format (kind:path[:line], kind one of
+         docstring|docs|comment|marker). Example: docstring:activegraph/llm/parsing.py:90
+         — the line inside the drifted function's docstring that states the behavior
+         the code failed to honor. Use the path relative to the inner repo root
+         (i.e. starts with "activegraph/..."). A dotted module symbol will be REJECTED.
    failing_test_commit=<short sha of step 3>
    fix_commit=<short sha of step 4>
    pytest_before=<full-suite passing count BEFORE your fix>
